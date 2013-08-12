@@ -247,12 +247,17 @@ vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.
 vgsM    = [51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4]
 vgslogL = [6.154,6.046,5.991,5.934,5.876,5.817,5.756,5.695,5.631,5.566,5.499,5.431,5.360,5.287,5.211]
 vgslogQ = [49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69]
+# extrapolated
 vgsMe = np.concatenate([
-    np.linspace(8,18.4,100),
+    np.linspace(0.03,0.43,100),
+    np.linspace(0.43,2,100),
+    np.linspace(2,20,100),
     vgsM[::-1],
     np.linspace(50,150,100)])
 vgslogLe = np.concatenate([
-    np.polyval(np.polyfit(np.log10(vgsM)[-3:],vgslogL[-3:],1),np.log10(np.linspace(8,18.4,100))),
+    np.log10(0.23*np.linspace(0.03,0.43,100)**2.3),
+    np.log10(np.linspace(0.43,2,100)**4),
+    np.log10(1.5*np.linspace(2,20,100)**3.5),
     vgslogL[::-1],
     np.polyval(np.polyfit(np.log10(vgsM)[:3],vgslogL[:3],1),np.log10(np.linspace(50,150,100)))])
 vgslogQe = np.concatenate([
@@ -267,8 +272,9 @@ def lum_of_star(mass):
 
     returns LogL in solar luminosities
     **WARNING** Extrapolates for M not in [18.4,50] msun
-    """
 
+    http://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
+    """
     return np.interp(mass, vgsMe, vgslogLe)
 
 def lum_of_cluster(masses):
@@ -278,8 +284,8 @@ def lum_of_cluster(masses):
 
     masses is a list or array of masses.  
     """
-    if max(masses) < 8: return 0
-    logL = lum_of_star(masses[masses >= 8])
+    #if max(masses) < 8: return 0
+    logL = lum_of_star(masses) #[masses >= 8])
     logLtot = np.log10( (10**logL).sum() )
     return logLtot
 
@@ -377,6 +383,12 @@ def color_from_mass(mass, outtype=float):
         return (r/255.,g/255.,b/255.)
     else:
         raise NotImplementedError
+
+def color_of_cluster(cluster, colorfunc=color_from_mass):
+    colors       = np.array([colorfunc(m) for m in cluster])
+    luminosities = 10**np.array([lum_of_star(m) for m in cluster])
+    mean_color = (colors*luminosities[:,None]).sum(axis=0)/luminosities.sum()
+    return mean_color
 
 def coolplot(clustermass, massfunc='kroupa', **kwargs):
     cluster = make_cluster(clustermass, massfunc=massfunc, **kwargs)
