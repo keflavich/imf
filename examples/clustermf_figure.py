@@ -65,4 +65,21 @@ if __name__ == "__main__":
     pl.ylabel("Log(dN(M)/dM)")
     pl.savefig("plots/clusterMF_lumcolor_massize.png",bbox_inches='tight')
 
+    pl.figure(3)
+    pl.clf()
+    pl.gca().set_xscale('log')
+
+    sizes = 20*np.log(10**luminosities / cluster_masses)
+    sizes[sizes < 10] = 10
+    S = pl.scatter(cluster_masses, yax, c=colors, s=sizes, alpha=0.8)
+    sm = pl.cm.ScalarMappable(cmap=pl.cm.RdBu, norm=pl.Normalize(vmin=0.08, vmax=120))
+    sm._A = []
+    cb = pl.colorbar(sm)
+    cb.set_label("Luminosity-weighted\nMean Stellar Mass")
+    pl.gca().axis([min(cluster_masses)/1.1,max(cluster_masses)*1.1,min(yax)-0.2,max(yax)+0.5])
+    pl.xlabel("Cluster Mass ($M_\odot$)")
+    pl.ylabel("Log(dN(M)/dM)")
+    pl.savefig("plots/clusterMF_lumcolor_mtolsize.png",bbox_inches='tight')
+
+
     pl.show()
