@@ -15,7 +15,7 @@ setup(name='imf',
       description='IMF toolkit',
       long_description=long_description,
       author='Adam Ginsburg',
-      author_email='adam.ginsburg@colorado.edu',
+      author_email='adam.g.ginsburg@gmail.com',
       url='http://github.com/keflavich/imf/',
       packages=['imf'],
      )
