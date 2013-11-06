@@ -98,6 +98,7 @@ class Kroupa(MassFunction):
                 d*(m**(-(p3))) * (m>=break2))
         return zeta
 
+kroupa = Kroupa()
 
 
 def chabrier(m, integral=False):
