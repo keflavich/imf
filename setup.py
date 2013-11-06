@@ -18,4 +18,4 @@ setup(name='imf',
       author_email='adam.g.ginsburg@gmail.com',
       url='http://github.com/keflavich/imf/',
       packages=['imf'],
-     )
+      )

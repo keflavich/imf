@@ -3,30 +3,102 @@ Various codes to work with the initial mass function
 """
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
+import scipy.integrate
+
+class MassFunction(object):
+    """
+    Generic Mass Function class
+    """
+
+    def dndm(self, m, **kwargs):
+        """
+        The differential form of the mass function, d N(M) / dM
+        """
+        return self(m, integral_form=False, **kwargs)
+
+    def n_of_m(self, m, **kwargs):
+        """
+        The integral form of the mass function, N(M)
+        """
+        return self(m, integral_form=True, **kwargs)
+
+    def integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass function over some range
+        """
+        return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+
+class Salpeter(MassFunction):
+
+    def __init__(self, alpha=2.35):
+        """
+        Create a default Salpeter mass function, i.e. a power-law mass function 
+        the Salpeter 1955 IMF: dn/dm ~ m^-2.35
+        """
+        self.alpha = alpha
+
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return m**(-(self.alpha - 1))
+        else:
+            return m**(-self.alpha)
+
 
 # three codes for dn/dlog(m)
-def salpeter(m,alpha=2.35, integral=False):
-    """
-    the Salpeter 1955 IMF: dn/dm ~ m^-2.35
-    """
-    if integral: alpha -= 1
-    return m**(-alpha)
+salpeter = Salpeter()
 
-def kroupa(m,integral=False):
-    """
-    Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
-    """
-    exp1 = 0.3
-    exp2 = 1.3
-    exp3 = 2.3
-    if integral: 
-        exp1 += 1
-        exp2 -= 1
-        exp3 -= 1
-    zeta = (m**exp1 / 0.08**exp1 * 0.08**-exp2)*(m<0.08)
-    zeta += (m**-exp2) * (m>=0.08) * (m<0.5)
-    zeta += (m**-exp3 / 0.5**-exp3 * 0.5**-exp2) * (m>=0.5)
-    return zeta
+class BrokenPowerLaw(MassFunction):
+    def __init__(self, breaks, mmin, mmax):
+        self.breaks = breaks
+        self.normalization = self.integrate(mmin, mmax)[0]
+
+    def __call__(self, m, integral_form=False):
+        zeta = 0
+        b_low = 0
+        alp_low = 0
+        for ii,b in enumerate(self.breaks):
+            if integral_form:
+                alp = self.breaks[b] - 1
+            else:
+                alp = self.breaks[b]
+            if b == 'last':
+                zeta += m**(-alp) * (b_low**(-alp+alp_low)) * (m>b_low)
+            else:
+                mask = ((m<b)*(m>b_low))
+                zeta += m**(-alp) * (b**(-alp+alp_low)) *mask
+                alp_low = alp
+                b_low = b
+
+        if hasattr(self,'normalization'):
+            return zeta/self.normalization
+        else:
+            return zeta
+            
+#kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
+
+class Kroupa(MassFunction):
+    def __call__(self, m, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5, integral_form=False):
+        """
+        Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
+        """
+        if integral_form:
+            raise NotImplementedError
+
+        m = np.array(m)
+
+        binv = ((break1**(-(p1-1)) - self.a**(-(p1-1)))/(1-p1) +
+                (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
+                (- break2**(-(p3-1))) * (break1**(p2-p1)) * (break2**(p3-p2))/(1-p3))
+        b = 1./binv
+        c = b * break1**(p2-p1)
+        d = c * break2**(p3-p2)
+
+        zeta = (b*(m**(-(p1))) * (m<break1) +
+                c*(m**(-(p2))) * (m>=break1) * (m<break2) +
+                d*(m**(-(p3))) * (m>=break2))
+        return zeta
+
+
 
 def chabrier(m, integral=False):
     """
