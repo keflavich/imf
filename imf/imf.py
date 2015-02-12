@@ -77,16 +77,19 @@ class BrokenPowerLaw(MassFunction):
 #kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
 
 class Kroupa(MassFunction):
+    def __init__(self, mmin=0.03):
+        """
+        """
+        self.mmin = mmin
+
     def __call__(self, m, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
         """
-        if integral_form:
-            raise NotImplementedError
 
         m = np.array(m)
 
-        binv = ((break1**(-(p1-1)) - self.a**(-(p1-1)))/(1-p1) +
+        binv = ((break1**(-(p1-1)) - self.mmin**(-(p1-1)))/(1-p1) +
                 (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
                 (- break2**(-(p3-1))) * (break1**(p2-p1)) * (break2**(p3-p2))/(1-p3))
         b = 1./binv
@@ -96,7 +99,11 @@ class Kroupa(MassFunction):
         zeta = (b*(m**(-(p1))) * (m<break1) +
                 c*(m**(-(p2))) * (m>=break1) * (m<break2) +
                 d*(m**(-(p3))) * (m>=break2))
-        return zeta
+
+        if integral_form:
+            return zeta * m
+        else:
+            return zeta
 
 kroupa = Kroupa()
 
@@ -258,7 +265,7 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs)
     """
  
     masses = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
-    mf = get_massfunc(massfunc)(masses, integral=True, **kwargs)
+    mf = get_massfunc(massfunc)(masses, integral_form=True, **kwargs)
     mfcum = mf.cumsum()
     mfcum /= mfcum.max() # normalize to sum (cdf)
 
