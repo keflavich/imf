@@ -271,7 +271,8 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs)
 
     return np.interp(p, mfcum, masses)
 
-def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False, tolerance=0.5, **kwargs):
+def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
+                 tolerance=0.5, **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
     
@@ -288,7 +289,9 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False, toler
     masses = inverse_imf(np.random.random(nsamp), massfunc=massfunc, **kwargs)
 
     mtot = masses.sum()
-    if verbose: print "%i samples yielded a cluster mass of %g (%g requested)" % (nsamp,mtot,mcluster)
+    if verbose:
+        print("%i samples yielded a cluster mass of %g (%g requested)" %
+              (nsamp,mtot,mcluster))
 
     if mtot > mcluster + tolerance:
         mcum = masses.cumsum()
@@ -327,20 +330,24 @@ vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.
 vgsM    = [51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4]
 vgslogL = [6.154,6.046,5.991,5.934,5.876,5.817,5.756,5.695,5.631,5.566,5.499,5.431,5.360,5.287,5.211]
 vgslogQ = [49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69]
-# extrapolated
+# mass extrapolated
 vgsMe = np.concatenate([
     np.linspace(0.03,0.43,100),
     np.linspace(0.43,2,100),
     np.linspace(2,20,100),
     vgsM[::-1],
     np.linspace(50,150,100)])
+# log luminosity extrapolated
 vgslogLe = np.concatenate([
     np.log10(0.23*np.linspace(0.03,0.43,100)**2.3),
     np.log10(np.linspace(0.43,2,100)**4),
     np.log10(1.5*np.linspace(2,20,100)**3.5),
     vgslogL[::-1],
     np.polyval(np.polyfit(np.log10(vgsM)[:3],vgslogL[:3],1),np.log10(np.linspace(50,150,100)))])
+# log Q (lyman continuum) extrapolated
 vgslogQe = np.concatenate([
+    np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
+    np.zeros(100), # 0.43-2.0 solar mass stars produce 0 LyC photons
     np.polyval(np.polyfit(np.log10(vgsM)[-3:],vgslogQ[-3:],1),np.log10(np.linspace(8,18.4,100))),
     vgslogQ[::-1],
     np.polyval(np.polyfit(np.log10(vgsM)[:3],vgslogQ[:3],1),np.log10(np.linspace(50,150,100)))])
