@@ -7,7 +7,8 @@ from . import imf
 
 def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
             T_mean=7*u.K, L0=10*u.pc, rho0=2e-21*u.g/u.cm**3, MS0=25,
-            beta=0.4, alpham1=1.35, v0=4.9*u.km/u.s, eff=0.26):
+            beta=0.4, alpham1=1.35, v0=4.9*u.km/u.s, eff=0.26,
+            mean_mol_wt=2.33):
     """
     Padoan & Nordlund IMF - from http://adsabs.harvard.edu/abs/2011ApJ...741L..22P
 
@@ -23,7 +24,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
 
     tcross = (L0/v0).to(u.Myr)
     # total molecular cloud mass
-    m0 = 4/3.*np.pi*L0**3*rho0
+    m0 = (4/3.*np.pi*L0**3*rho0).to(u.M_sun)
 
     massfunc = imf.Salpeter(alpha=alpham1+1)
     massfunc.__name__ = 'salpeter'
@@ -66,7 +67,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
              (maccr/m0)**((1-a)/(3-2*a))).to(u.Myr)
     print("taccr=[{0} - {1}]".format(taccr.to(u.Myr).min(), taccr.to(u.Myr).max()))
 
-    c_s = ((constants.k_B * T_mean / (2.34*constants.m_p))**0.5).to(u.km/u.s)
+    c_s = ((constants.k_B * T_mean / (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
     print("c_s = {0}".format(c_s))
     mbe = (1.182 * c_s**3 / (constants.G**1.5 * rho**0.5)).to(u.M_sun)
     tbe = (taccr * (maccr/mbe)**(-1/3.)).to(u.s)
@@ -92,13 +93,18 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     core_mass = mnow[born & (~notseen) & (~stellar)].sum()
     stellar_mass = mnow[stellar].sum()
     print("{0} of {1} have mass greater than final at t={2}."
-          " {3} are unborn.  {4} are stellar.  {7} are not seen. "
+          " {3} are unborn.  {4} are stellar.  "
+          "{7} are not seen ({8:0.02f}%) because they are older than "
+          "one accretion time and have M<M_BE. "
+          "The cloud mass is {9}. "
           "The CFE={5}"
           " and SFE={6}".format((mnow>m_f).sum(), len(mnow), tnow*tcross,
                                 np.sum(~born), np.sum(stellar),
                                 (core_mass/m0).decompose().value,
                                 (stellar_mass/m0).decompose().value,
-                                notseen.sum()
+                                notseen.sum(),
+                                (notseen.sum()/float(notseen.size))*100,
+                                m0
          ))
 
     return mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born], mmax[born], forming[born]
@@ -173,7 +179,6 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
     pl.figure(5).clf()
     pl.plot(maccr[toplot], mbe[toplot], 'k,')
 
-    #import ipdb; ipdb.set_trace()
     #return counts,bbins
     #pl.hist(mf.ravel(), bins=np.logspace(-2,2,nbins*nreal), histtype='step', log=True,
     #        edgecolor='r')
@@ -181,3 +186,89 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
     #        edgecolor='g',
     #        log=True)
     return mnow, mf, wc, maccr, mbe, mmax
+
+def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
+            V0=0.8*u.km/u.s, meandens=5000*u.cm**-3, temperature=10*u.K,
+            eta=0.45, b_forcing=0.4, Mach=6):
+    """ Equation 21 of Hennebelle & Chabrier 2013
+
+    Parameters
+    ----------
+    mass : np.array
+        Masses at which to evaluate the PDF
+    sizescale : pc equivalent
+        The size of the clump (I think - extremely difficult to find this)
+    n17 : float
+        The "n" value in Equation 17, quoted to be 3.8 shortly afterward in the
+        text
+    alpha_ct : float
+        "a dimensionless coefficient of the order of a few"
+        I derived 0.75 from equation 9
+    V0 : float
+        u0 * 0.8 km/s according to the bottom of page 6, under eqn 36,
+        which references eqn 16
+    eta : None or float
+        derived from Equation 17, but can be specified directly
+    b_forcing : float
+        The Forcing Parameter `b` from equation 4
+    Mach : float
+        Mach number
+    """
+
+    rho_bar = meandens * mean_mol_wt * constants.m_p
+
+    c_s = ((constants.k_B * temperature /
+            (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
+
+    sigma = (np.log(1+b_forcing**2 * Mach**2))**0.5
+
+    if eta is None:
+        # eqn 17
+        eta = (n17 - 3.)/2.
+
+    alpha_g = 3/5. # for a uniform density fluctuation
+    # eqn 9
+    phit = 2 * alpha_ct * (24/np.pi**2/alpha_g)
+
+    # dimensionless geometrical factor of the order of unity
+    # For a sphere, becoMes:
+    aJ = np.pi**2.5/6.
+    # a geometrical factor, typically of the order of 4pi/3
+    Cm = 4*np.pi/3
+
+    # eqn 13
+    MJ0 = (aJ / Cm * c_s**3 * constants.G**-1.5 * rho_bar**-0.5).to(u.M_sun)
+
+    # eqn 14
+    lambdaJ0 = (np.pi**0.5 * c_s / Cm * (constants.G*rho_bar)**-0.5).to(u.pc)
+
+    # Eqn 7 of Paper I
+    #delta = np.log(rho/rho_bar
+    #R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
+
+    Rtwiddle = (sizescale / lambdaJ0).to(u.dimensionless_unscaled)
+
+    Mtwiddle = (mass / MJ0).to(u.dimensionless_unscaled)
+
+    # eqn 20
+    Mstar = (3**-0.5 * V0/c_s * (lambdaJ0/(u.pc))**eta).to(u.dimensionless_unscaled)
+
+    # after eqn 21
+    N0 = rho_bar / MJ0
+    # PROBLEM: N0 is defined to be rho_bar / MJ0, but that is a dimensional
+    # quantity with units cm^-3. This is a contradiction that means some
+    # definition here is wrong.
+
+    # eqn 21
+    N = (2./phit * N0 * Rtwiddle**-6 * (1 + (1-eta)*Mstar**2*Rtwiddle**(2*eta))
+         / (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta))
+         * (Mtwiddle/Rtwiddle**3)**(-1-1/(2*sigma**2)*np.log(Mtwiddle/Rtwiddle**3))
+         * np.exp(sigma**2/8.) * ((2*np.pi)**0.5 * sigma)
+        ).to(u.dimensionless_unscaled)
+
+    return N
+
+def test_hc13():
+    masses = np.logspace(-2,2,100)*u.M_sun
+    sizescale = 10*u.pc
+    return hc13_mf(mass=masses, sizescale=sizescale)
