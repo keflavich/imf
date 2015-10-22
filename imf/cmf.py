@@ -58,6 +58,10 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     # core birthdays: "Finally, we associate a random age to each core,
     # assuming for simplicity that the SFR is uniform over time and independent
     # of core mass."
+    # Confirmed: "what I did was to assume constant star formation rate during
+    # the whole period t=t_0, where t_0 is the crossing time, and also the time
+    # when the mass functions are computed. So cores are formed with a uniform
+    # distribution (of birth times) between 0 and t_0."
     birthday = np.random.random(len(maccr)) * tcross
     born = birthday < tnow*tcross
 
@@ -109,7 +113,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
 
     return mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born], mmax[born], forming[born]
 
-def test_pn11(nreal=1, nbins=50, **kwargs):
+def test_pn11(nreal=5, nbins=50, **kwargs):
     mnow, mf, wc, maccr, mbe, mmax, forming = pn11_mf(**kwargs)
     import pylab as pl
     pl.figure(1).clf()
@@ -130,6 +134,8 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
               markerfacecolor='none')
     pl.gca().set_ylim(0.5, 500)
     pl.gca().set_xlim(0.05, 50)
+    pl.ylabel("$m_{accr}/m$")
+    pl.xlabel("$m$, i.e. $m_{now}$")
 
     pl.figure(2).clf()
     pl.hist((maccr/mnow)[mnow>0.1*u.M_sun], bins=np.logspace(0,2,12),
@@ -137,6 +143,8 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
     pl.hist((maccr/mnow)[mnow>(mbe/2.)], bins=np.logspace(0,2,12),
             histtype='step', linestyle='dashed', color='k', log=True)
     pl.gca().set_xscale('log')
+    pl.ylabel("$N(m_{accr}/m)$")
+    pl.xlabel("$m_{accr}/m$")
 
     pl.figure(3).clf()
     pl.loglog(mnow[toplot & gtmax], (mnow/mbe)[toplot & gtmax], 'kd',
@@ -152,6 +160,8 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
                          bins=np.logspace(np.log10(0.05), np.log10(20)))
     bbn = (bn[1:]+bn[:-1])/2.
     pl.loglog(bbn, ct/ctall.astype('float'), 'k-')
+    pl.ylabel("$m_{now}/m_{BE}$")
+    pl.xlabel("$m$, i.e. $m_{now}$")
 
     pl.figure(4)
     pl.clf()
@@ -165,6 +175,8 @@ def test_pn11(nreal=1, nbins=50, **kwargs):
             log=True, linestyle='dashed', color='m', label='$m_{max}$')
     pl.gca().set_xscale('log')
     pl.legend(loc='best')
+    pl.ylabel("$N(M)$")
+    pl.xlabel("$m$, i.e. $m_{now}$")
 
     many_realizations = [pn11_mf(**kwargs) for ii in range(nreal)]
     mnow_many = np.hstack([x.value for x,y,z,w,v,s,t in many_realizations]).ravel()
