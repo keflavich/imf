@@ -107,6 +107,11 @@ class Kroupa(MassFunction):
 
 kroupa = Kroupa()
 
+def lognormal(m, offset=0.22, width=0.57, scale=0.86):
+    """
+    A lognormal IMF.  The default parameters correspond to the Chabrier IMF
+    """
+    return scale * np.exp(-1*(np.log10(m)-np.log10(offset))**2/(2*width**2))
 
 def chabrier(m, integral=False):
     """
@@ -118,13 +123,15 @@ def chabrier(m, integral=False):
 
     integral is NOT IMPLEMENTED
     """
-    if integral: print "Chabrier integral NOT IMPLEMENTED"
+    if integral:
+        raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
     # This system MF can be parameterized by the same type of lognormal form as
     # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
     # coefficients (Chabrier 2003)
-    return 0.86 * np.exp(-1*(np.log10(m)-np.log10(0.22))**2/(2*0.57**2))
+    return lognormal(m)
+    #return 0.86 * np.exp(-1*(np.log10(m)-np.log10(0.22))**2/(2*0.57**2))
     # This analytic form for the disk MF for single objects below 1 Msun, within these uncertainties, is given by the following lognormal form (Chabrier 2003):
-    return 0.158 * np.exp(-1*(np.log10(m)-np.log10(0.08))**2/(2*0.69**2))
+    #return 0.158 * np.exp(-1*(np.log10(m)-np.log10(0.08))**2/(2*0.69**2))
 
 def schechter(m,A=1,beta=2,m0=100, integral=False):
     """
