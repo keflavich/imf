@@ -1,6 +1,7 @@
 """
 Various codes to work with the initial mass function
 """
+from __future__ import print_function
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
 import scipy.integrate
@@ -32,7 +33,7 @@ class Salpeter(MassFunction):
 
     def __init__(self, alpha=2.35):
         """
-        Create a default Salpeter mass function, i.e. a power-law mass function 
+        Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
         self.alpha = alpha
@@ -73,7 +74,7 @@ class BrokenPowerLaw(MassFunction):
             return zeta/self.normalization
         else:
             return zeta
-            
+
 #kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
 
 class Kroupa(MassFunction):
@@ -139,7 +140,7 @@ def schechter(m,A=1,beta=2,m0=100, integral=False):
     (integral may not be correct - exponent hasn't been dealt with at all)
 
     $$ A m^{-\\beta} e^{-m/m_0} $$
-    
+
     Parameters
     ----------
         m : np.ndarray
@@ -150,7 +151,7 @@ def schechter(m,A=1,beta=2,m0=100, integral=False):
             Power law exponent
         m0 : float
             Characteristic mass (mass at which exponential decay takes over)
-    
+
     Returns
     -------
         p(m) - the (unnormalized) probability of an object of a given mass
@@ -171,7 +172,7 @@ def modified_schechter(m, m1, **kwargs):
             List of masses for which to compute the Schechter function
         m1 : float
             Characteristic minimum mass (exponential decay below this mass)
-        ** See schecter for other parameters ** 
+        ** See schecter for other parameters **
 
     Returns
     -------
@@ -181,20 +182,20 @@ def modified_schechter(m, m1, **kwargs):
     """
     return schechter(m, **kwargs) * np.exp(-m1/m)
 
-try: 
+try:
     import scipy
     def schechter_cdf(m,A=1,beta=2,m0=100,mmin=10,mmax=None,npts=1e4):
         """
         Return the CDF value of a given mass for a set mmin,mmax
         mmax will default to 10 m0 if not specified
-        
+
         Analytic integral of the Schechter function:
         http://www.wolframalpha.com/input/?i=integral%28x^-a+exp%28-x%2Fm%29+dx%29
         """
         if mmax is None:
             mmax = 10*m0
-        
-        # integrate the CDF from the minimum to maximum 
+
+        # integrate the CDF from the minimum to maximum
         # undefined posint = -m0 * mmax**-beta * (mmax/m0)**beta * scipy.special.gammainc(1-beta, mmax/m0)
         # undefined negint = -m0 * mmin**-beta * (mmin/m0)**beta * scipy.special.gammainc(1-beta, mmin/m0)
         posint = -mmax**(1-beta) * scipy.special.expn(beta, mmax/m0)
@@ -215,7 +216,7 @@ except ImportError:
 
 
 
-#def schechter_inv(m): 
+#def schechter_inv(m):
 #    """
 #    Return p(m)
 #    """
@@ -270,7 +271,7 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs)
 
     massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a function
     """
- 
+
     masses = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
     mf = get_massfunc(massfunc)(masses, integral_form=True, **kwargs)
     mfcum = mf.cumsum()
@@ -282,9 +283,9 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
                  tolerance=0.5, **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
-    
-    massfunc must be a string 
-    tolerance is how close the cluster mass must be to the requested mass.  
+
+    massfunc must be a string
+    tolerance is how close the cluster mass must be to the requested mass.
     If the last star is greater than this tolerance, the total mass will not be within
     tolerance of the requested
 
@@ -297,15 +298,15 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
 
     mtot = masses.sum()
     if verbose:
-        print("%i samples yielded a cluster mass of %g (%g requested)" %
-              (nsamp,mtot,mcluster))
+        print(("%i samples yielded a cluster mass of %g (%g requested)" %
+              (nsamp,mtot,mcluster)))
 
     if mtot > mcluster + tolerance:
         mcum = masses.cumsum()
         last_ind = np.argmax(mcum > mcluster)
         masses = masses[:last_ind]
         mtot = masses.sum()
-        if verbose: print "Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot)
+        if verbose: print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
     else:
         while mtot < mcluster:
             # at least 1 sample, but potentially many more
@@ -313,22 +314,22 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
             newmasses = inverse_imf(np.random.random(nsamp), massfunc=massfunc, **kwargs)
             masses = np.concatenate([masses,newmasses])
             mtot = masses.sum()
-            if verbose: print "Sampled %i new stars.  Total is now %g" % (nsamp, mtot)
+            if verbose: print("Sampled %i new stars.  Total is now %g" % (nsamp, mtot))
 
             if mtot > mcluster+tolerance: # don't force exact equality; that would yield infinite loop
                 mcum = masses.cumsum()
                 last_ind = np.argmax(mcum > mcluster)
                 masses = masses[:last_ind]
                 mtot = masses.sum()
-                if verbose: print "Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot)
+                if verbose: print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
 
-    if not silent: print "Total cluster mass is %g (limit was %g)" % (mtot,mcluster)
+    if not silent: print("Total cluster mass is %g (limit was %g)" % (mtot,mcluster))
 
     return masses
 
 # Vacca Garmany Shull log(lyman continuum) parameters
 # Power-law extrapolated from 18 to 8 and from 50 to 150
-# (using, e.g., ",".join(["%0.2f" % p for p in polyval(polyfit(log10(vgsmass[:5]),vgslogq[:5],1),log10(linspace(50,150,6)))[::-1]]) 
+# (using, e.g., ",".join(["%0.2f" % p for p in polyval(polyfit(log10(vgsmass[:5]),vgslogq[:5],1),log10(linspace(50,150,6)))[::-1]])
 # where vgsmass does *not* include the extrapolated values)
 vgsmass = [150.,  130.,  110.,   90.,   70.,  51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4,18.,  16.,  14.,  12.,  10.,   8.][::-1]
 vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69,45.58,44.65,43.60,42.39,40.96,39.21][::-1]
@@ -376,7 +377,7 @@ def lum_of_cluster(masses):
     Determine the log of the integrated luminosity of a cluster
     Only M>=8msun count
 
-    masses is a list or array of masses.  
+    masses is a list or array of masses.
     """
     #if max(masses) < 8: return 0
     logL = lum_of_star(masses) #[masses >= 8])
@@ -398,7 +399,7 @@ def lyc_of_cluster(masses):
     Determine the log of the integrated lyman continuum luminosity of a cluster
     Only M>=8msun count
 
-    masses is a list or array of masses.  
+    masses is a list or array of masses.
     """
     if max(masses) < 8: return 0
     logq = lyc_of_star(masses[masses >= 8])

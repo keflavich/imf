@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from astropy import units as u
 from astropy import constants
@@ -69,10 +70,10 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     a=(b-1)/2.
     taccr = (tcross * sigma**((4.-4.*a)/(3.-2.*a)) *
              (maccr/m0)**((1-a)/(3-2*a))).to(u.Myr)
-    print("taccr=[{0} - {1}]".format(taccr.to(u.Myr).min(), taccr.to(u.Myr).max()))
+    print(("taccr=[{0} - {1}]".format(taccr.to(u.Myr).min(), taccr.to(u.Myr).max())))
 
     c_s = ((constants.k_B * T_mean / (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
-    print("c_s = {0}".format(c_s))
+    print(("c_s = {0}".format(c_s)))
     mbe = (1.182 * c_s**3 / (constants.G**1.5 * rho**0.5)).to(u.M_sun)
     tbe = (taccr * (maccr/mbe)**(-1/3.)).to(u.s)
     tff = ((3*np.pi/(32*constants.G*rho))**0.5).to(u.s)
@@ -96,7 +97,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
 
     core_mass = mnow[born & (~notseen) & (~stellar)].sum()
     stellar_mass = mnow[stellar].sum()
-    print("{0} of {1} have mass greater than final at t={2}."
+    print(("{0} of {1} have mass greater than final at t={2}."
           " {3} are unborn.  {4} are stellar.  "
           "{7} are not seen ({8:0.02f}%) because they are older than "
           "one accretion time and have M<M_BE. "
@@ -109,7 +110,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
                                 notseen.sum(),
                                 (notseen.sum()/float(notseen.size))*100,
                                 m0
-         ))
+         )))
 
     return mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born], mmax[born], forming[born]
 
@@ -126,7 +127,7 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     btw = (~gtmax) & (~ltbe)
     pl.loglog(mnow[toplot & gtmax], (maccr/mnow)[toplot & gtmax], 'kd',
               markerfacecolor='none')
-    print("{0} have maccr<mbe and m>0.05".format((toplot & ltbe).sum()))
+    print(("{0} have maccr<mbe and m>0.05".format((toplot & ltbe).sum())))
     pl.loglog(mnow[toplot & ltbe],  (maccr/mnow)[toplot & ltbe], 'r.',
               markersize=2, alpha=0.5,
               markerfacecolor='none')
