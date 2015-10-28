@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
 import scipy.integrate
+from astropy.extern.six import iteritems
 
 class MassFunction(object):
     """
@@ -243,7 +244,7 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2,2,500)):
     return integral.cumsum() / integral.sum()
 
 massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier, 'schechter':schechter,'modified_schechter':modified_schechter}
-reverse_mf_dict = {v:k for k,v in massfunctions.iteritems()}
+reverse_mf_dict = {v:k for k,v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
 mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23, 'schecter':0.01,'modified_schechter':0.01}
 
