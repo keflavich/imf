@@ -30,6 +30,16 @@ class MassFunction(object):
         """
         return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
 
+    def m_integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass-weighted mass function over some range (this tells
+        you the fraction of mass in the specified range)
+        """
+        def mform(x):
+            return self(x, integral_form=True)
+        return scipy.integrate.quad(mform, mlow, mhigh, **kwargs)
+
+
 class Salpeter(MassFunction):
 
     def __init__(self, alpha=2.35):
@@ -84,14 +94,29 @@ class Kroupa(MassFunction):
         """
         self.mmin = mmin
 
-    def __call__(self, m, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5, integral_form=False):
+    def __call__(self, m, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5,
+                 mmin=None, mmax=120, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
+
+        Parameters
+        ----------
+        m : float array
+            The mass at which to evaluate the function (Msun)
+        p1,p2,p3 : floats
+            The power-law slopes of the different segments of the IMF
+        break1,break2 : floats
+            The mass breakpoints at which to use the different power laws
+        mmin : float or None
+            The minimum mass of the MF.  Defaults to using the class' mmin, but
+            can be overridden
         """
 
         m = np.array(m)
 
-        binv = ((break1**(-(p1-1)) - self.mmin**(-(p1-1)))/(1-p1) +
+        mmin = mmin if mmin is not None else self.mmin
+
+        binv = ((break1**(-(p1-1)) - mmin**(-(p1-1)))/(1-p1) +
                 (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
                 (- break2**(-(p3-1))) * (break1**(p2-p1)) * (break2**(p3-p2))/(1-p3))
         b = 1./binv
@@ -115,7 +140,7 @@ def lognormal(m, offset=0.22, width=0.57, scale=0.86):
     """
     return scale * np.exp(-1*(np.log10(m)-np.log10(offset))**2/(2*width**2))
 
-def chabrier(m, integral=False):
+def chabrier(m, integral_form=False):
     """
     Chabrier 2003 IMF
     http://adsabs.harvard.edu/abs/2003PASP..115..763C
@@ -125,7 +150,9 @@ def chabrier(m, integral=False):
 
     integral is NOT IMPLEMENTED
     """
-    if integral:
+    if integral_form:
+        # ...same as kroupa?  This might not be right...
+        #return lognormal(m)*m
         raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
     # This system MF can be parameterized by the same type of lognormal form as
     # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
