@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
 import scipy.integrate
+import warnings
 from astropy.extern.six import iteritems
 
 class MassFunction(object):
@@ -152,8 +153,12 @@ def chabrier(m, integral_form=False):
     """
     if integral_form:
         # ...same as kroupa?  This might not be right...
-        #return lognormal(m)*m
+        warnings.warn("I don't know if this integral is correct.  It's implemented very naively.")
+        return lognormal(m)
         raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
+        #http://stats.stackexchange.com/questions/9501/is-it-possible-to-analytically-integrate-x-multiplied-by-the-lognormal-probabi
+        #alpha = 
+
     # This system MF can be parameterized by the same type of lognormal form as
     # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
     # coefficients (Chabrier 2003)
@@ -187,7 +192,8 @@ def schechter(m,A=1,beta=2,m0=100, integral=False):
         (though you could interpret mass as anything, it's just a number)
 
     """
-    if integral: beta -= 1
+    if integral:
+        beta -= 1
     return A*m**-beta * np.exp(-m/m0)
 
 def modified_schechter(m, m1, **kwargs):
@@ -274,9 +280,10 @@ massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier, 'sch
 reverse_mf_dict = {v:k for k,v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
 mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23, 'schecter':0.01,'modified_schechter':0.01}
+expectedmass_cache = {}
 
 def get_massfunc(massfunc):
-    if type(massfunc) is types.FunctionType or hasattr(massfunc,'__call__'):
+    if isinstance(massfunc, types.FunctionType) or hasattr(massfunc,'__call__'):
         return massfunc
     elif type(massfunc) is str:
         return massfunctions[massfunc]
@@ -308,7 +315,7 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs)
     return np.interp(p, mfcum, masses)
 
 def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
-                 tolerance=0.5, **kwargs):
+                 tolerance=0.0, stop_criterion='nearest', mmax=120, **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
@@ -317,41 +324,70 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     If the last star is greater than this tolerance, the total mass will not be within
     tolerance of the requested
 
+    stop criteria can be: 'nearest', 'before', 'after', 'sorted'
+
     kwargs are passed to `inverse_imf`
     """
 
     # use most common mass to guess needed number of samples
-    nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
-    masses = inverse_imf(np.random.random(nsamp), massfunc=massfunc, **kwargs)
+    #nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
+    #masses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
 
-    mtot = masses.sum()
-    if verbose:
-        print(("%i samples yielded a cluster mass of %g (%g requested)" %
-              (nsamp,mtot,mcluster)))
+    #mtot = masses.sum()
+    #if verbose:
+    #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
+    #          (nsamp,mtot,mcluster)))
 
-    if mtot > mcluster + tolerance:
-        mcum = masses.cumsum()
-        last_ind = np.argmax(mcum > mcluster)
-        masses = masses[:last_ind]
-        mtot = masses.sum()
-        if verbose: print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
+    if (massfunc, get_massfunc(massfunc).mmin, mmax) in expectedmass_cache:
+        expected_mass = expectedmass_cache[(massfunc,
+                                            get_massfunc(massfunc).mmin, mmax)]
     else:
-        while mtot < mcluster:
-            # at least 1 sample, but potentially many more
-            nsamp = np.ceil((mcluster-mtot) / mostcommonmass[get_massfunc_name(massfunc)])
-            newmasses = inverse_imf(np.random.random(nsamp), massfunc=massfunc, **kwargs)
-            masses = np.concatenate([masses,newmasses])
+        expected_mass = get_massfunc(massfunc).m_integrate(get_massfunc(massfunc).mmin,
+                                                           mmax)[0]
+        expectedmass_cache[(massfunc, get_massfunc(massfunc).mmin, mmax)] = expected_mass
+
+    if verbose:
+        print("Expected mass is {0:0.3f}".format(expected_mass))
+
+    mtot = 0
+    masses = []
+
+    while mtot < mcluster + tolerance:
+        # at least 1 sample, but potentially many more
+        nsamp = np.ceil((mcluster-mtot) / expected_mass)
+        newmasses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
+        masses = np.concatenate([masses,newmasses])
+        mtot = masses.sum()
+        if verbose:
+            print("Sampled %i new stars.  Total is now %g" % (int(nsamp), mtot))
+
+        if mtot > mcluster+tolerance: # don't force exact equality; that would yield infinite loop
+            mcum = masses.cumsum()
+            if stop_criterion == 'sorted':
+                masses = np.sort(masses)
+                if np.abs(masses[:-1].sum()-mcluster) < np.abs(masses.sum() - mcluster):
+                    # if the most massive star makes the cluster a worse fit, reject it
+                    # (this follows Krumholz+ 2015 appendix A1)
+                    last_ind = len(masses) - 1
+                else:
+                    last_ind = len(masses)
+            else:
+                if stop_criterion == 'nearest':
+                    # find the closest one, and use +1 to include it
+                    last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
+                elif stop_criterion == 'before':
+                    last_ind = np.argmax(mcum > mcluster)
+                elif stop_criterion == 'after':
+                    last_ind = np.argmax(mcum > mcluster) + 1
+            masses = masses[:last_ind]
             mtot = masses.sum()
-            if verbose: print("Sampled %i new stars.  Total is now %g" % (nsamp, mtot))
+            if verbose:
+                print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
+            # force the break, because some stopping criteria can push mtot < mcluster
+            break
 
-            if mtot > mcluster+tolerance: # don't force exact equality; that would yield infinite loop
-                mcum = masses.cumsum()
-                last_ind = np.argmax(mcum > mcluster)
-                masses = masses[:last_ind]
-                mtot = masses.sum()
-                if verbose: print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
-
-    if not silent: print("Total cluster mass is %g (limit was %g)" % (mtot,mcluster))
+    if not silent:
+        print("Total cluster mass is %g (limit was %g)" % (mtot,mcluster))
 
     return masses
 

@@ -1,1 +1,1 @@
-from imf import *
+from .imf import *
