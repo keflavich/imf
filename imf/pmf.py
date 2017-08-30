@@ -5,12 +5,12 @@ Protostellar mass functions as described by McKee and Offner, 2010
 import numpy as np
 import scipy.integrate
 
-from .imf import MassFunction, chabrier, Chabrier2005
+from .imf import MassFunction, Chabrier2005, Kroupa
 
 chabrier2005 = Chabrier2005()
 
-class ChabrierPMF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mlow=0.033, mhigh=3.0, **kwargs):
+class McKeeOffner_PMF(MassFunction):
+    def __init__(self, j=1, n=1, jf=3/4., mlow=0.033, mhigh=3.0, massfunc=chabrier2005, **kwargs):
         """
         """
         self.j = j
@@ -18,29 +18,92 @@ class ChabrierPMF(MassFunction):
         self.n = n
         self.mlow = mlow
         self.mhigh = mhigh
+        self.massfunc = massfunc
 
         def den_func(x):
-            return chabrier2005(x)*x**(-self.jf)
+            return self.massfunc(x)*x**(-self.jf)
         self.denominator = scipy.integrate.quad(den_func, self.mlow, self.mhigh, **kwargs)[0]
 
-    def __call__(self, mass, **kwargs):
-        def num_func(x):
-            return chabrier2005(x)*x**(self.j-self.jf-1)
+        self.normfactor = 1
 
-        def integrate(lolim):
-            integral = scipy.integrate.quad(num_func, lolim, self.mhigh, **kwargs)[0]
-            return integral
+    def __call__(self, mass, taper=False, **kwargs):
+        if taper:
 
-        numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow))
+            def num_func(x, mass_):
+                tf = (1-(mass_/x)**(1-self.j))**0.5
+                return self.massfunc(x)*x**(self.j-self.jf-1) * tf
+
+            def integrate(lolim, mass_):
+                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, args=(mass_,), **kwargs)[0]
+                return integral
+
+            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow), mass)
+
+        else:
+            def num_func(x):
+                return self.massfunc(x)*x**(self.j-self.jf-1)
+
+            def integrate(lolim):
+                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, **kwargs)[0]
+                return integral
+
+            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow))
 
         result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
-        return result
+        return result * self.normfactor
 
-ChabrierPMF_IS = ChabrierPMF(j=0, jf=0, )
-ChabrierPMF_TC = ChabrierPMF(j=0.5, jf=0.75, )
-ChabrierPMF_CA = ChabrierPMF(j=2/3., jf=1.0, )
+class McKeeOffner_2CTC(MassFunction):
+    """ 2-component Turbulent Core variant """
+    def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mlow=0.033, mhigh=3.0,
+                 massfunc=chabrier2005, **kwargs):
+        """
+        """
+        self.j = j
+        self.jf = jf
+        self.mlow = mlow
+        self.mhigh = mhigh
+        self.Rmdot = Rmdot
+        self.massfunc = massfunc
 
-class SalpeterPMF(MassFunction):
+        def den_func(x):
+            return self.massfunc(x) * (2/((1+Rmdot**2*x**1.5)**0.5+1))
+        self.denominator = scipy.integrate.quad(den_func, self.mlow, self.mhigh, **kwargs)[0]
+
+        self.normfactor = 1
+
+    def __call__(self, mass, taper=False, **kwargs):
+        if taper:
+
+            def num_func(x, mass_):
+                tf = (1-(mass_/x)**(1-self.j))**0.5
+                return self.massfunc(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1)) * tf
+
+            def integrate(lolim, mass_):
+                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, args=(mass_,), **kwargs)[0]
+                return integral
+
+            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow), mass)
+
+        else:
+            def num_func(x):
+                return chabrier2005(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1))
+
+            def integrate(lolim):
+                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, **kwargs)[0]
+                return integral
+
+            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow))
+
+        result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
+        return result * self.normfactor
+
+ChabrierPMF_IS = McKeeOffner_PMF(j=0, jf=0, )
+ChabrierPMF_TC = McKeeOffner_PMF(j=0.5, jf=0.75, )
+ChabrierPMF_CA = McKeeOffner_PMF(j=2/3., jf=1.0, )
+ChabrierPMF_2CTC = McKeeOffner_2CTC()
+
+class McKeeOffner_SalpeterPMF(MassFunction):
+    " special case; above is now generalized to obsolete this "
     def __init__(self, j=1, jf=3/4., alpha=2.35, mhigh=3.0):
         self.alpha = alpha
         self.mhigh = mhigh
@@ -53,6 +116,12 @@ class SalpeterPMF(MassFunction):
         result = fm * mass**(-((self.alpha-2)+self.jf))
         return result
 
-SalpeterPMF_IS = ChabrierPMF(j=0, jf=0, )
-SalpeterPMF_TC = ChabrierPMF(j=0.5, jf=0.75, )
-SalpeterPMF_CA = ChabrierPMF(j=2/3., jf=1.0, )
+SalpeterPMF_IS = McKeeOffner_SalpeterPMF(j=0, jf=0, )
+SalpeterPMF_TC = McKeeOffner_SalpeterPMF(j=0.5, jf=0.75, )
+SalpeterPMF_CA = McKeeOffner_SalpeterPMF(j=2/3., jf=1.0, )
+
+kroupa = Kroupa()
+KroupaPMF_IS = McKeeOffner_PMF(j=0, jf=0, massfunc=kroupa)
+KroupaPMF_TC = McKeeOffner_PMF(j=0.5, jf=0.75, massfunc=kroupa)
+KroupaPMF_CA = McKeeOffner_PMF(j=2/3., jf=1.0, massfunc=kroupa)
+KroupaPMF_2CTC = McKeeOffner_2CTC(massfunc=kroupa)

@@ -40,6 +40,22 @@ class MassFunction(object):
             return self(x, integral_form=True)
         return scipy.integrate.quad(mform, mlow, mhigh, **kwargs)
 
+    def log_integrate(self, mlow, mhigh, **kwargs):
+        def logform(x):
+            return self(x) / x
+        return scipy.integrate.quad(logform, mlow, mhigh, **kwargs)
+
+    def normalize(self, log=False, **kwargs):
+        """
+        Set self.normfactor such that the integral of the function over the
+        range (mlow, mhigh) = 1
+        """
+        if log:
+            integral = self.log_integrate(self.mlow, self.mhigh, **kwargs)
+        else:
+            integral = self.integrate(self.mlow, self.mhigh, **kwargs)
+        self.normfactor = 1./integral[0]
+
 
 class Salpeter(MassFunction):
 
@@ -174,21 +190,36 @@ class Chabrier(MassFunction):
 class Chabrier2005(MassFunction):
     """
     Chabrier 2005 IMF as expressed by McKee & Offner 2010
+
+    The logarithmic integral is normalized
+
+    >>> scipy.integrate.quad(lambda x: imf.imf.Chabrier2005()(x) / x, 0.033, 3.0)
+        (1.0034751070852832, 1.237415792054719e-08)
     """
-    def __init__(self, mlow=0.033, mhigh=3.0, psi1=0.35, psi2=0.16):
+    def __init__(self, mlow=0.033, mmid=1.0, mhigh=3.0, psi1=0.35, psi2=0.16,
+                 width=0.55, center=0.2, salpeterslope=1.35):
         """
         """
         self.mlow = mlow
+        self.mmid = mmid
         self.mhigh = mhigh
         # psi1 and psi2 are technically derived as normalizations...
         self.psi1 = psi1
         self.psi2 = psi2
+        self.width = width
+        self.center = center
+        self.salpeterslope = salpeterslope
+
+        self.normfactor = 1
 
     def __call__(self, mass, integral_form=False):
-        lower = np.array(mass < 1).astype('bool')
-        result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(0.2))**2/(2*0.55**2)) * lower
-        result += self.psi2 * mass**-1.35 * (~lower)
-        return result
+        lower = np.array(mass < self.mmid).astype('bool')
+        result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) * lower
+        result += self.psi2 * mass**-self.salpeterslope * (~lower)
+        if integral_form:
+            return result * mass * self.normfactor
+        else:
+            return result * self.normfactor
 
 
 def schechter(m,A=1,beta=2,m0=100, integral=False):
