@@ -10,23 +10,24 @@ from .imf import MassFunction, Chabrier2005, Kroupa
 chabrier2005 = Chabrier2005()
 
 class McKeeOffner_PMF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mlow=0.033, mhigh=3.0, massfunc=chabrier2005, **kwargs):
+    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0, massfunc=chabrier2005, **kwargs):
         """
         """
         self.j = j
         self.jf = jf
         self.n = n
-        self.mlow = mlow
-        self.mhigh = mhigh
+        self.mmin = mmin
+        self.mmax = mmax
         self.massfunc = massfunc
 
         def den_func(x):
             return self.massfunc(x)*x**(-self.jf)
-        self.denominator = scipy.integrate.quad(den_func, self.mlow, self.mhigh, **kwargs)[0]
+        self.denominator = scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
 
         self.normfactor = 1
 
-    def __call__(self, mass, taper=False, **kwargs):
+    def __call__(self, mass, taper=False, integral_form=False, **kwargs):
+        """ Unclear if integral_form is right..."""
         if taper:
 
             def num_func(x, mass_):
@@ -34,44 +35,49 @@ class McKeeOffner_PMF(MassFunction):
                 return self.massfunc(x)*x**(self.j-self.jf-1) * tf
 
             def integrate(lolim, mass_):
-                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, args=(mass_,), **kwargs)[0]
+                integral = scipy.integrate.quad(num_func, lolim, self.mmax, args=(mass_,), **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow), mass)
+            numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin), mass)
 
         else:
             def num_func(x):
                 return self.massfunc(x)*x**(self.j-self.jf-1)
 
             def integrate(lolim):
-                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, **kwargs)[0]
+                integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow))
+            numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin))
 
         result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
-        return result * self.normfactor
+        if integral_form:
+            raise ValueError("Integral version not yet computed")
+            return result * self.normfactor * mass
+        else:
+            return result * self.normfactor
 
 class McKeeOffner_2CTC(MassFunction):
     """ 2-component Turbulent Core variant """
-    def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mlow=0.033, mhigh=3.0,
+    def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mmin=0.033, mmax=3.0,
                  massfunc=chabrier2005, **kwargs):
         """
         """
         self.j = j
         self.jf = jf
-        self.mlow = mlow
-        self.mhigh = mhigh
+        self.mmin = mmin
+        self.mmax = mmax
         self.Rmdot = Rmdot
         self.massfunc = massfunc
 
         def den_func(x):
             return self.massfunc(x) * (2/((1+Rmdot**2*x**1.5)**0.5+1))
-        self.denominator = scipy.integrate.quad(den_func, self.mlow, self.mhigh, **kwargs)[0]
+        self.denominator = scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
 
         self.normfactor = 1
 
-    def __call__(self, mass, taper=False, **kwargs):
+    def __call__(self, mass, taper=False, integral_form=False, **kwargs):
+        """ Unclear if integral_form is right..."""
         if taper:
 
             def num_func(x, mass_):
@@ -79,23 +85,27 @@ class McKeeOffner_2CTC(MassFunction):
                 return self.massfunc(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1)) * tf
 
             def integrate(lolim, mass_):
-                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, args=(mass_,), **kwargs)[0]
+                integral = scipy.integrate.quad(num_func, lolim, self.mmax, args=(mass_,), **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow), mass)
+            numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin), mass)
 
         else:
             def num_func(x):
                 return chabrier2005(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1))
 
             def integrate(lolim):
-                integral = scipy.integrate.quad(num_func, lolim, self.mhigh, **kwargs)[0]
+                integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mlow < mass, mass, self.mlow))
+            numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin))
 
         result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
-        return result * self.normfactor
+        if integral_form:
+            raise ValueError("Integral version not yet computed")
+            return result * self.normfactor * mass
+        else:
+            return result * self.normfactor
 
 ChabrierPMF_IS = McKeeOffner_PMF(j=0, jf=0, )
 ChabrierPMF_TC = McKeeOffner_PMF(j=0.5, jf=0.75, )
@@ -104,15 +114,15 @@ ChabrierPMF_2CTC = McKeeOffner_2CTC()
 
 class McKeeOffner_SalpeterPMF(MassFunction):
     " special case; above is now generalized to obsolete this "
-    def __init__(self, j=1, jf=3/4., alpha=2.35, mhigh=3.0):
+    def __init__(self, j=1, jf=3/4., alpha=2.35, mmax=3.0):
         self.alpha = alpha
-        self.mhigh = mhigh
+        self.mmax = mmax
         self.j = j
         self.jf = jf
 
     def __call__(self, mass, **kwargs):
         alpha = (self.alpha-1+self.jf-self.j)
-        fm = 1 - (mass/self.mhigh)**(alpha)
+        fm = 1 - (mass/self.mmax)**(alpha)
         result = fm * mass**(-((self.alpha-2)+self.jf))
         return result
 

@@ -45,32 +45,40 @@ class MassFunction(object):
             return self(x) / x
         return scipy.integrate.quad(logform, mlow, mhigh, **kwargs)
 
-    def normalize(self, log=False, **kwargs):
+    def normalize(self, mmin=None, mmax=None, log=False, **kwargs):
         """
         Set self.normfactor such that the integral of the function over the
-        range (mlow, mhigh) = 1
+        range (mmin, mmax) = 1
         """
+        if mmin is None:
+            mmin = self.mmin
+        if mmax is None:
+            mmax = self.mmax
+
         if log:
-            integral = self.log_integrate(self.mlow, self.mhigh, **kwargs)
+            integral = self.log_integrate(mmin, mmax, **kwargs)
         else:
-            integral = self.integrate(self.mlow, self.mhigh, **kwargs)
+            integral = self.integrate(mmin, mmax, **kwargs)
         self.normfactor = 1./integral[0]
 
 
 class Salpeter(MassFunction):
 
-    def __init__(self, alpha=2.35):
+    def __init__(self, alpha=2.35, mmin=0.3, mmax=120):
         """
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
         self.alpha = alpha
+        self.mmin = mmin
+        self.mmax = mmax
+        self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return m**(-(self.alpha - 1))
+            return m**(-(self.alpha - 1)) * self.normfactor
         else:
-            return m**(-self.alpha)
+            return m**(-self.alpha) * self.normfactor
 
 
 # three codes for dn/dlog(m)
@@ -79,7 +87,9 @@ salpeter = Salpeter()
 class BrokenPowerLaw(MassFunction):
     def __init__(self, breaks, mmin, mmax):
         self.breaks = breaks
-        self.normalization = self.integrate(mmin, mmax)[0]
+        self.normfactor = 1./self.integrate(mmin, mmax)[0]
+        self.mmin = mmin
+        self.mmax = mmax
 
     def __call__(self, m, integral_form=False):
         zeta = 0
@@ -98,21 +108,20 @@ class BrokenPowerLaw(MassFunction):
                 alp_low = alp
                 b_low = b
 
-        if hasattr(self,'normalization'):
-            return zeta/self.normalization
-        else:
-            return zeta
+        return zeta * self.normfactor
 
 #kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
 
 class Kroupa(MassFunction):
-    def __init__(self, mmin=0.03):
+    def __init__(self, mmin=0.03, mmax=120):
         """
         """
         self.mmin = mmin
+        self.mmax = mmax
+        self.normfactor = 1
 
     def __call__(self, m, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5,
-                 mmin=None, mmax=120, integral_form=False):
+                 mmin=None, mmax=None, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
 
@@ -132,6 +141,7 @@ class Kroupa(MassFunction):
         m = np.array(m)
 
         mmin = mmin if mmin is not None else self.mmin
+        mmax = mmax if mmax is not None else self.mmax
 
         binv = ((break1**(-(p1-1)) - mmin**(-(p1-1)))/(1-p1) +
                 (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
@@ -145,9 +155,9 @@ class Kroupa(MassFunction):
                 d*(m**(-(p3))) * (m>=break2))
 
         if integral_form:
-            return zeta * m
+            return zeta * m * self.normfactor
         else:
-            return zeta
+            return zeta * self.normfactor
 
 kroupa = Kroupa()
 
@@ -196,13 +206,13 @@ class Chabrier2005(MassFunction):
     >>> scipy.integrate.quad(lambda x: imf.imf.Chabrier2005()(x) / x, 0.033, 3.0)
         (1.0034751070852832, 1.237415792054719e-08)
     """
-    def __init__(self, mlow=0.033, mmid=1.0, mhigh=3.0, psi1=0.35, psi2=0.16,
+    def __init__(self, mmin=0.033, mmid=1.0, mmax=3.0, psi1=0.35, psi2=0.16,
                  width=0.55, center=0.2, salpeterslope=1.35):
         """
         """
-        self.mlow = mlow
+        self.mmin = mmin
         self.mmid = mmid
-        self.mhigh = mhigh
+        self.mmax = mmax
         # psi1 and psi2 are technically derived as normalizations...
         self.psi1 = psi1
         self.psi2 = psi2
@@ -331,7 +341,8 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2,2,500)):
     xax,integral = m_integrate(fn,bins)
     return integral.cumsum() / integral.sum()
 
-massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier, 'schechter':schechter,'modified_schechter':modified_schechter}
+massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier,
+                 'schechter':schechter,'modified_schechter':modified_schechter}
 reverse_mf_dict = {v:k for k,v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
 mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23, 'schecter':0.01,'modified_schechter':0.01}

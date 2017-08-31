@@ -8,91 +8,94 @@ from imf.pmf import KroupaPMF_IS, KroupaPMF_TC, KroupaPMF_CA, KroupaPMF_2CTC
 import pylab as pl
 import numpy as np
 
-ChabrierPMF_IS.normalize(log=True)
-ChabrierPMF_TC.normalize(log=True)
-ChabrierPMF_CA.normalize(log=True)
-ChabrierPMF_2CTC.normalize(log=True)
+mmin = 0.033
+mmax = 3.0
 
-KroupaPMF_IS.normalize(log=True)
-KroupaPMF_TC.normalize(log=True)
-KroupaPMF_CA.normalize(log=True)
-KroupaPMF_2CTC.normalize(log=True)
+for mmax in (3, 120):
 
-chabrier2005 = imf.Chabrier2005()
-chabrier2005.normalize(log=True)
-kroupa = imf.Kroupa()
-kroupa.normalize(log=True)
+    print("Normalizing.")
+    ChabrierPMF_IS.normalize(log=True, mmin=mmin, mmax=mmax)
+    ChabrierPMF_TC.normalize(log=True, mmin=mmin, mmax=mmax)
+    ChabrierPMF_CA.normalize(log=True, mmin=mmin, mmax=mmax)
+    ChabrierPMF_2CTC.normalize(log=True, mmin=mmin, mmax=mmax)
 
-masses = np.logspace(np.log10(0.033), np.log10(3.0), 100)
+    KroupaPMF_IS.normalize(log=True, mmin=mmin, mmax=mmax)
+    KroupaPMF_TC.normalize(log=True, mmin=mmin, mmax=mmax)
+    KroupaPMF_CA.normalize(log=True, mmin=mmin, mmax=mmax)
+    KroupaPMF_2CTC.normalize(log=True, mmin=mmin, mmax=mmax)
 
-fig1 = pl.figure(1)
-fig1.clf()
-ax = fig1.gca()
-ax.set_title("Steady State McKee/Offner + Chabrier PMF")
-ax.semilogx(masses, chabrier2005(masses), label="IMF", color='k')
-ax.semilogx(masses, ChabrierPMF_IS(masses), label="IS", color='r', linestyle=':')
-ax.semilogx(masses, ChabrierPMF_TC(masses), label="TC", color='g', linestyle='-.')
-ax.semilogx(masses, ChabrierPMF_CA(masses), label="CA", color='y', linestyle='-.')
-ax.semilogx(masses, ChabrierPMF_2CTC(masses), label="2CTC", color='b', linestyle='--')
+    chabrier2005 = imf.Chabrier2005()
+    chabrier2005.normalize(log=True, mmin=mmin, mmax=mmax)
+    kroupa = imf.Kroupa()
+    kroupa.normalize(log=True, mmin=mmin, mmax=mmax)
 
-pl.legend(loc='best')
+    print("Now plotting.")
+    masses = np.logspace(np.log10(mmin), np.log10(mmax), 100)
 
+    for integral_form in (False,):
+        fig1 = pl.figure(1)
+        fig1.clf()
+        ax = fig1.gca()
+        ax.set_title("Steady State McKee/Offner + Chabrier PMF")
+        ax.semilogx(masses, chabrier2005(masses, integral_form=integral_form), label="IMF", color='k')
+        ax.semilogx(masses, ChabrierPMF_IS(masses, integral_form=integral_form), label="IS", color='r', linestyle=':')
+        ax.semilogx(masses, ChabrierPMF_TC(masses, integral_form=integral_form), label="TC", color='g', linestyle='-.')
+        ax.semilogx(masses, ChabrierPMF_CA(masses, integral_form=integral_form), label="CA", color='y', linestyle='-.')
+        ax.semilogx(masses, ChabrierPMF_2CTC(masses, integral_form=integral_form), label="2CTC", color='b', linestyle='--')
+        ax.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
+        ax.set_ylabel("N(M)dm" if integral_form else "Normalized P(M)")
 
-fig2 = pl.figure(2)
-fig2.clf()
-ax = fig2.gca()
-ax.set_title("Tapered McKee/Offner + Chabrier PMF")
-ax.semilogx(masses, chabrier2005(masses), label="IMF", color='k')
-ax.semilogx(masses, ChabrierPMF_IS(masses, taper=True), label="IS", color='r', linestyle=':')
-ax.semilogx(masses, ChabrierPMF_TC(masses, taper=True), label="TC", color='g', linestyle='-.')
-ax.semilogx(masses, ChabrierPMF_CA(masses, taper=True), label="CA", color='y', linestyle='-.')
-ax.semilogx(masses, ChabrierPMF_2CTC(masses, taper=True), label="2CTC", color='b', linestyle='--')
-
-pl.legend(loc='best')
-
-# fig2 = pl.figure(2)
-# ax2 = fig2.gca()
-# ax2.cla()
-# ax2.semilogx(masses, imf.Chabrier2005()(masses), label='IMF', color='k')
-# ax2.semilogx(masses, imf.Chabrier2005()(masses)*masses**(-4/3.), label='CA_Num', color='y')
-# ax2.semilogx(masses, imf.Chabrier2005()(masses)*masses**(-1), label='IS_Num')
-# ax2.semilogx(masses, imf.Chabrier2005()(masses)*masses**(-5/4.), label='TC_Num')
-# 
-# pl.legend(loc='best')
-# 
-# fig3 = pl.figure(3)
-# ax3 = fig3.gca()
-# ax3.cla()
-# ax3.semilogx(masses, imf.Chabrier2005()(masses), label='IMF', color='k')
-# ax3.semilogx(masses, imf.Chabrier2005()(masses)*masses**(-1.), label='CA_Num', color='y')
-# ax3.semilogx(masses, imf.Chabrier2005()(masses)*masses**(0), label='IS_Num')
-# ax3.semilogx(masses, imf.Chabrier2005()(masses)*masses**(-3/4.), label='TC_Num')
-# 
-# pl.legend(loc='best')
+        pl.legend(loc='best')
+        pl.savefig('steadystate_pmf_chabrier{0}_mmax{1}.png'.format("_integral" if integral_form else "",
+                                                                    int(mmax)), bbox_inches='tight')
 
 
-fig3 = pl.figure(3)
-fig3.clf()
-ax3 = fig3.gca()
-ax3.set_title("Steady State McKee/Offner + Kroupa PMF")
-ax3.semilogx(masses, kroupa(masses), label="IMF", color='k')
-ax3.semilogx(masses, KroupaPMF_IS(masses), label="IS", color='r', linestyle=':')
-ax3.semilogx(masses, KroupaPMF_TC(masses), label="TC", color='g', linestyle='-.')
-ax3.semilogx(masses, KroupaPMF_CA(masses), label="CA", color='y', linestyle='-.')
-ax3.semilogx(masses, KroupaPMF_2CTC(masses), label="2CTC", color='b', linestyle='--')
+        fig2 = pl.figure(2)
+        fig2.clf()
+        ax = fig2.gca()
+        ax.set_title("Tapered McKee/Offner + Chabrier PMF")
+        ax.semilogx(masses, chabrier2005(masses, integral_form=integral_form), label="IMF", color='k')
+        ax.semilogx(masses, ChabrierPMF_IS(masses, integral_form=integral_form, taper=True), label="IS", color='r', linestyle=':')
+        ax.semilogx(masses, ChabrierPMF_TC(masses, integral_form=integral_form, taper=True), label="TC", color='g', linestyle='-.')
+        ax.semilogx(masses, ChabrierPMF_CA(masses, integral_form=integral_form, taper=True), label="CA", color='y', linestyle='-.')
+        ax.semilogx(masses, ChabrierPMF_2CTC(masses, integral_form=integral_form, taper=True), label="2CTC", color='b', linestyle='--')
+        ax.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
+        ax.set_ylabel("N(M)dm" if integral_form else "Normalized P(M)")
 
-pl.legend(loc='best')
+        pl.legend(loc='best')
+        pl.savefig('taperedaccretion_pmf_chabrier{0}_mmax{1}.png'.format("_integral" if integral_form else "",
+                                                                         int(mmax)), bbox_inches='tight')
 
 
-fig4 = pl.figure(4)
-fig4.clf()
-ax4 = fig4.gca()
-ax4.set_title("Tapered McKee/Offner + Kroupa PMF")
-ax4.semilogx(masses, kroupa(masses), label="IMF", color='k')
-ax4.semilogx(masses, KroupaPMF_IS(masses, taper=True), label="IS", color='r', linestyle=':')
-ax4.semilogx(masses, KroupaPMF_TC(masses, taper=True), label="TC", color='g', linestyle='-.')
-ax4.semilogx(masses, KroupaPMF_CA(masses, taper=True), label="CA", color='y', linestyle='-.')
-ax4.semilogx(masses, KroupaPMF_2CTC(masses, taper=True), label="2CTC", color='b', linestyle='--')
+        fig3 = pl.figure(3)
+        fig3.clf()
+        ax3 = fig3.gca()
+        ax3.set_title("Steady State McKee/Offner + Kroupa PMF")
+        ax3.semilogx(masses, kroupa(masses, integral_form=integral_form), label="IMF", color='k')
+        ax3.semilogx(masses, KroupaPMF_IS(masses, integral_form=integral_form), label="IS", color='r', linestyle=':')
+        ax3.semilogx(masses, KroupaPMF_TC(masses, integral_form=integral_form), label="TC", color='g', linestyle='-.')
+        ax3.semilogx(masses, KroupaPMF_CA(masses, integral_form=integral_form), label="CA", color='y', linestyle='-.')
+        ax3.semilogx(masses, KroupaPMF_2CTC(masses, integral_form=integral_form), label="2CTC", color='b', linestyle='--')
+        ax3.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
+        ax3.set_ylabel("N(M)dm" if integral_form else "Normalized P(M)")
 
-pl.legend(loc='best')
+        pl.legend(loc='best')
+        pl.savefig('steadystate_pmf_kroupa{0}_mmax{1}.png'.format("_integral" if integral_form else "",
+                                                                  int(mmax)), bbox_inches='tight')
 
+
+        fig4 = pl.figure(4)
+        fig4.clf()
+        ax4 = fig4.gca()
+        ax4.set_title("Tapered McKee/Offner + Kroupa PMF")
+        ax4.semilogx(masses, kroupa(masses, integral_form=integral_form), label="IMF", color='k')
+        ax4.semilogx(masses, KroupaPMF_IS(masses, integral_form=integral_form, taper=True), label="IS", color='r', linestyle=':')
+        ax4.semilogx(masses, KroupaPMF_TC(masses, integral_form=integral_form, taper=True), label="TC", color='g', linestyle='-.')
+        ax4.semilogx(masses, KroupaPMF_CA(masses, integral_form=integral_form, taper=True), label="CA", color='y', linestyle='-.')
+        ax4.semilogx(masses, KroupaPMF_2CTC(masses, integral_form=integral_form, taper=True), label="2CTC", color='b', linestyle='--')
+        ax4.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
+        ax4.set_ylabel("N(M)dm" if integral_form else "Normalized P(M)")
+
+        pl.legend(loc='best')
+        pl.savefig('taperedaccretion_pmf_kroupa{0}_mmax{1}.png'.format("_integral" if integral_form else "",
+                                                                       int(mmax)), bbox_inches='tight')
