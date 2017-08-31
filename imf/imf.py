@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
 import scipy.integrate
+from scipy.special import erf
 import warnings
 from astropy.extern.six import iteritems
 
@@ -224,11 +225,15 @@ class Chabrier2005(MassFunction):
 
     def __call__(self, mass, integral_form=False):
         lower = np.array(mass < self.mmid).astype('bool')
-        result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) * lower
-        result += self.psi2 * mass**-self.salpeterslope * (~lower)
         if integral_form:
-            return result * mass * self.normfactor
+            # integral of a lognormal is an error function
+            argument = (-np.log(mass) + np.log(self.center) + self.width**2) / (2**0.5 * self.width)
+            result = self.psi1 * np.sqrt(np.pi/2) * self.center * self.width * np.exp(self.width**2/2) * erf(argument) * lower
+            result += self.psi2 * mass**(-self.salpeterslope+1)/(1-self.salpeterslope) * (~lower)
+            return result
         else:
+            result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) * lower
+            result += self.psi2 * mass**-self.salpeterslope * (~lower)
             return result * self.normfactor
 
 
