@@ -4,6 +4,7 @@ Protostellar mass functions as described by McKee and Offner, 2010
 
 import numpy as np
 import scipy.integrate
+import warnings
 
 from .imf import MassFunction, Chabrier2005, Kroupa
 
@@ -52,8 +53,10 @@ class McKeeOffner_PMF(MassFunction):
 
         result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
         if integral_form:
-            raise ValueError("Integral version not yet computed")
+            warnings.warn("The 'integral form' of the Chabrier PMF is not correctly normalized; "
+                          "it is just PMF(m) * m")
             return result * self.normfactor * mass
+            raise ValueError("Integral version not yet computed")
         else:
             return result * self.normfactor
 
@@ -102,8 +105,10 @@ class McKeeOffner_2CTC(MassFunction):
 
         result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
         if integral_form:
-            raise ValueError("Integral version not yet computed")
+            warnings.warn("The 'integral form' of the Chabrier PMF is not correctly normalized; "
+                          "it is just PMF(m) * m")
             return result * self.normfactor * mass
+            raise ValueError("Integral version not yet computed")
         else:
             return result * self.normfactor
 

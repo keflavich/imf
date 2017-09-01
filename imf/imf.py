@@ -26,6 +26,9 @@ class MassFunction(object):
         """
         return self(m, integral_form=True, **kwargs)
 
+    def mass_weighted(self, m, **kwargs):
+        return self(m, integral_form=False, **kwargs) * m
+
     def integrate(self, mlow, mhigh, **kwargs):
         """
         Integrate the mass function over some range
@@ -37,9 +40,7 @@ class MassFunction(object):
         Integrate the mass-weighted mass function over some range (this tells
         you the fraction of mass in the specified range)
         """
-        def mform(x):
-            return self(x) * x
-        return scipy.integrate.quad(mform, mlow, mhigh, **kwargs)
+        return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, **kwargs)
 
     def log_integrate(self, mlow, mhigh, **kwargs):
         def logform(x):
@@ -167,13 +168,12 @@ class Kroupa(MassFunction):
             zeta = (b*(m**(1-p1))/(1-p1) * (m<break1) +
                     c*(m**(1-p2))/(1-p2) * (m>=break1) * (m<break2) +
                     d*(m**(1-p3))/(1-p3) * (m>=break2))
-            return zeta * self.normfactor
         else:
             zeta = (b*(m**(-(p1))) * (m<break1) +
                     c*(m**(-(p2))) * (m>=break1) * (m<break2) +
                     d*(m**(-(p3))) * (m>=break2))
 
-            return zeta * self.normfactor
+        return zeta * self.normfactor
 
     def integrate(self, mlow, mhigh, numerical=False, break1=None, break2=None,
                   **kwargs):
@@ -191,7 +191,10 @@ class Kroupa(MassFunction):
             break1 = break1 if break1 is not None else self.break1
             break2 = break2 if break2 is not None else self.break2
 
-            eps = np.finfo(mlow).eps
+            try:
+                eps = np.finfo(mlow).eps
+            except ValueError:
+                eps = np.finfo(np.float).eps
 
             if mhigh <= break1 or mlow >= break2 or (mlow >= break1 and mhigh <= break2):
                 result = self(mhigh-eps, integral_form=True) - self(mlow+eps, integral_form=True)
@@ -240,7 +243,10 @@ class Kroupa(MassFunction):
             p3 = p3 if p3 is not None else self.p3
             mmin = mmin if mmin is not None else self.mmin
 
-            eps = np.finfo(mlow).eps
+            try:
+                eps = np.finfo(mlow).eps
+            except ValueError:
+                eps = np.finfo(np.float).eps
 
 
             binv = ((break1**(-(p1-1)) - mmin**(-(p1-1)))/(1-p1) +
@@ -376,17 +382,69 @@ class Chabrier2005(MassFunction):
         self.normfactor = 1
 
     def __call__(self, mass, integral_form=False):
+        mass = np.asarray(mass)
         lower = np.array(mass < self.mmid).astype('bool')
         if integral_form:
             # integral of a lognormal is an error function
-            argument = (-np.log(mass) + np.log(self.center) + self.width**2) / (2**0.5 * self.width)
-            result = self.psi1 * np.sqrt(np.pi/2) * self.center * self.width * np.exp(self.width**2/2) * erf(argument) * lower
-            result += self.psi2 * mass**(-self.salpeterslope+1)/(1-self.salpeterslope) * (~lower)
-            return result
+            argument = ((-np.log(mass) + np.log(self.center) + (self.width * np.log(10))**2) /
+                        (2**0.5 * self.width * np.log(10)))
+            result = -self.psi1 * np.sqrt(np.pi/2) * self.center * (self.width * np.log(10)) * np.exp((self.width*np.log(10))**2/2) * erf(argument) * lower
+            result += self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower)
         else:
             result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) * lower
             result += self.psi2 * mass**-self.salpeterslope * (~lower)
-            return result * self.normfactor
+
+        return result * self.normfactor
+
+    def integrate(self, mlow, mhigh, numerical=False, break1=None, break2=None,
+                  **kwargs):
+        """
+        Integrate the mass function over some range
+        """
+        if mhigh <= mlow:
+            raise ValueError("Must have mlow < mhigh in integral")
+
+        if numerical:
+            return super(Chabrier2005, self).integrate(mlow, mhigh, **kwargs)
+        else:
+            mmid = self.mmid
+
+            try:
+                eps = np.finfo(mlow).eps
+            except ValueError:
+                eps = np.finfo(np.float).eps
+
+            
+            if mhigh < mmid or mlow >= mmid:
+                result = self(mhigh, integral_form=True) - self(mlow, integral_form=True)
+            else:
+                result = (self(mhigh, integral_form=True) - self(mmid+eps, integral_form=True) +
+                          self(mmid-eps, integral_form=True) - self(mlow, integral_form=True)
+                         )
+            return result,0
+
+chabrier2005 = Chabrier2005()
+
+def test_chabrier_integral():
+    for mlow in (0.033, 0.5, 1, 1.5, 3):
+        for mhigh in (0.05, 0.5, 1, 1.5, 3.0):
+            try:
+                num = chabrier2005.integrate(mlow, mhigh, numerical=True)[0]
+                anl = chabrier2005.integrate(mlow, mhigh, numerical=False)[0]
+            except ValueError:
+                continue
+            print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
+            np.testing.assert_almost_equal(num, anl)
+
+    #for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
+    #    for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
+    #        try:
+    #            num = chabrier2005.m_integrate(mlow, mhigh, numerical=True)[0]
+    #            anl = chabrier2005.m_integrate(mlow, mhigh, numerical=False)[0]
+    #        except ValueError:
+    #            continue
+    #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
+    #        np.testing.assert_almost_equal(num, anl)
 
 
 def schechter(m,A=1,beta=2,m0=100, integral=False):
