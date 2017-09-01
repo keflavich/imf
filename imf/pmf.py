@@ -95,7 +95,7 @@ class McKeeOffner_2CTC(MassFunction):
 
         else:
             def num_func(x):
-                return chabrier2005(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1))
+                return self.massfunc(x)*(1./x)**(1-self.j) * (2/((1+self.Rmdot**2*x**1.5)**0.5+1))
 
             def integrate(lolim):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]

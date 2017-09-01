@@ -366,7 +366,7 @@ class Chabrier2005(MassFunction):
         (1.0034751070852832, 1.237415792054719e-08)
     """
     def __init__(self, mmin=0.033, mmid=1.0, mmax=3.0, psi1=0.35, psi2=0.16,
-                 width=0.55, center=0.2, salpeterslope=1.35):
+                 width=0.55, center=0.2, salpeterslope=2.35):
         """
         """
         self.mmin = mmin
@@ -381,17 +381,21 @@ class Chabrier2005(MassFunction):
 
         self.normfactor = 1
 
-    def __call__(self, mass, integral_form=False):
+    def __call__(self, mass, integral_form=False, log_integral_form=False):
         mass = np.asarray(mass)
         lower = np.array(mass < self.mmid).astype('bool')
-        if integral_form:
+        if log_integral_form:
             # integral of a lognormal is an error function
             argument = ((-np.log(mass) + np.log(self.center) + (self.width * np.log(10))**2) /
                         (2**0.5 * self.width * np.log(10)))
             result = -self.psi1 * np.sqrt(np.pi/2) * self.center * (self.width * np.log(10)) * np.exp((self.width*np.log(10))**2/2) * erf(argument) * lower
             result += self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower)
+        elif integral_form:
+            argument = ((-np.log(mass) + np.log(self.center)) / (2**0.5 * self.width * np.log(10)))
+            result = (-self.psi1 * np.sqrt(np.pi/2) * (self.width * np.log(10)) * erf(argument) * lower +
+                      self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower))
         else:
-            result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) * lower
+            result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) / mass * lower
             result += self.psi2 * mass**-self.salpeterslope * (~lower)
 
         return result * self.normfactor
