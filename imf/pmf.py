@@ -163,6 +163,7 @@ class McKeeOffner_AcceleratingSF_PMF(MassFunction):
         def den_func(x):
             return self.imf(x)*(1-np.exp(-self.tf1*x**(1-self.jf)/self.tau))/x
         self.denominator = self.tau * scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
+        assert self.denominator > 0
 
         self.normfactor = 1
 
@@ -201,11 +202,13 @@ class McKeeOffner_AcceleratingSF_PMF(MassFunction):
 
             numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin), mass)
 
+            assert np.all(numerator >= 0)
+
         result = self.tf1 * (1-self.j) * mass**(1-self.j) * numerator / self.denominator
 
         # it is possible with the time-evolution case to get negative values for high masses;
         # these should (probably?) just be zero'd
-        result = result * (result>0)
+        result = np.where(mass > self.mmax, np.nan, result)
 
         if integral_form:
             warnings.warn("The 'integral form' of the Chabrier PMF is not correctly normalized; "

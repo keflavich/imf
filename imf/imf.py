@@ -65,6 +65,8 @@ class MassFunction(object):
             integral = self.integrate(mmin, mmax, **kwargs)
         self.normfactor = 1./integral[0]
 
+        assert self.normfactor > 0
+
 
 class Salpeter(MassFunction):
 
