@@ -36,7 +36,7 @@ for mmax in (3, 120):
         ax = fig1.gca()
         ax.set_title("Accelerating SF McKee/Offner + Chabrier PMF")
         ax.loglog(masses, chabrier2005.__getattribute__(fname)(masses), label="IMF", color='k')
-        for tau, lw in zip((0.1, 0.5, 1.0), (1,2,3)):
+        for tau, lw in zip((0.1, 1.0, 10.0), (1,2,3,)):
             ax.loglog(masses, ChabrierPMF_AcceleratingSF_IS.__getattribute__(fname)(masses, tau=tau), label="IS", color='r', linewidth=lw, linestyle=':')
             ax.loglog(masses, ChabrierPMF_AcceleratingSF_TC.__getattribute__(fname)(masses, tau=tau), label="TC", color='g', linewidth=lw, linestyle='-.')
             ax.loglog(masses, ChabrierPMF_AcceleratingSF_CA.__getattribute__(fname)(masses, tau=tau), label="CA", color='y', linewidth=lw, linestyle='-.')

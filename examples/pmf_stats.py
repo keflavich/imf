@@ -64,7 +64,7 @@ mfs = {'ChabrierPMF_IS': ChabrierPMF_IS,
        'KroupaIMF': kroupa,
       }
 
-for tau in (0.1, 0.5, 1.0):
+for tau in (0.1, 0.5, 1.0, 2.0):
     mfs['ChabrierPMF_AcceleratingSF_IS_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=0, jf=0, tau=tau, mmax=mmax)
     mfs['ChabrierPMF_AcceleratingSF_TC_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=0.5, jf=0.75, tau=tau, mmax=mmax)
     mfs['ChabrierPMF_AcceleratingSF_CA_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=2/3., jf=1.0, tau=tau, mmax=mmax)
