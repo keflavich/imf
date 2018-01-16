@@ -587,14 +587,17 @@ def get_massfunc_name(massfunc):
     else:
         raise ValueError("invalid mass function")
 
-def inverse_imf(p, nbins=100000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs):
+def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs):
     """
     Inverse mass function
 
     massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a function
     """
 
-    masses = np.linspace(mmin, mmax, nbins)
+    ends = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
+    masses = (ends[1:] + ends[:-1])/2.
+    dm = np.diff(ends)
+
 
     # the full probability distribution function N(M) dm
     mf = get_massfunc(massfunc)(masses, **kwargs)
@@ -603,7 +606,7 @@ def inverse_imf(p, nbins=100000, mmin=0.03, mmax=120, massfunc='kroupa', **kwarg
     # (we have fixed the bin width dm to constant in the 'masses' above using
     # linspace, which is important - logspaced will result in an incorrect
     # integral)
-    mfcum = mf.cumsum()
+    mfcum = (mf*dm).cumsum()
 
     # normalize to sum (this turns into a cdf)
     mfcum /= mfcum.max()
