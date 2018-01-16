@@ -587,11 +587,28 @@ def get_massfunc_name(massfunc):
     else:
         raise ValueError("invalid mass function")
 
-def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs):
+def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa',
+                **kwargs):
     """
-    Inverse mass function
+    Inverse mass function.  Creates a cumulative distribution function from the
+    mass function and samples it using the given randomly distributed values
+    ``p``.
 
-    massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a function
+
+    Parameters
+    ----------
+    p : np.array
+        An array of floats in the range [0,1).  These should be uniformly random
+        numbers.
+    nbins : int
+        The number of bins in the cumulative distribution function to sample
+        over.  More bins results in (marginally) higher precision.
+    mmin : float
+    mmax : float
+        Minimum and maximum stellar mass in the distribution
+    massfunc : string or function
+        massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a
+        function
     """
 
     ends = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
@@ -602,10 +619,7 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa', **kwargs)
     # the full probability distribution function N(M) dm
     mf = get_massfunc(massfunc)(masses, **kwargs)
 
-    # integrate by taking the cumulative sum
-    # (we have fixed the bin width dm to constant in the 'masses' above using
-    # linspace, which is important - logspaced will result in an incorrect
-    # integral)
+    # integrate by taking the cumulative sum of x dx
     mfcum = (mf*dm).cumsum()
 
     # normalize to sum (this turns into a cdf)
