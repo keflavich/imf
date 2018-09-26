@@ -3,10 +3,6 @@ IMF
 
 Simple tools to work with the Initial Mass Function
 
-.. figure:: examples/plots/imf.png
-   :alt: This figure was made with the imf_figure.py code in examples/
-   This figure was made with examples/imf_figure.py
-
 Some basic examples below.
 
 1. Make a simple 1000 Msun cluster sampled from the default Kroupa IMF::
@@ -41,6 +37,11 @@ Some basic examples below.
 
      over8fraction = (kroupa.m_integrate(cutoff1, mmax)[0] /
                       kroupa.m_integrate(kroupa.mmin, mmax)[0])
+
+4. This figure was made with examples/imf_figure.py
+
+.. figure:: examples/plots/imf.png
+
 
 
 .. image:: https://d2weczhvl823v0.cloudfront.net/keflavich/imf/trend.png
