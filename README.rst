@@ -5,8 +5,7 @@ Simple tools to work with the Initial Mass Function
 
 .. image:: examples/plots/imf.png
    :alt: This figure was made with the imf_figure.py code in examples/
-   
-         This figure was made with examples/imf_figure.py
+   This figure was made with examples/imf_figure.py
 
 Some basic examples below.
 
