@@ -5,7 +5,7 @@ import numpy as np
 if __name__ == "__main__":
     import pylab as pl
     pl.matplotlib.style.use('classic')
-    
+
     pl.rc('font',size=30)
     pl.figure(1, figsize=(20,16))
     pl.clf()
