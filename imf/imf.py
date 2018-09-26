@@ -12,6 +12,8 @@ from astropy.extern.six import iteritems
 class MassFunction(object):
     """
     Generic Mass Function class
+
+    (this is mostly meant to be subclassed by other functions, not used itself)
     """
 
     def dndm(self, m, **kwargs):
@@ -119,8 +121,11 @@ class BrokenPowerLaw(MassFunction):
 #kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
 
 class Kroupa(MassFunction):
-    def __init__(self, mmin=0.03, mmax=120, p1=0.3, p2=1.3, p3=2.3, break1=0.08, break2=0.5):
+    def __init__(self, mmin=0.03, mmax=120, p1=0.3, p2=1.3, p3=2.3,
+                 break1=0.08, break2=0.5):
         """
+        The Kroupa IMF with two power-law breaks, p1 and p2. See __call__ for
+        details.
         """
         self.mmin = mmin
         self.mmax = mmax
@@ -294,7 +299,7 @@ class Kroupa(MassFunction):
                 raise ValueError("This should be unreachable")
 
             return result*self.normfactor,0
-                    
+
 
 
 
@@ -344,7 +349,7 @@ def chabrier(m, integral_form=False):
         raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
         return lognormal(m)
         #http://stats.stackexchange.com/questions/9501/is-it-possible-to-analytically-integrate-x-multiplied-by-the-lognormal-probabi
-        #alpha = 
+        #alpha =
 
     # This system MF can be parameterized by the same type of lognormal form as
     # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
@@ -420,7 +425,7 @@ class Chabrier2005(MassFunction):
             except ValueError:
                 eps = np.finfo(np.float).eps
 
-            
+
             if mhigh < mmid or mlow >= mmid:
                 result = self(mhigh, integral_form=True) - self(mlow, integral_form=True)
             else:
