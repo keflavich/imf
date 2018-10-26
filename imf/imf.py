@@ -868,13 +868,16 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
     mean_color = (colors*luminosities[:,None]).sum(axis=0)/luminosities.sum()
     return mean_color
 
-def coolplot(clustermass, massfunc='kroupa', **kwargs):
+def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
     cluster = make_cluster(clustermass, massfunc=massfunc, **kwargs)
     colors = [color_from_mass(m) for m in cluster]
     massfunc = get_massfunc(massfunc)
     maxmass = cluster.max()
     pmin = massfunc(maxmass)
-    yax = [np.random.rand()*(np.log10(massfunc(m))-np.log10(pmin)) + np.log10(pmin) for m in cluster]
+    if log:
+        yax = [np.random.rand()*(np.log10(massfunc(m))-np.log10(pmin)) + np.log10(pmin) for m in cluster]
+    else:
+        yax = [np.random.rand()*((massfunc(m))/(pmin)) + (pmin) for m in cluster]
 
     return cluster,yax,colors
 

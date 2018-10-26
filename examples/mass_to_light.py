@@ -32,3 +32,5 @@ pl.ylabel("Maximum stellar mass")
 pl.savefig("maxmass_vs_clustermass.pdf")
 
 #pl.loglog(clusters.keys(), np.array(list(mean_luminosities.values())) / np.array(list(mean_masses.values())), '.', alpha=0.1)
+
+# compute mass-to-light ratio vs age
