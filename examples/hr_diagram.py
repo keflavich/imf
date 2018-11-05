@@ -114,3 +114,39 @@ pl.xlabel("Temperature")
 pl.ylabel("Luminosity")
 pl.tight_layout()
 pl.savefig("HR_diagram.svg")#, bbox_inches='tight')
+
+pl.figure(4, figsize=(8,8)).clf()
+
+colors = [imf.color_from_mass(m) for m in subtbl['Mass']]
+#pl.gca().set_xscale('log')
+pl.gca().set_yscale('log')
+pl.scatter(subtbl['Mass'],
+           10**subtbl['logL'],
+           c=colors,
+           s=10**subtbl['logTe']/100)
+
+colors = [imf.color_from_mass(m) for m in masses]
+pl.scatter(masses,
+           10**lums,
+           c=colors,
+           s=10**tems/100)
+
+colors = [imf.color_from_mass(m) for m in hmasses]
+pl.scatter(hmasses,
+           10**hlums,
+           c=colors,
+           s=10**htems/100)
+
+lines = []
+for age in (6.5, 7, 8, 10):
+    L, = pl.plot([masses.min(), hmasses.max()],
+                 [10**agelum[age]]*2,
+                 linestyle='--', color='k',
+                 label="$10^{{{0}}}$ yr".format(age))
+    lines.append(L)
+
+labelLines(lines)
+pl.xlabel("Mass")
+pl.ylabel("Luminosity")
+pl.tight_layout()
+pl.savefig("mass_luminosity.svg")#, bbox_inches='tight')
