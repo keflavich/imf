@@ -101,13 +101,14 @@ pl.scatter(10**htems,
            c=colors,
            s=hmasses*5)
 
-lines = []
-for age in (6.5, 7, 8, 10):
-    L, = pl.plot([10**tems.min(), (10**htems.max())],
-                 [10**agelum[age]]*2,
-                 linestyle='--', color='k',
-                 label="$10^{{{0}}}$ yr".format(age))
-    lines.append(L)
+#suns live 5 Gyr, not 10+ Gyr
+# lines = []
+# for age in (6.5, 7, 8, 10):
+#     L, = pl.plot([10**tems.min(), (10**htems.max())],
+#                  [10**agelum[age]]*2,
+#                  linestyle='--', color='k',
+#                  label="$10^{{{0}}}$ yr".format(age))
+#     lines.append(L)
 
 labelLines(lines)
 pl.xlabel("Temperature")
@@ -137,13 +138,13 @@ pl.scatter(hmasses,
            c=colors,
            s=10**htems/100)
 
-lines = []
-for age in (6.5, 7, 8, 10):
-    L, = pl.plot([masses.min(), hmasses.max()],
-                 [10**agelum[age]]*2,
-                 linestyle='--', color='k',
-                 label="$10^{{{0}}}$ yr".format(age))
-    lines.append(L)
+#lines = []
+#for age in (6.5, 7, 8, 10):
+#    L, = pl.plot([masses.min(), hmasses.max()],
+#                 [10**agelum[age]]*2,
+#                 linestyle='--', color='k',
+#                 label="$10^{{{0}}}$ yr".format(age))
+#    lines.append(L)
 
 labelLines(lines)
 pl.xlabel("Mass")
