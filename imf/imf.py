@@ -869,6 +869,33 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
     return mean_color
 
 def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
+    """
+    "cool plot" is just because the plot is kinda neat.
+
+    This function creates a cluster using `make_cluster`, assigns each star a
+    color based on the vendian.org colors using `color_from_mass`, and assigns
+    each star a random Y-value distributed underneath the specified mass
+    function's curve.
+
+    Parameters
+    ----------
+    clustermass: float
+        The mass of the cluster in solar masses
+    massfunc: str
+        The name of the mass function to use, determined using the
+        `get_massfunc` function.
+    log: bool
+        Is the Y-axis log-scaled?
+
+    Returns
+    -------
+    cluster: array
+        The array of stellar masses that makes up the cluster
+    yax: array
+        The array of Y-values associated with the stellar masses
+    colors: list
+        A list of color tuples associated with each star
+    """
     cluster = make_cluster(clustermass, massfunc=massfunc, **kwargs)
     colors = [color_from_mass(m) for m in cluster]
     massfunc = get_massfunc(massfunc)

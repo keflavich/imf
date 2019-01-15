@@ -1,3 +1,8 @@
+"""
+Script to make an IMF diagram that shows dN(M)/dM vs M, then populates the area
+under the curve with an appropriate number of stars colored by their
+"true"(ish) color and sized by their mass.
+"""
 import imf
 from imf import coolplot,kroupa,make_cluster
 from astropy.table import Table
