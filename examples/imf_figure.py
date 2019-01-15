@@ -15,8 +15,15 @@ if __name__ == "__main__":
     pl.rc('font',size=30)
     pl.close(1)
 
+    # make three figures of dN/dM vs M, one for each mass function,
+    # then do it again in log-scale
     for massfunc in (imf.kroupa, imf.chabrier2005, imf.salpeter):
+
+        # this is not a recommended way to get object names, don't do it in general.
+        # (not all classes are guaranteed to have names; I know they do in this
+        # case because I made and initialized the classes)
         name = massfunc.__class__.__name__
+
         pl.figure(1, figsize=(10,8))
         pl.clf()
         cluster,yax,colors = coolplot(1000, massfunc=massfunc)
@@ -46,13 +53,7 @@ if __name__ == "__main__":
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
         pl.savefig("{0}_imf_figure_linear.png".format(name),bbox_inches='tight')
 
-        #figure(2)
-        #clf()
-        #def cloud_massfunc(mass,m0=1e3,alpha=1.1):
-        #    return (mass/m0)**-alpha
-
-        #clouds = make_cluster(1e8, massfunc=cloud_massfunc)
-
+    # make one more plot, now showing a top-heavy (shallow-tail) IMF
     massfunc = imf.Kroupa(p3=1.75)
     name='KroupaTopHeavy'
     pl.figure(1, figsize=(10,8))
@@ -69,17 +70,3 @@ if __name__ == "__main__":
     pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
     pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
     pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')
-
-    # # FAILURE: table is inadequate
-    # hr diagram
-    # pl.figure(2).clf()
-
-    # #tbl = Table.read('/Users/adam/repos/imf/imf/data/pecaut2013_table_with_lyclum.txt', format='ascii.fixed_width')
-    # #tbl = Table.read('/Users/adam/repos/imf/imf/data/EEM_dwarf_UBVIJHK_colors_Teff_noheader.txt', format='ascii.commented_header')
-    # tbl = Table.read('/Users/adam/repos/imf/imf/data/EEM_dwarf_UBVIJHK_colors_Teff_noheader.txt', format='ascii.commented_header')
-    # ok = tbl['Msun'] < 500
-    # colors = imf.color_of_cluster(tbl['Msun'][ok])
-    # pl.gca().set_xscale('log')
-    # pl.gca().set_yscale('log')
-    # pl.scatter(tbl['Teff'][ok], tbl['Msun'][ok], c=colors,
-    #            s=tbl['logL'][ok]*85)
