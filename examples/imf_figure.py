@@ -27,7 +27,8 @@ if __name__ == "__main__":
         pl.figure(1, figsize=(10,8))
         pl.clf()
         cluster,yax,colors = coolplot(1000, massfunc=massfunc)
-        pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85)
+        pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         pl.gca().set_xscale('log')
 
         masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
@@ -42,7 +43,8 @@ if __name__ == "__main__":
         pl.figure(2, figsize=(20,16))
         pl.clf()
         cluster,yax,colors = coolplot(1000, massfunc=massfunc, log=False)
-        pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85)
+        pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         pl.gca().set_xscale('log')
 
         masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
@@ -59,7 +61,8 @@ if __name__ == "__main__":
     pl.figure(1, figsize=(10,8))
     pl.clf()
     cluster,yax,colors = coolplot(1000, massfunc=massfunc)
-    pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85)
+    pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+               linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
     pl.gca().set_xscale('log')
 
     masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
