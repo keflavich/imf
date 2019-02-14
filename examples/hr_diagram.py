@@ -11,7 +11,7 @@ import pylab as pl
 from astroquery.vizier import Vizier
 from labellines import labelLine, labelLines
 
-pl.rcParams['font.size'] = 18
+pl.rcParams['font.size'] = 20
 
 Vizier.ROW_LIMIT=1e7
 
