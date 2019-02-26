@@ -305,26 +305,6 @@ class Kroupa(MassFunction):
 
 kroupa = Kroupa()
 
-def test_kroupa_integral():
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
-            try:
-                num = kroupa.integrate(mlow, mhigh, numerical=True)[0]
-                anl = kroupa.integrate(mlow, mhigh, numerical=False)[0]
-            except ValueError:
-                continue
-            np.testing.assert_almost_equal(num, anl)
-
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
-            try:
-                num = kroupa.m_integrate(mlow, mhigh, numerical=True)[0]
-                anl = kroupa.m_integrate(mlow, mhigh, numerical=False)[0]
-            except ValueError:
-                continue
-            print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
-            np.testing.assert_almost_equal(num, anl)
-
 
 
 def lognormal(m, offset=0.22, width=0.57, scale=0.86):
@@ -436,29 +416,8 @@ class Chabrier2005(MassFunction):
 
 chabrier2005 = Chabrier2005()
 
-def test_chabrier_integral():
-    for mlow in (0.033, 0.5, 1, 1.5, 3):
-        for mhigh in (0.05, 0.5, 1, 1.5, 3.0):
-            try:
-                num = chabrier2005.integrate(mlow, mhigh, numerical=True)[0]
-                anl = chabrier2005.integrate(mlow, mhigh, numerical=False)[0]
-            except ValueError:
-                continue
-            print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
-            np.testing.assert_almost_equal(num, anl)
 
-    #for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-    #    for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
-    #        try:
-    #            num = chabrier2005.m_integrate(mlow, mhigh, numerical=True)[0]
-    #            anl = chabrier2005.m_integrate(mlow, mhigh, numerical=False)[0]
-    #        except ValueError:
-    #            continue
-    #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
-    #        np.testing.assert_almost_equal(num, anl)
-
-
-def schechter(m,A=1,beta=2,m0=100, integral=False):
+def schechter(m, A=1, beta=2, m0=100, integral=False):
     """
     A Schechter function with arbitrary defaults
     (integral may not be correct - exponent hasn't been dealt with at all)
@@ -540,7 +499,6 @@ except ImportError:
 
 
 
-
 #def schechter_inv(m):
 #    """
 #    Return p(m)
@@ -568,10 +526,11 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2,2,500)):
     return integral.cumsum() / integral.sum()
 
 massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier,
-                 'schechter':schechter,'modified_schechter':modified_schechter}
+                 'schechter':schechter, 'modified_schechter':modified_schechter}
 reverse_mf_dict = {v:k for k,v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
-mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23, 'schecter':0.01,'modified_schechter':0.01}
+mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23,
+                  'schecter':0.01, 'modified_schechter':0.01}
 expectedmass_cache = {}
 
 def get_massfunc(massfunc):
