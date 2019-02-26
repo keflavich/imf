@@ -674,7 +674,8 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
         # at least 1 sample, but potentially many more
         nsamp = np.ceil((mcluster+tolerance-mtot) / expected_mass)
         assert nsamp > 0
-        newmasses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
+        newmasses = inverse_imf(np.random.random(int(nsamp)),
+                                massfunc=massfunc, mmax=mmax, **kwargs)
         masses = np.concatenate([masses,newmasses])
         mtot = masses.sum()
         if verbose:
