@@ -59,4 +59,3 @@ def test_chabrier_integral():
     #            continue
     #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
     #        np.testing.assert_almost_equal(num, anl)
-
