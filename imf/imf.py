@@ -9,15 +9,15 @@ from scipy.special import erf
 import warnings
 from astropy.extern.six import iteritems
 import scipy.integrate as integrate
-from scipy.integrate import quad 
+from scipy.integrate import quad
 
 class MassFunction(object):
     """
     Generic Mass Function class
-    
+
     (this is mostly meant to be subclassed by other functions, not used itself)
     """
-    
+
     def dndm(self, m, **kwargs):
         """
         The differential form of the mass function, d N(M) / dM
@@ -878,111 +878,114 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
 
 
 class KoenConvolvedPowerLaw(MassFunction):
-         """
-        Implementaton of convolved errror power-law described in 2009 Koen,Kondlo paper, Fitting power-law distributions to data with measurement errors
-        Equations  (3) and (5)
-         Parameters
-         ----------
-         m : float 
-             The mass at which to evaluate the function  
-         mmin,mmax : floats
-             The upper and lower bounds for the power law distribution
-         gamma : floats
-             The specified gamma for the distribution, slope = -gamma - 1
-         sigma : float or None
-             specified spread of error, assumes Normal distribution with mean 0 and variance sigma. 
-         """
+    """
+    Implementaton of convolved errror power-law described in 2009 Koen,Kondlo paper, Fitting power-law distributions to data with measurement errors
+    Equations  (3) and (5)
+
+    Parameters
+    ----------
+    m : float
+        The mass at which to evaluate the function
+    mmin,mmax : floats
+        The upper and lower bounds for the power law distribution
+    gamma : floats
+        The specified gamma for the distribution, slope = -gamma - 1
+    sigma : float or None
+        specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
+    """
 
 
-    def __init__(self,mmin,mmax,gamma,sigma):  
+    def __init__(self,mmin,mmax,gamma,sigma):
         self.mmin = mmin
         self.mmax = mmax
         self.sigma = sigma
         self.gamma = gamma
-        
-    def __call__(self,m, integral_form=False): 
+
+    def __call__(self,m, integral_form=False):
         if integral_form:
-                #       Returns
-                #       -------
-                #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma 
+            #       Returns
+            #       -------
+            #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
             if self.mmax<self.mmin:
                 raise ValueError("Mmax must be greater than Mmin")
             def error(t):
                     return np.exp(-(t**2)/2)
-    
-            error_coeffecient = (1/np.sqrt((2*np.pi))) 
+
+            error_coeffecient = (1/np.sqrt((2*np.pi)))
             error_integral = quad(error, -np.inf,(m-self.mmax)/self.sigma)[0]
             phi = error_coeffecient * error_integral
-                            
+
             def integrand(x,m):
                 return (self.mmin**-self.gamma - x**-self.gamma) * np.exp((-1/2)*((m-x)/self.sigma)**2)
-    
+
             coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
             eval_integral = quad(integrand,self.mmin,self.mmax,args=(m))[0]
-                                
-            return phi + coef  * eval_integral
+
+            return phi + coef * eval_integral
 
         else:
-#       Returns
-#       ------
-#       Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
+            # Returns
+            # ------
+            # Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
             def integrand(x,m):
                 return (x**-(self.gamma+1)) * np.exp(-.5*((m-x)/self.sigma)**2)
 
             pdf_coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
             pdf_integral = quad(integrand, self.mmin, self.mmax,args=(m))[0]
 
-            return  pdf_coef * pdf_integral
+            return pdf_coef * pdf_integral
 
 class KoenTruePowerLaw(MassFunction):
-        """
-        Implementaton of error free power-law described in 2009 Koen Kondlo paper, Fitting power-law distributions to data with measurement errors
-         Equations (2) and (4)
-         Parameters
-         ----------
-         m : float 
-             The mass at which to evaluate the function  
-         mmin,mmax : floats
-             The upper and lower bounds for the power law distribution
-         gamma : floats
-             The specified gamma for the distribution, related to the slope, alpha = -gamma + 1 
-         """
+    """
+    Implementaton of error free power-law described in 2009 Koen Kondlo paper,
+    Fitting power-law distributions to data with measurement errors
 
-    def __init__(self,mmin,mmax,gamma):  
+    This is a power law with truncations on the low and high end.
+
+    Equations (2) and (4)
+
+    Parameters
+    ----------
+    m : float
+        The mass at which to evaluate the function
+    mmin,mmax : floats
+        The upper and lower bounds for the power law distribution
+    gamma : floats
+        The specified gamma for the distribution, related to the slope, alpha = -gamma + 1
+    """
+
+    def __init__(self,mmin,mmax,gamma):
         self.mmin = mmin
         self.mmax = mmax
         self.gamma = gamma
-        
-    
-            
-        
-    def __call__(self,m, integral_form=False): 
+
+    def __call__(self,m, integral_form=False):
         if integral_form:
-#       Returns
-#       -------
-#       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma 
-#       True for L<=x 
+            # Returns
+            # -------
+            # Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
+            # True for L<=x
             if self.mmax<self.mmin:
                 return ValueError("mmax must be greater than mmin")
 
-            if  m>self.mmax:
+            if m>self.mmax:
                 return 1.0
             elif m<self.mmin:
                 return 0
             else:
                 F = (self.mmin**-self.gamma - m**-self.gamma)/(self.mmin**-self.gamma - self.mmax**-self.gamma)
                 return F
-    
-                
+
+
         else:
-#       Returns
-#       ------
-#       Probability of getting x given the PDF with specified mmin,mmax, and gamma
-#       Answers it gives are true from mmin<=x<=mmax
+            # Returns
+            # ------
+            # Probability of getting x given the PDF with specified mmin,mmax, and gamma
+            # Answers it gives are true from mmin<=x<=mmax
             if self.mmax<self.mmin:
                 raise ValueError('mmax must be greater than mmin')
             if m < self.mmin or m > self.mmax:
                 return 0
             else:
-                pdf = self.gamma* (m**-(self.gamma+1))  /   ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))
-                return  pdf
+                pdf = self.gamma* (m**-(self.gamma+1)) / ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))
+                return pdf
