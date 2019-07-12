@@ -876,22 +876,22 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
     # pl.scatter(cluster, yax, c=colors, s=np.log10(cluster)*5)
 
 
-# Tiffany's Addition
+
 class KoenConvolvedPowerLaw(MassFunction):
-#         """
-#         Implementaton of convolved errror power-law described in 2009 Koen,Kondlo paper, Fitting power-law distributions to data with measurement errors
-#        Equations  (3) and (5)
-#         Parameters
-#         ----------
-#         m : float 
-#             The mass at which to evaluate the function  
-#         mmin,mmax : floats
-#             The upper and lower bounds for the power law distribution
-#         gamma : floats
-#             The specified gamma for the distribution, slope = -gamma - 1
-#         sigma : float or None
-#             specified spread of error, assumes Normal distribution with mean 0 and variance sigma. 
-#         """
+         """
+        Implementaton of convolved errror power-law described in 2009 Koen,Kondlo paper, Fitting power-law distributions to data with measurement errors
+        Equations  (3) and (5)
+         Parameters
+         ----------
+         m : float 
+             The mass at which to evaluate the function  
+         mmin,mmax : floats
+             The upper and lower bounds for the power law distribution
+         gamma : floats
+             The specified gamma for the distribution, slope = -gamma - 1
+         sigma : float or None
+             specified spread of error, assumes Normal distribution with mean 0 and variance sigma. 
+         """
 
 
     def __init__(self,mmin,mmax,gamma,sigma):  
@@ -935,20 +935,18 @@ class KoenConvolvedPowerLaw(MassFunction):
             return  pdf_coef * pdf_integral
 
 class KoenTruePowerLaw(MassFunction):
-#         """
-#         Implementaton of error free power-law described in 2009 Koen Kondlo paper, Fitting power-law distributions to data with measurement errors
-#         Equations (2) and (4)
-#         Parameters
-#         ----------
-#         m : float 
-#             The mass at which to evaluate the function  
-#         mmin,mmax : floats
-#             The upper and lower bounds for the power law distribution
-#         gamma : floats
-#             The specified gamma for the distribution, slope = -gamma - 1
-#         sigma : float or None
-#             specified spread of error, assumes Normal distribution with mean 0 and variance sigma. 
-#         """
+        """
+        Implementaton of error free power-law described in 2009 Koen Kondlo paper, Fitting power-law distributions to data with measurement errors
+         Equations (2) and (4)
+         Parameters
+         ----------
+         m : float 
+             The mass at which to evaluate the function  
+         mmin,mmax : floats
+             The upper and lower bounds for the power law distribution
+         gamma : floats
+             The specified gamma for the distribution, related to the slope, alpha = -gamma + 1 
+         """
 
     def __init__(self,mmin,mmax,gamma):  
         self.mmin = mmin
