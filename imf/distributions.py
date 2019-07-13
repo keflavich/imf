@@ -47,7 +47,7 @@ class TruncatedLogNormal:
         return self.d.pdf(x) * (x >= self.m1) * (x <= self.m2) / self.norm
 
     def cdf(self, x):
-        return (self.d.cdf(x) - self.d.cdf(self.m1)) / self.norm
+        return (self.d.cdf(np.clip(x,self.m1,self.m2)) - self.d.cdf(self.m1)) / self.norm
 
     def rvs(self, N):
         x = np.random.uniform(self.d.cdf(self.m1),self.d.cdf(self.m2),size=N)
@@ -109,23 +109,28 @@ class BrokenPowerLaw:
 
     def pdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1) * 0.
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = self.weights[ii] * self.pows[ii].pdf(x1[xind])
-        return ret
+        return ret.reshape(x1.shape)
 
     def cdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1) * 0.
         cums = np.r_[[0], np.cumsum(self.weights)]
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.pows[ii].cdf(
                     x1[xind])
-        return ret
+        xind = x1>self.breaks[-1]
+        if xind.sum()>0:
+            ret[xind]=1
+            
+        return ret.reshape(x1.shape)
+    
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)
         ret=[]
@@ -173,23 +178,26 @@ class CompositeDistribution(Distribution):
 
     def pdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1 * 0.)
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = self.weights[ii] * self.distrs[ii].pdf(x1[xind])
-        return ret
+        return ret.reshape(x1.shape)
 
     def cdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1 * 0.)
         cums = np.r_[[0], np.cumsum(self.weights)]
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.distrs[ii].cdf(
                     x1[xind])
-        return ret
+        xind = x1>self.breaks[-1]
+        if xind.sum():
+            ret[xind]=1
+        return ret.reshape(x1.shape)
 
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)
