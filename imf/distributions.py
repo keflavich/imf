@@ -24,7 +24,7 @@ class LogNormal(Distribution):
         ~ 1/x exp( -1/2 *(log(x/mu))^2/sig^2) """
         self.m1 = 0
         self.m2 = np.inf
-        self.d = scipy.stats.lognorm(s=s, scale=mu)
+        self.d = scipy.stats.lognorm(s=sig, scale=mu)
 
     def pdf(self, x):
         return self.d.pdf(x)
@@ -57,8 +57,8 @@ class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
         """ Power law with slope slope in the interval m1,m2 """
         self.slope = slope
-        self.m1 = m1
-        self.m2 = m2
+        self.m1 = float(m1)
+        self.m2 = float(m2)
         assert(m1 < m2)
         assert(m1 > 0)
         assert(m1 != -1)
@@ -93,10 +93,10 @@ class BrokenPowerLaw:
         nsegm = len(slopes)
         pows = []
         for ii in range(nsegm):
-            pows.append(PowerL(slopes[ii], breaks[ii], breaks[ii + 1]))
+            pows.append(PowerLaw(slopes[ii], breaks[ii], breaks[ii + 1]))
         weights = [1]
         for ii in range(1, nsegm):
-            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[i])
+            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[ii])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.slopes = slopes
