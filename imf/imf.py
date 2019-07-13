@@ -10,6 +10,7 @@ import warnings
 from astropy.extern.six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
+from . import distributions
 
 class MassFunction(object):
     """
@@ -37,7 +38,7 @@ class MassFunction(object):
         """
         Integrate the mass function over some range
         """
-        return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+        return scipy.integrate.quad(self, mlow, mhigh)
 
     def m_integrate(self, mlow, mhigh, **kwargs):
         """
@@ -79,16 +80,14 @@ class Salpeter(MassFunction):
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
-        self.alpha = alpha
-        self.mmin = mmin
-        self.mmax = mmax
+        self.distr = distributions.PowerLaw(-alpha, mmin, mmax)
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
-        if integral_form:
-            return m**(-(self.alpha - 1)) * self.normfactor
+        if not integral_form:
+            return self.distr.pdf(m) *self.normfactor
         else:
-            return m**(-self.alpha) * self.normfactor
+            return self.distr.cdf(m) *self.normfactor
 
 
 # three codes for dn/dlog(m)
@@ -308,113 +307,28 @@ class Kroupa(MassFunction):
 kroupa = Kroupa()
 
 
-
-def lognormal(m, offset=0.22, width=0.57, scale=0.86):
-    """
-    A lognormal IMF.  The default parameters correspond to the Chabrier IMF
-    """
-    return scale * np.exp(-1*(np.log10(m)-np.log10(offset))**2/(2*width**2))
-
-def chabrier(m, integral_form=False):
-    """
-    Chabrier 2003 IMF
-    http://adsabs.harvard.edu/abs/2003PASP..115..763C
-    (only valid for m < 1 msun)
-
-    not sure which of these to use...
-
-    integral is NOT IMPLEMENTED
-    """
-    if integral_form:
-        # ...same as kroupa?  This might not be right...
-        warnings.warn("I don't know if this integral is correct.  It's implemented very naively.")
-        raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
-        return lognormal(m)
-        #http://stats.stackexchange.com/questions/9501/is-it-possible-to-analytically-integrate-x-multiplied-by-the-lognormal-probabi
-        #alpha =
-
-    # This system MF can be parameterized by the same type of lognormal form as
-    # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
-    # coefficients (Chabrier 2003)
-    return lognormal(m)
-    #return 0.86 * np.exp(-1*(np.log10(m)-np.log10(0.22))**2/(2*0.57**2))
-    # This analytic form for the disk MF for single objects below 1 Msun, within these uncertainties, is given by the following lognormal form (Chabrier 2003):
-    #return 0.158 * np.exp(-1*(np.log10(m)-np.log10(0.08))**2/(2*0.69**2))
-
 class Chabrier(MassFunction):
-    def __call__(self, mass, integral_form=False):
-        return chabrier(mass, integral_form=integral_form)
-
+    def __init__(self):
+        self.distr = distributions.LogNormal(0.22, 0.57*np.log(10))
+        self.multiplier = 0.86
+    def __call__(self, mass, integral_form=False, **kw):
+        if integral_form:
+            return self.distr.cdf(mass)*self.multiplier
+        else:
+            return self.distr.pdf(mass)*self.multiplier
+chabrier = Chabrier()
+        
 class Chabrier2005(MassFunction):
-    """
-    Chabrier 2005 IMF as expressed by McKee & Offner 2010
-
-    The logarithmic integral is normalized
-
-    >>> scipy.integrate.quad(lambda x: imf.imf.Chabrier2005()(x) / x, 0.033, 3.0)
-        (1.0034751070852832, 1.237415792054719e-08)
-    """
-    def __init__(self, mmin=0.033, mmid=1.0, mmax=3.0, psi1=0.35, psi2=0.16,
-                 width=0.55, center=0.2, salpeterslope=2.35):
-        """
-        """
-        self.mmin = mmin
-        self.mmid = mmid
-        self.mmax = mmax
-        # psi1 and psi2 are technically derived as normalizations...
-        self.psi1 = psi1
-        self.psi2 = psi2
-        self.width = width
-        self.center = center
-        self.salpeterslope = salpeterslope
-
-        self.normfactor = 1
-
-    def __call__(self, mass, integral_form=False, log_integral_form=False):
-        mass = np.asarray(mass)
-        lower = np.array(mass < self.mmid).astype('bool')
-        if log_integral_form:
-            # integral of a lognormal is an error function
-            argument = ((-np.log(mass) + np.log(self.center) + (self.width * np.log(10))**2) /
-                        (2**0.5 * self.width * np.log(10)))
-            result = -self.psi1 * np.sqrt(np.pi/2) * self.center * (self.width * np.log(10)) * np.exp((self.width*np.log(10))**2/2) * erf(argument) * lower
-            result += self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower)
-        elif integral_form:
-            argument = ((-np.log(mass) + np.log(self.center)) / (2**0.5 * self.width * np.log(10)))
-            result = (-self.psi1 * np.sqrt(np.pi/2) * (self.width * np.log(10)) * erf(argument) * lower +
-                      self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower))
+    def __init__(self):
+        self.distr = distributions.CompositeDistribution(
+            [distributions.TruncatedLogNormal(0.2, 0.55*np.log(10),
+                                                   0.033,1),
+             distributions.PowerLaw(-2.35,1, np.inf)])
+    def __call__(self,x, integral_form=False,**kw):
+        if integral_form:
+            return self.distr.cdf(x)
         else:
-            result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) / mass * lower
-            result += self.psi2 * mass**-self.salpeterslope * (~lower)
-
-        return result * self.normfactor
-
-    def integrate(self, mlow, mhigh, numerical=False, break1=None, break2=None,
-                  **kwargs):
-        """
-        Integrate the mass function over some range
-        """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
-
-        if numerical:
-            return super(Chabrier2005, self).integrate(mlow, mhigh, **kwargs)
-        else:
-            mmid = self.mmid
-
-            try:
-                eps = np.finfo(mlow).eps
-            except ValueError:
-                eps = np.finfo(np.float).eps
-
-
-            if mhigh < mmid or mlow >= mmid:
-                result = self(mhigh, integral_form=True) - self(mlow, integral_form=True)
-            else:
-                result = (self(mhigh, integral_form=True) - self(mmid+eps, integral_form=True) +
-                          self(mmid-eps, integral_form=True) - self(mlow, integral_form=True)
-                         )
-            return result,0
+            return self.distr.pdf(x)
 
 chabrier2005 = Chabrier2005()
 
