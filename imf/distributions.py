@@ -126,7 +126,7 @@ class BrokenPowerLaw:
                 ret[xind] = cums[ii] + self.weights[ii] * self.pows[ii].cdf(
                     x1[xind])
         xind = x1>self.breaks[-1]
-        if xind.sum():
+        if xind.sum()>0:
             ret[xind]=1
             
         return ret.reshape(x1.shape)
