@@ -19,8 +19,8 @@ class Distribution:
 
 class LogNormal(Distribution):
     def __init__(self, mu, sig):
-        """ 
-        Define the Lognormal with distribution 
+        """
+        Define the Lognormal with distribution
         ~ 1/x exp( -1/2 *(log(x/mu))^2/sig^2) """
         self.m1 = 0
         self.m2 = np.inf
@@ -52,7 +52,7 @@ class TruncatedLogNormal:
     def rvs(self, N):
         x = np.random.uniform(self.d.cdf(self.m1),self.d.cdf(self.m2),size=N)
         return self.d.ppf(x)
-        
+
 class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
         """ Power law with slope slope in the interval m1,m2 """
@@ -79,8 +79,8 @@ class PowerLaw(Distribution):
 class BrokenPowerLaw:
     def __init__(self, slopes, breaks):
         """
-        Broken power-law with different slopes. 
-        
+        Broken power-law with different slopes.
+
         Arguments:
         slopes: array
             Array of power-law slopes
@@ -92,11 +92,11 @@ class BrokenPowerLaw:
         assert ((np.diff(breaks)>0).all())
         nsegm = len(slopes)
         pows = []
-        for i in range(nsegm):
-            pows.append(PowerL(slopes[i], breaks[i], breaks[i + 1]))
+        for ii in range(nsegm):
+            pows.append(PowerL(slopes[ii], breaks[ii], breaks[ii + 1]))
         weights = [1]
-        for i in range(1, nsegm):
-            rat = pows[i].pdf(breaks[i]) / pows[i - 1].pdf(breaks[i])
+        for ii in range(1, nsegm):
+            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[i])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.slopes = slopes
@@ -110,29 +110,29 @@ class BrokenPowerLaw:
     def pdf(self, x):
         x1 = np.asarray(x)
         ret = x1 * 0.
-        for i in range(self.nsegm):
-            xind = (x1 < self.breaks[i + 1]) & (x1 > self.breaks[i])
+        for ii in range(self.nsegm):
+            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
             if xind.sum() > 0:
-                ret[xind] = self.weights[i] * self.pows[i].pdf(x1[xind])
+                ret[xind] = self.weights[ii] * self.pows[ii].pdf(x1[xind])
         return ret
 
     def cdf(self, x):
         x1 = np.asarray(x)
         ret = x1 * 0.
         cums = np.r_[[0], np.cumsum(self.weights)]
-        for i in range(self.nsegm):
-            xind = (x1 < self.breaks[i + 1]) & (x1 > self.breaks[i])
+        for ii in range(self.nsegm):
+            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
             if xind.sum() > 0:
-                ret[xind] = cums[i] + self.weights[i] * self.pows[i].cdf(
+                ret[xind] = cums[ii] + self.weights[ii] * self.pows[ii].cdf(
                     x1[xind])
         return ret
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)
         ret=[]
-        for i in range(self.nsegm):
-            if Ns[i]>0:
-                ret.append(self.pows[i].rvs(Ns[i]))
-        return np.concatenate(ret)    
+        for ii in range(self.nsegm):
+            if Ns[ii]>0:
+                ret.append(self.pows[ii].rvs(Ns[ii]))
+        return np.concatenate(ret)
 
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
@@ -144,27 +144,27 @@ class CompositeDistribution(Distribution):
         distrs: list of Distributions
             The list of distributions. Their supports must not overlap
             and not have any gaps.
-        
+
         Example:
         --------
         dd=distributions.CompositeDistribution([
           distributions.TruncatedLogNormal(0.3,0.3,0.08,1),
-          distributions.PowerLaw(-2.55,1,np.inf)])   
+          distributions.PowerLaw(-2.55,1,np.inf)])
         dd.pdf(3)
-            
+
         """
         nsegm = len(distrs)
         self.distrs = distrs
         weights = [1]
         breaks = [_.m1 for _ in self.distrs] + [self.distrs[-1].m2]
-        
+
         self.m1 = breaks[0]
         self.m2 = breaks[-1]
-        for i in range(1,nsegm):
-            assert(distrs[i].m1==distrs[i-1].m2)
-            
-        for i in range(1, nsegm):
-            rat = distrs[i].pdf(breaks[i]) / distrs[i - 1].pdf(breaks[i])
+        for ii in range(1,nsegm):
+            assert(distrs[ii].m1==distrs[ii-1].m2)
+
+        for ii in range(1, nsegm):
+            rat = distrs[ii].pdf(breaks[ii]) / distrs[ii - 1].pdf(breaks[ii])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.breaks = breaks
@@ -174,27 +174,27 @@ class CompositeDistribution(Distribution):
     def pdf(self, x):
         x1 = np.asarray(x)
         ret = x1 * 0.
-        for i in range(self.nsegm):
-            xind = (x1 < self.breaks[i + 1]) & (x1 > self.breaks[i])
+        for ii in range(self.nsegm):
+            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
             if xind.sum() > 0:
-                ret[xind] = self.weights[i] * self.distrs[i].pdf(x1[xind])
+                ret[xind] = self.weights[ii] * self.distrs[ii].pdf(x1[xind])
         return ret
 
     def cdf(self, x):
         x1 = np.asarray(x)
         ret = x1 * 0.
         cums = np.r_[[0], np.cumsum(self.weights)]
-        for i in range(self.nsegm):
-            xind = (x1 < self.breaks[i + 1]) & (x1 > self.breaks[i])
+        for ii in range(self.nsegm):
+            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
             if xind.sum() > 0:
-                ret[xind] = cums[i] + self.weights[i] * self.distrs[i].cdf(
+                ret[xind] = cums[ii] + self.weights[ii] * self.distrs[ii].cdf(
                     x1[xind])
         return ret
 
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)
         ret=[]
-        for i in range(self.nsegm):
-            if Ns[i]>0:
-                ret.append(self.distrs[i].rvs(Ns[i]))
-        return np.concatenate(ret)    
+        for ii in range(self.nsegm):
+            if Ns[ii]>0:
+                ret.append(self.distrs[ii].rvs(Ns[ii]))
+        return np.concatenate(ret)
