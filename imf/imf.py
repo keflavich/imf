@@ -112,7 +112,7 @@ class Kroupa(MassFunction):
         self.distr = distributions.BrokenPowerLaw([-p1,-p2,-p3],[mmin,break1,break2,mmax])
         self.normfactor = 1
 
-        
+
     def __call__(self, m, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
@@ -179,7 +179,7 @@ class Chabrier(MassFunction):
         else:
             return self.distr.pdf(mass)*self.multiplier
 chabrier = Chabrier()
-        
+
 class Chabrier2005(MassFunction):
     def __init__(self):
         self.distr = distributions.CompositeDistribution(
