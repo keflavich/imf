@@ -10,6 +10,7 @@ import warnings
 from astropy.extern.six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
+from . import distributions
 
 class MassFunction(object):
     """
@@ -37,7 +38,7 @@ class MassFunction(object):
         """
         Integrate the mass function over some range
         """
-        return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+        return scipy.integrate.quad(self, mlow, mhigh)
 
     def m_integrate(self, mlow, mhigh, **kwargs):
         """
@@ -79,48 +80,20 @@ class Salpeter(MassFunction):
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
-        self.alpha = alpha
-        self.mmin = mmin
-        self.mmax = mmax
+        self.distr = distributions.PowerLaw(-alpha, mmin, mmax)
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
-        if integral_form:
-            return m**(-(self.alpha - 1)) * self.normfactor
+        if not integral_form:
+            return self.distr.pdf(m) *self.normfactor
         else:
-            return m**(-self.alpha) * self.normfactor
+            return self.distr.cdf(m) *self.normfactor
 
 
 # three codes for dn/dlog(m)
 salpeter = Salpeter()
-
-class BrokenPowerLaw(MassFunction):
-    def __init__(self, breaks, mmin, mmax):
-        self.breaks = breaks
-        self.normfactor = 1./self.integrate(mmin, mmax)[0]
-        self.mmin = mmin
-        self.mmax = mmax
-
-    def __call__(self, m, integral_form=False):
-        zeta = 0
-        b_low = 0
-        alp_low = 0
-        for ii,b in enumerate(self.breaks):
-            if integral_form:
-                alp = self.breaks[b] - 1
-            else:
-                alp = self.breaks[b]
-            if b == 'last':
-                zeta += m**(-alp) * (b_low**(-alp+alp_low)) * (m>b_low)
-            else:
-                mask = ((m<b)*(m>b_low))
-                zeta += m**(-alp) * (b**(-alp+alp_low)) *mask
-                alp_low = alp
-                b_low = b
-
-        return zeta * self.normfactor
-
 #kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
+
 
 class Kroupa(MassFunction):
     def __init__(self, mmin=0.03, mmax=120, p1=0.3, p2=1.3, p3=2.3,
@@ -129,17 +102,18 @@ class Kroupa(MassFunction):
         The Kroupa IMF with two power-law breaks, p1 and p2. See __call__ for
         details.
         """
-        self.mmin = mmin
-        self.mmax = mmax
-        self.normfactor = 1
-        self.break1 = break1
-        self.break2 = break2
         self.p1 = p1
         self.p2 = p2
         self.p3 = p3
+        self.mmin = mmin
+        self.break1 = break1
+        self.break2 = break2
+        self.mmax = mmax
+        self.distr = distributions.BrokenPowerLaw([-p1,-p2,-p3],[mmin,break1,break2,mmax])
+        self.normfactor = 1
 
-    def __call__(self, m, p1=None, p2=None, p3=None, break1=None, break2=None,
-                 mmin=None, mmax=None, integral_form=False):
+        
+    def __call__(self, m, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
 
@@ -156,84 +130,26 @@ class Kroupa(MassFunction):
             can be overridden
         """
 
-        m = np.array(m)
-
-        mmin = mmin if mmin is not None else self.mmin
-        mmax = mmax if mmax is not None else self.mmax
-        break1 = break1 if break1 is not None else self.break1
-        break2 = break2 if break2 is not None else self.break2
-        p1 = p1 if p1 is not None else self.p1
-        p2 = p2 if p2 is not None else self.p2
-        p3 = p3 if p3 is not None else self.p3
-
-        binv = ((break1**(-(p1-1)) - mmin**(-(p1-1)))/(1-p1) +
-                (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
-                (- break2**(-(p3-1))) * (break1**(p2-p1)) * (break2**(p3-p2))/(1-p3))
-        b = 1./binv
-        c = b * break1**(p2-p1)
-        d = c * break2**(p3-p2)
 
         if integral_form:
-            zeta = (b*(m**(1-p1))/(1-p1) * (m<break1) +
-                    c*(m**(1-p2))/(1-p2) * (m>=break1) * (m<break2) +
-                    d*(m**(1-p3))/(1-p3) * (m>=break2))
+            return self.normfactor * self.distr.cdf(m)
         else:
-            zeta = (b*(m**(-(p1))) * (m<break1) +
-                    c*(m**(-(p2))) * (m>=break1) * (m<break2) +
-                    d*(m**(-(p3))) * (m>=break2))
+            return self.normfactor * self.distr.pdf(m)
 
-        return zeta * self.normfactor
-
-    def integrate(self, mlow, mhigh, numerical=False, break1=None, break2=None,
-                  **kwargs):
+    def integrate(self, mlow, mhigh, numerical=False):
         """
         Integrate the mass function over some range
         """
         if mhigh <= mlow:
             raise ValueError("Must have mlow < mhigh in integral")
-
         if numerical:
-            return super(Kroupa, self).integrate(mlow, mhigh, **kwargs)
-        else:
-            # assuming the integral form is correctly computed, we can simply
-            # evaluate it, though we must consider all breakpoints
-            break1 = break1 if break1 is not None else self.break1
-            break2 = break2 if break2 is not None else self.break2
+            return super(Kroupa, self).integrate(mlow, mhigh)
 
-            try:
-                eps = np.finfo(mlow).eps
-            except ValueError:
-                eps = np.finfo(np.float).eps
-
-            if mhigh <= break1 or mlow >= break2 or (mlow >= break1 and mhigh <= break2):
-                result = self(mhigh-eps, integral_form=True) - self(mlow+eps, integral_form=True)
-            elif mhigh < break2 and mlow < break1:
-                # strictly < means no need for eps for low/high
-                result = ((self(break1-eps, integral_form=True) - self(mlow, integral_form=True)) +
-                          (self(mhigh, integral_form=True) - self(break1+eps, integral_form=True)))
-            elif mlow > break1 and mhigh > break2:
-                # strictly < means no need for eps for low/high
-                result = ((self(break2-eps, integral_form=True) - self(mlow, integral_form=True)) +
-                          (self(mhigh, integral_form=True) - self(break2+eps, integral_form=True)))
-            elif mlow < break1 and mhigh > break2:
-                result = (
-                         (self(mhigh, integral_form=True) - self(break2+eps, integral_form=True)) +
-                         (self(break2-eps, integral_form=True) - self(break1+eps, integral_form=True)) +
-                         (self(break1-eps, integral_form=True) - self(mlow, integral_form=True)))
-            elif mlow == break1:
-                result = (
-                         (self(mhigh, integral_form=True) - self(break2+eps, integral_form=True)) +
-                         (self(break2-eps, integral_form=True) - self(break1+eps, integral_form=True)))
-            elif mhigh == break2:
-                result = (
-                         (self(break2-eps, integral_form=True) - self(break1+eps, integral_form=True)) +
-                         (self(break1-eps, integral_form=True) - self(mlow, integral_form=True)))
-            return (result * self.normfactor, 0)
+        return (self.distr.cdf(mhigh)- self.distr.cdf(mlow)) * self.normfactor,0
 
 
-    def m_integrate(self, mlow, mhigh, numerical=False, break1=None,
-                    break2=None, p1=None, p2=None, p3=None, mmin=None,
-                    **kwargs):
+    def m_integrate(self, mlow, mhigh, numerical=False,
+                        **kwargs):
         """
         Integrate the mass function over some range
         """
@@ -243,64 +159,9 @@ class Kroupa(MassFunction):
         if numerical:
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
         else:
-            # assuming the integral form is correctly computed, we can simply
-            # evaluate it, though we must consider all breakpoints
-            break1 = break1 if break1 is not None else self.break1
-            break2 = break2 if break2 is not None else self.break2
-            p1 = p1 if p1 is not None else self.p1
-            p2 = p2 if p2 is not None else self.p2
-            p3 = p3 if p3 is not None else self.p3
-            mmin = mmin if mmin is not None else self.mmin
-
-            try:
-                eps = np.finfo(mlow).eps
-            except ValueError:
-                eps = np.finfo(np.float).eps
-
-
-            binv = ((break1**(-(p1-1)) - mmin**(-(p1-1)))/(1-p1) +
-                    (break2**(-(p2-1)) - break1**(-(p2-1))) * (break1**(p2-p1))/(1-p2) +
-                    (- break2**(-(p3-1))) * (break1**(p2-p1)) * (break2**(p3-p2))/(1-p3))
-            b = 1./binv
-            c = b * break1**(p2-p1)
-            d = c * break2**(p3-p2)
-
-            def int_zeta_m(m):
-                return (b*(m**(2-p1))/(2-p1) * (m<break1) +
-                        c*(m**(2-p2))/(2-p2) * (m>=break1) * (m<break2) +
-                        d*(m**(2-p3))/(2-p3) * (m>=break2))
-
-            if mlow < break1:
-                if mhigh < break1:
-                    result = int_zeta_m(mhigh) - int_zeta_m(mlow)
-                else:
-                    result = int_zeta_m(break1-eps) - int_zeta_m(mlow)
-                    if mhigh > break1:
-                        if mhigh >= break2:
-                            result += int_zeta_m(break2-eps) - int_zeta_m(break1+eps)
-                            result += int_zeta_m(mhigh) - int_zeta_m(break2+eps)
-                        else:
-                            result += int_zeta_m(mhigh) - int_zeta_m(break1+eps)
-            elif mlow > break2:
-                result = int_zeta_m(mhigh) - int_zeta_m(mlow)
-            elif mlow == break1:
-                if mhigh < break2:
-                    result = int_zeta_m(mhigh) - int_zeta_m(break1+eps)
-                else:
-                    result = (int_zeta_m(break2-eps) - int_zeta_m(mlow+eps) +
-                              int_zeta_m(mhigh) - int_zeta_m(break2+eps))
-            elif mlow == break2:
-                result = int_zeta_m(mhigh) - int_zeta_m(break2+eps)
-            elif mlow > break1 and mlow < break2:
-                if mhigh < break2:
-                    result = int_zeta_m(mhigh) - int_zeta_m(mlow)
-                else:
-                    result = (int_zeta_m(mhigh) - int_zeta_m(break2+eps) +
-                              int_zeta_m(break2-eps) - int_zeta_m(mlow+eps))
-            else:
-                raise ValueError("This should be unreachable")
-
-            return result*self.normfactor,0
+            distr1 = distributions.BrokenPowerLaw([-self.p1+1,-self.p2+1,-self.p3+1],[self.mmin,self.break1,self.break2,self.mmax])
+            ratio = distr1.pdf(self.break1)/self.distr.pdf(self.break1)/self.break1
+            return ((distr1.cdf(mhigh)-distr1.cdf(mlow))/ratio,0)
 
 
 
@@ -308,113 +169,28 @@ class Kroupa(MassFunction):
 kroupa = Kroupa()
 
 
-
-def lognormal(m, offset=0.22, width=0.57, scale=0.86):
-    """
-    A lognormal IMF.  The default parameters correspond to the Chabrier IMF
-    """
-    return scale * np.exp(-1*(np.log10(m)-np.log10(offset))**2/(2*width**2))
-
-def chabrier(m, integral_form=False):
-    """
-    Chabrier 2003 IMF
-    http://adsabs.harvard.edu/abs/2003PASP..115..763C
-    (only valid for m < 1 msun)
-
-    not sure which of these to use...
-
-    integral is NOT IMPLEMENTED
-    """
-    if integral_form:
-        # ...same as kroupa?  This might not be right...
-        warnings.warn("I don't know if this integral is correct.  It's implemented very naively.")
-        raise NotImplementedError("Chabrier integral NOT IMPLEMENTED")
-        return lognormal(m)
-        #http://stats.stackexchange.com/questions/9501/is-it-possible-to-analytically-integrate-x-multiplied-by-the-lognormal-probabi
-        #alpha =
-
-    # This system MF can be parameterized by the same type of lognormal form as
-    # the single MF (eq. [17]), with the same normalization at 1 Msun, with the
-    # coefficients (Chabrier 2003)
-    return lognormal(m)
-    #return 0.86 * np.exp(-1*(np.log10(m)-np.log10(0.22))**2/(2*0.57**2))
-    # This analytic form for the disk MF for single objects below 1 Msun, within these uncertainties, is given by the following lognormal form (Chabrier 2003):
-    #return 0.158 * np.exp(-1*(np.log10(m)-np.log10(0.08))**2/(2*0.69**2))
-
 class Chabrier(MassFunction):
-    def __call__(self, mass, integral_form=False):
-        return chabrier(mass, integral_form=integral_form)
-
+    def __init__(self):
+        self.distr = distributions.LogNormal(0.22, 0.57*np.log(10))
+        self.multiplier = 0.86
+    def __call__(self, mass, integral_form=False, **kw):
+        if integral_form:
+            return self.distr.cdf(mass)*self.multiplier
+        else:
+            return self.distr.pdf(mass)*self.multiplier
+chabrier = Chabrier()
+        
 class Chabrier2005(MassFunction):
-    """
-    Chabrier 2005 IMF as expressed by McKee & Offner 2010
-
-    The logarithmic integral is normalized
-
-    >>> scipy.integrate.quad(lambda x: imf.imf.Chabrier2005()(x) / x, 0.033, 3.0)
-        (1.0034751070852832, 1.237415792054719e-08)
-    """
-    def __init__(self, mmin=0.033, mmid=1.0, mmax=3.0, psi1=0.35, psi2=0.16,
-                 width=0.55, center=0.2, salpeterslope=2.35):
-        """
-        """
-        self.mmin = mmin
-        self.mmid = mmid
-        self.mmax = mmax
-        # psi1 and psi2 are technically derived as normalizations...
-        self.psi1 = psi1
-        self.psi2 = psi2
-        self.width = width
-        self.center = center
-        self.salpeterslope = salpeterslope
-
-        self.normfactor = 1
-
-    def __call__(self, mass, integral_form=False, log_integral_form=False):
-        mass = np.asarray(mass)
-        lower = np.array(mass < self.mmid).astype('bool')
-        if log_integral_form:
-            # integral of a lognormal is an error function
-            argument = ((-np.log(mass) + np.log(self.center) + (self.width * np.log(10))**2) /
-                        (2**0.5 * self.width * np.log(10)))
-            result = -self.psi1 * np.sqrt(np.pi/2) * self.center * (self.width * np.log(10)) * np.exp((self.width*np.log(10))**2/2) * erf(argument) * lower
-            result += self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower)
-        elif integral_form:
-            argument = ((-np.log(mass) + np.log(self.center)) / (2**0.5 * self.width * np.log(10)))
-            result = (-self.psi1 * np.sqrt(np.pi/2) * (self.width * np.log(10)) * erf(argument) * lower +
-                      self.psi2 * mass**(1-self.salpeterslope)/(1-self.salpeterslope) * (~lower))
+    def __init__(self):
+        self.distr = distributions.CompositeDistribution(
+            [distributions.TruncatedLogNormal(0.2, 0.55*np.log(10),
+                                                   0.033,1),
+             distributions.PowerLaw(-2.35,1, np.inf)])
+    def __call__(self,x, integral_form=False,**kw):
+        if integral_form:
+            return self.distr.cdf(x)
         else:
-            result = self.psi1 * np.exp(-(np.log10(mass)-np.log10(self.center))**2/(2*self.width**2)) / mass * lower
-            result += self.psi2 * mass**-self.salpeterslope * (~lower)
-
-        return result * self.normfactor
-
-    def integrate(self, mlow, mhigh, numerical=False, break1=None, break2=None,
-                  **kwargs):
-        """
-        Integrate the mass function over some range
-        """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
-
-        if numerical:
-            return super(Chabrier2005, self).integrate(mlow, mhigh, **kwargs)
-        else:
-            mmid = self.mmid
-
-            try:
-                eps = np.finfo(mlow).eps
-            except ValueError:
-                eps = np.finfo(np.float).eps
-
-
-            if mhigh < mmid or mlow >= mmid:
-                result = self(mhigh, integral_form=True) - self(mlow, integral_form=True)
-            else:
-                result = (self(mhigh, integral_form=True) - self(mmid+eps, integral_form=True) +
-                          self(mmid-eps, integral_form=True) - self(mlow, integral_form=True)
-                         )
-            return result,0
+            return self.distr.pdf(x)
 
 chabrier2005 = Chabrier2005()
 
