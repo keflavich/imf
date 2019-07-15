@@ -59,3 +59,10 @@ def test_chabrier_integral():
     #            continue
     #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
     #        np.testing.assert_almost_equal(num, anl)
+
+
+def test_krouva_val():
+    assert np.allclose(kroupa(1) , 0.09143468328964573,rtol=1e-4,atol=1e-4)
+    assert np.allclose(kroupa(0.05), 5.615132028768199, rtol=1e-3,atol=1e-3)
+    assert np.allclose(kroupa(1.5), 0.03598330658344697, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(3), 0.007306881750306478, rtol=1e-4,atol=1e-4)
