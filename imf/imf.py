@@ -693,7 +693,7 @@ class KoenConvolvedPowerLaw(MassFunction):
                 error_coeffecient = 1/np.sqrt(2*np.pi)
 
                 def error_integral(y):
-                    error_integral = quad(error, -np.inf,(y-self.mmax)/self.sigma)[0]
+                    error_integral = quad(error, -np.inf, (y-self.mmax)/self.sigma)[0]
                     return error_integral
               
                 vector_errorintegral = np.vectorize(error_integral)
