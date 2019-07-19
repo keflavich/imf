@@ -709,7 +709,7 @@ class KoenConvolvedPowerLaw(MassFunction):
                     return integral 
 
                 vector_integral = np.vectorize(eval_integral)
-                probability = phi + coef*vector_integral(m)
+                probability = phi + coef * vector_integral(m)
                 return probability
               
 
@@ -722,11 +722,11 @@ class KoenConvolvedPowerLaw(MassFunction):
 
                 coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
     
-                def Inte(y):
+                def Integral(y):
                     I = quad(integrand, self.mmin, self.mmax,args=(y))[0]   
                     return I
 
-                vector_I = np.vectorize(Inte) 
+                vector_I = np.vectorize(Integral) 
                 return  coef * vector_I(m)
               
 
