@@ -704,7 +704,7 @@ class KoenConvolvedPowerLaw(MassFunction):
         
                 coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
 
-                def  eval_integral(y):
+                def eval_integral(y):
                     integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
                     return integral 
 
