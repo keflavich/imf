@@ -679,18 +679,18 @@ class KoenConvolvedPowerLaw(MassFunction):
 
     def __call__(self,m, integral_form=False):
         m = np.asarray(m)
+        if self.mmax<self.mmin:
+            raise ValueError("mmax must be greater than mmin")
+
         if integral_form:
             #       Returns
             #       -------
             #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
-            
-                if self.mmax<self.mmin:
-                    raise ValueError("U must be greater than L")
     
                 def error(t):
                     return np.exp(-(t**2)/2)
     
-                error_coeffecient = (1/np.sqrt((2*np.pi))) 
+                error_coeffecient = 1/np.sqrt(2*np.pi)
 
                 def error_integral(y):
                     error_integral = quad(error, -np.inf,(y-self.mmax)/self.sigma)[0]
@@ -704,12 +704,12 @@ class KoenConvolvedPowerLaw(MassFunction):
         
                 coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
 
-                def  eval_integral(y):
+                def eval_integral(y):
                     integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
                     return integral 
 
                 vector_integral = np.vectorize(eval_integral)
-                probability = phi + np.multiply(coef,vector_integral(m))
+                probability = phi + coef*vector_integral(m)
                 return probability
               
 
@@ -717,19 +717,16 @@ class KoenConvolvedPowerLaw(MassFunction):
             # Returns
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
-                if self.mmax<self.mmin:
-                    raise ValueError('mmax  must be greater than mmin')
-        
                 def integrand(x,y):
                     return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
 
                 coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
     
-                def I(y):
+                def Inte(y):
                     I = quad(integrand, self.mmin, self.mmax,args=(y))[0]   
                     return I
 
-                vector_I = np.vectorize(I) 
+                vector_I = np.vectorize(Inte) 
                 return  coef * vector_I(m)
               
 
@@ -762,6 +759,8 @@ class KoenTruePowerLaw(MassFunction):
 
     def __call__(self,m, integral_form=False):
         m = np.asarray(m)
+        if self.mmax<self.mmin:
+            raise ValueError('mmax must be greater than mmin')
         if integral_form:
             # Returns
             # -------
@@ -776,11 +775,8 @@ class KoenTruePowerLaw(MassFunction):
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, and gamma
             # Answers it gives are true from mmin<=x<=mmax
-             if self.mmax<self.mmin:
-                 raise ValueError('mmax must be greater than mmin')
-             else:
-                  cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
-                  return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
-             return return_value
+            cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
+            return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
+            return return_value
      
           
