@@ -24,7 +24,7 @@ class LogNormal(Distribution):
         ~ 1/x exp( -1/2 *(log(x/mu))^2/sig^2) """
         self.m1 = 0
         self.m2 = np.inf
-        self.d = scipy.stats.lognorm(s=s, scale=mu)
+        self.d = scipy.stats.lognorm(s=sig, scale=mu)
 
     def pdf(self, x):
         return self.d.pdf(x)
@@ -47,7 +47,7 @@ class TruncatedLogNormal:
         return self.d.pdf(x) * (x >= self.m1) * (x <= self.m2) / self.norm
 
     def cdf(self, x):
-        return (self.d.cdf(x) - self.d.cdf(self.m1)) / self.norm
+        return (self.d.cdf(np.clip(x,self.m1,self.m2)) - self.d.cdf(self.m1)) / self.norm
 
     def rvs(self, N):
         x = np.random.uniform(self.d.cdf(self.m1),self.d.cdf(self.m2),size=N)
@@ -57,8 +57,8 @@ class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
         """ Power law with slope slope in the interval m1,m2 """
         self.slope = slope
-        self.m1 = m1
-        self.m2 = m2
+        self.m1 = float(m1)
+        self.m2 = float(m2)
         assert(m1 < m2)
         assert(m1 > 0)
         assert(m1 != -1)
@@ -93,10 +93,10 @@ class BrokenPowerLaw:
         nsegm = len(slopes)
         pows = []
         for ii in range(nsegm):
-            pows.append(PowerL(slopes[ii], breaks[ii], breaks[ii + 1]))
+            pows.append(PowerLaw(slopes[ii], breaks[ii], breaks[ii + 1]))
         weights = [1]
         for ii in range(1, nsegm):
-            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[i])
+            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[ii])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.slopes = slopes
@@ -109,23 +109,28 @@ class BrokenPowerLaw:
 
     def pdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1) * 0.
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = self.weights[ii] * self.pows[ii].pdf(x1[xind])
-        return ret
+        return ret.reshape(x1.shape)
 
     def cdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1) * 0.
         cums = np.r_[[0], np.cumsum(self.weights)]
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.pows[ii].cdf(
                     x1[xind])
-        return ret
+        xind = x1>self.breaks[-1]
+        if xind.sum()>0:
+            ret[xind]=1
+
+        return ret.reshape(x1.shape)
+
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)
         ret=[]
@@ -173,23 +178,26 @@ class CompositeDistribution(Distribution):
 
     def pdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1 * 0.)
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = self.weights[ii] * self.distrs[ii].pdf(x1[xind])
-        return ret
+        return ret.reshape(x1.shape)
 
     def cdf(self, x):
         x1 = np.asarray(x)
-        ret = x1 * 0.
+        ret = np.atleast_1d(x1 * 0.)
         cums = np.r_[[0], np.cumsum(self.weights)]
         for ii in range(self.nsegm):
-            xind = (x1 < self.breaks[ii + 1]) & (x1 > self.breaks[ii])
+            xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.distrs[ii].cdf(
                     x1[xind])
-        return ret
+        xind = x1>self.breaks[-1]
+        if xind.sum():
+            ret[xind]=1
+        return ret.reshape(x1.shape)
 
     def rvs(self, N):
         Ns = np.random.multinomial(N, self.weights)

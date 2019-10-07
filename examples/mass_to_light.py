@@ -31,6 +31,20 @@ pl.xlabel("Cluster Mass")
 pl.ylabel("Maximum stellar mass")
 pl.savefig("maxmass_vs_clustermass.pdf")
 
+m_to_ls = []
+slopes = np.linspace(1.7, 2.9, 20)
+for slope in slopes:
+    Kroupa = imf.Kroupa(p3=slope)
+    cluster = imf.make_cluster(1e5, Kroupa, mmax=120, silent=True)
+    lum = imf.lum_of_cluster(cluster)
+    m_to_l = 1e5/lum
+    m_to_ls.append(m_to_l)
+
+pl.figure(4).clf()
+pl.plot(slopes, m_to_ls)
+pl.xlabel("Upper-end power-law slope $\\alpha$")
+pl.ylabel("Mass-to-light ratio [M$_\odot$/L$_\odot$]")
+
 #pl.loglog(clusters.keys(), np.array(list(mean_luminosities.values())) / np.array(list(mean_masses.values())), '.', alpha=0.1)
 
 # compute mass-to-light ratio vs age
