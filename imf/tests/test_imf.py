@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import itertools
 
 from .. import imf
 
@@ -18,30 +19,31 @@ def test_mmax(massfunc):
 
     assert c.max() <= 1
 
-def test_kroupa_integral():
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0, 0.03):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0, 120):
-            try:
-                num = kroupa.integrate(mlow, mhigh, numerical=True)[0]
-                anl = kroupa.integrate(mlow, mhigh, numerical=False)[0]
-            except ValueError:
-                continue
-            np.testing.assert_almost_equal(num, anl)
-            if num != 0:
-                assert anl != 0
+@pytest.mark.parametrize(('mlow', 'mhigh'),
+                         itertools.product((0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
+                                           (0.02, 0.08, 0.4, 0.5, 1.0, 120)))
+def test_kroupa_integral(mlow, mhigh):
+    if mlow >= mhigh:
+        pytest.skip("mmin >= mmax")
+    num = kroupa.integrate(mlow, mhigh, numerical=True)[0]
+    anl = kroupa.integrate(mlow, mhigh, numerical=False)[0]
 
-def test_kroupa_mintegral():
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0, 0.03):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0, 120):
-            try:
-                num = kroupa.m_integrate(mlow, mhigh, numerical=True)[0]
-                anl = kroupa.m_integrate(mlow, mhigh, numerical=False)[0]
-            except ValueError:
-                continue
-            print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
-            np.testing.assert_almost_equal(num, anl)
-            if num != 0:
-                assert anl != 0
+    np.testing.assert_almost_equal(num, anl)
+    if num != 0:
+        assert anl != 0
+
+@pytest.mark.parametrize(('mlow', 'mhigh'),
+                         itertools.product((0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
+                                           (0.02, 0.08, 0.4, 0.5, 1.0, 120)))
+def test_kroupa_mintegral(mlow, mhigh):
+    if mlow >= mhigh:
+        pytest.skip("mmin >= mmax")
+    num = kroupa.m_integrate(mlow, mhigh, numerical=True)[0]
+    anl = kroupa.m_integrate(mlow, mhigh, numerical=False)[0]
+    print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
+    np.testing.assert_almost_equal(num, anl)
+    if num != 0:
+        assert anl != 0
 
 
 def test_chabrier_integral():
