@@ -156,16 +156,12 @@ class Kroupa(MassFunction):
         if mhigh <= mlow:
             raise ValueError("Must have mlow < mhigh in integral")
 
-        return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
-        # not generally valid
-        #if numerical:
-        #else:
-        #    distr1 = distributions.BrokenPowerLaw([-self.p1+1, -self.p2+1,
-        #                                           -self.p3+1],
-        #                                          [self.mmin, self.break1,
-        #                                           self.break2, self.mmax])
-        #    ratio = distr1.pdf(self.break1)/self.distr.pdf(self.break1)/self.break1
-        #    return ((distr1.cdf(mhigh)-distr1.cdf(mlow))/ratio,0)
+        if numerical:
+            return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
+        else:
+            distr1 = distributions.BrokenPowerLaw([-self.p1+1,-self.p2+1,-self.p3+1],[self.mmin,self.break1,self.break2,self.mmax])
+            ratio = distr1.pdf(self.break1)/self.distr.pdf(self.break1)/self.break1
+            return ((distr1.cdf(mhigh)-distr1.cdf(mlow))/ratio,0)
 
 
 
@@ -678,38 +674,60 @@ class KoenConvolvedPowerLaw(MassFunction):
         self.gamma = gamma
 
     def __call__(self,m, integral_form=False):
+        m = np.asarray(m)
+        if self.mmax<self.mmin:
+            raise ValueError("mmax must be greater than mmin")
+
         if integral_form:
             #       Returns
             #       -------
             #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
-            if self.mmax<self.mmin:
-                raise ValueError("Mmax must be greater than Mmin")
-            def error(t):
+    
+                def error(t):
                     return np.exp(-(t**2)/2)
+    
+                error_coeffecient = 1/np.sqrt(2*np.pi)
 
-            error_coeffecient = (1/np.sqrt((2*np.pi)))
-            error_integral = quad(error, -np.inf,(m-self.mmax)/self.sigma)[0]
-            phi = error_coeffecient * error_integral
+                def error_integral(y):
+                    error_integral = quad(error, -np.inf, (y-self.mmax)/self.sigma)[0]
+                    return error_integral
+              
+                vector_errorintegral = np.vectorize(error_integral)
+                phi = vector_errorintegral(m) * error_coeffecient
+    
+                def integrand(x,y):
+                    return (self.mmin**-self.gamma - x**-self.gamma) * np.exp((-1/2)*((y-x)/self.sigma)**2)
+        
+                coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
 
-            def integrand(x,m):
-                return (self.mmin**-self.gamma - x**-self.gamma) * np.exp((-1/2)*((m-x)/self.sigma)**2)
+                def eval_integral(y):
+                    integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
+                    return integral 
 
-            coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
-            eval_integral = quad(integrand,self.mmin,self.mmax,args=(m))[0]
-
-            return phi + coef * eval_integral
+                vector_integral = np.vectorize(eval_integral)
+                probability = phi + coef * vector_integral(m)
+                return probability
+              
 
         else:
             # Returns
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
-            def integrand(x,m):
-                return (x**-(self.gamma+1)) * np.exp(-.5*((m-x)/self.sigma)**2)
+                def integrand(x,y):
+                    return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
 
-            pdf_coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
-            pdf_integral = quad(integrand, self.mmin, self.mmax,args=(m))[0]
+                coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
+    
+                def Integral(y):
+                    I = quad(integrand, self.mmin, self.mmax,args=(y))[0]   
+                    return I
 
-            return pdf_coef * pdf_integral
+                vector_I = np.vectorize(Integral) 
+                return  coef * vector_I(m)
+              
+
+            
+            
 
 class KoenTruePowerLaw(MassFunction):
     """
@@ -736,32 +754,25 @@ class KoenTruePowerLaw(MassFunction):
         self.gamma = gamma
 
     def __call__(self,m, integral_form=False):
+        m = np.asarray(m)
+        if self.mmax<self.mmin:
+            raise ValueError('mmax must be greater than mmin')
         if integral_form:
             # Returns
             # -------
             # Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
             # True for L<=x
-            if self.mmax<self.mmin:
-                return ValueError("mmax must be greater than mmin")
-
-            if m>self.mmax:
-                return 1.0
-            elif m<self.mmin:
-                return 0
-            else:
-                F = (self.mmin**-self.gamma - m**-self.gamma)/(self.mmin**-self.gamma - self.mmax**-self.gamma)
-                return F
-
+            pdf  = (self.mmin**-self.gamma - np.power(m,-self.gamma))/self.mmin**-self.gamma - self.mmax**-self.gamma
+            return_value = pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 * (m >= self.mmax) + 0 * (m <self.mmin)
+            return return_value
 
         else:
             # Returns
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, and gamma
             # Answers it gives are true from mmin<=x<=mmax
-            if self.mmax<self.mmin:
-                raise ValueError('mmax must be greater than mmin')
-            if m < self.mmin or m > self.mmax:
-                return 0
-            else:
-                pdf = self.gamma* (m**-(self.gamma+1)) / ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))
-                return pdf
+            cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
+            return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
+            return return_value
+     
+          
