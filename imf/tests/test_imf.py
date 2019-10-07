@@ -19,17 +19,20 @@ def test_mmax(massfunc):
     assert c.max() <= 1
 
 def test_kroupa_integral():
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
+    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0, 0.03):
+        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0, 120):
             try:
                 num = kroupa.integrate(mlow, mhigh, numerical=True)[0]
                 anl = kroupa.integrate(mlow, mhigh, numerical=False)[0]
             except ValueError:
                 continue
             np.testing.assert_almost_equal(num, anl)
+            if num != 0:
+                assert anl != 0
 
-    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
+def test_kroupa_mintegral():
+    for mlow in (0.01, 0.08, 0.1, 0.5, 1.0, 0.03):
+        for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0, 120):
             try:
                 num = kroupa.m_integrate(mlow, mhigh, numerical=True)[0]
                 anl = kroupa.m_integrate(mlow, mhigh, numerical=False)[0]
@@ -37,6 +40,8 @@ def test_kroupa_integral():
                 continue
             print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
             np.testing.assert_almost_equal(num, anl)
+            if num != 0:
+                assert anl != 0
 
 
 def test_chabrier_integral():
@@ -66,3 +71,7 @@ def test_krouva_val():
     assert np.allclose(kroupa(0.05), 5.615132028768199, rtol=1e-3,atol=1e-3)
     assert np.allclose(kroupa(1.5), 0.03598330658344697, rtol=1e-4, atol=1e-4)
     assert np.allclose(kroupa(3), 0.007306881750306478, rtol=1e-4,atol=1e-4)
+
+def test_make_cluster():
+    cluster = imf.make_cluster(1000)
+    assert np.abs(sum(cluster) - 1000 < 100)

@@ -122,11 +122,13 @@ class BrokenPowerLaw:
         cums = np.r_[[0], np.cumsum(self.weights)]
         for ii in range(self.nsegm):
             xind = (x1 < self.breaks[ii + 1]) & (x1 >= self.breaks[ii])
-            if xind.sum() > 0:
+            if np.any(xind):
                 ret[xind] = cums[ii] + self.weights[ii] * self.pows[ii].cdf(
                     x1[xind])
-        xind = x1>self.breaks[-1]
-        if xind.sum()>0:
+
+        xind = x1 >= self.breaks[-1]
+
+        if np.any(xind):
             ret[xind]=1
 
         return ret.reshape(x1.shape)

@@ -109,7 +109,8 @@ class Kroupa(MassFunction):
         self.break1 = break1
         self.break2 = break2
         self.mmax = mmax
-        self.distr = distributions.BrokenPowerLaw([-p1,-p2,-p3],[mmin,break1,break2,mmax])
+        self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3], 
+                                                  [mmin, break1, break2, mmax])
         self.normfactor = 1
 
 
@@ -148,8 +149,7 @@ class Kroupa(MassFunction):
         return (self.distr.cdf(mhigh)- self.distr.cdf(mlow)) * self.normfactor,0
 
 
-    def m_integrate(self, mlow, mhigh, numerical=False,
-                        **kwargs):
+    def m_integrate(self, mlow, mhigh, numerical=False, **kwargs):
         """
         Integrate the mass function over some range
         """
@@ -159,9 +159,12 @@ class Kroupa(MassFunction):
         if numerical:
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
         else:
-            distr1 = distributions.BrokenPowerLaw([-self.p1+1,-self.p2+1,-self.p3+1],[self.mmin,self.break1,self.break2,self.mmax])
+            distr1 = distributions.BrokenPowerLaw([-self.p1+1, -self.p2+1,
+                                                   -self.p3+1],
+                                                  [self.mmin, self.break1,
+                                                   self.break2, self.mmax])
             ratio = distr1.pdf(self.break1)/self.distr.pdf(self.break1)/self.break1
-            return ((distr1.cdf(mhigh)-distr1.cdf(mlow))/ratio,0)
+            return ((distr1.cdf(mhigh)-distr1.cdf(mlow))/ratio, 0)
 
 
 
