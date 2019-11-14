@@ -8,11 +8,17 @@ from imf.pmf import KroupaPMF_IS, KroupaPMF_TC, KroupaPMF_CA, KroupaPMF_2CTC
 import pylab as pl
 import numpy as np
 
+pl.rc('font', size=16)
+pl.rc('lines', linewidth=2)
+
 mmin = 0.033
 mmax = 3.0
 
 for mmax in (3, 120):
 
+    # this apparently takes a very, very long time... like 20-30 minutes?
+    # that doesn't make a whole lot of sense, so it probably indicates a bug
+    # or an overly-precise convergence threshold
     print("Normalizing.")
     ChabrierPMF_IS.mmax = mmax
     ChabrierPMF_TC.mmax = mmax
@@ -83,18 +89,20 @@ for mmax in (3, 120):
         fig3 = pl.figure(3)
         fig3.clf()
         ax3 = fig3.gca()
-        ax3.set_title("Steady State McKee/Offner + Kroupa PMF")
+        ax3.set_title("Steady State McKee/Offner + Kroupa PMF", pad=15)
         ax3.loglog(masses, kroupa.__getattribute__(fname)(masses), label="IMF", color='k')
         ax3.loglog(masses, KroupaPMF_IS.__getattribute__(fname)(masses), label="IS", color='r', linestyle=':')
         ax3.loglog(masses, KroupaPMF_TC.__getattribute__(fname)(masses), label="TC", color='g', linestyle='-.')
         ax3.loglog(masses, KroupaPMF_CA.__getattribute__(fname)(masses), label="CA", color='y', linestyle='-.')
         ax3.loglog(masses, KroupaPMF_2CTC.__getattribute__(fname)(masses), label="2CTC", color='b', linestyle='--')
-        ax3.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
+        ax3.set_xlabel("(Proto)Stellar Mass $\\left(\\mathrm{M}_\odot\\right)$")
         ax3.set_ylabel("m P(m)" if mass_weighted else "Normalized P(M)")
         ax3.axis([mmin, mmax, 1e-4, 1])
 
         pl.legend(loc='best')
         pl.savefig('steadystate_pmf_kroupa{0}_mmax{1}.png'.format("_integral" if mass_weighted else "",
+                                                                  int(mmax)), bbox_inches='tight')
+        pl.savefig('steadystate_pmf_kroupa{0}_mmax{1}.pdf'.format("_integral" if mass_weighted else "",
                                                                   int(mmax)), bbox_inches='tight')
 
 

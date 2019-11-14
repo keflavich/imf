@@ -80,8 +80,14 @@ class Salpeter(MassFunction):
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
-        self.distr = distributions.PowerLaw(-alpha, mmin, mmax)
+        self.mmin = mmin
+        self.mmax = mmax
+        self.alpha = alpha
         self.normfactor = 1
+
+    @property
+    def distr(self):
+        return distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
 
     def __call__(self, m, integral_form=False):
         if not integral_form:
@@ -109,7 +115,7 @@ class Kroupa(MassFunction):
         self.break1 = break1
         self.break2 = break2
         self.mmax = mmax
-        self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3], 
+        self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3],
                                                   [mmin, break1, break2, mmax])
         self.normfactor = 1
 
@@ -174,7 +180,8 @@ kroupa = Kroupa()
 
 class Chabrier(MassFunction):
     def __init__(self):
-        self.distr = distributions.LogNormal(0.22, 0.57*np.log(10))
+        self.mmin = 0.57*np.log(10)
+        self.distr = distributions.LogNormal(0.22, self.mmin)
         self.multiplier = 0.86
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
@@ -184,12 +191,25 @@ class Chabrier(MassFunction):
 chabrier = Chabrier()
 
 class Chabrier2005(MassFunction):
-    def __init__(self):
-        self.distr = distributions.CompositeDistribution(
-            [distributions.TruncatedLogNormal(0.2, 0.55*np.log(10),
-                                                   0.033,1),
-             distributions.PowerLaw(-2.35,1, np.inf)])
-    def __call__(self,x, integral_form=False,**kw):
+    def __init__(self, lognormal_center=0.2, lognormal_width=0.55*np.log(10),
+                 mmin=0.033, mmax=np.inf, alpha=2.35, mmid=1):
+        self.mmin = mmin
+        self.mmid = mmid
+        self.mmax = mmax
+        self.alpha = alpha
+        self.lognormal_width = lognormal_width
+        self.lognormal_center = lognormal_center
+
+    @property
+    def distr(self):
+        return distributions.CompositeDistribution(
+            [distributions.TruncatedLogNormal(self.lognormal_center,
+                                              self.lognormal_width,
+                                              self.mmin,
+                                              self.mmid),
+             distributions.PowerLaw(-self.alpha, self.mmid, self.mmax)])
+
+    def __call__(self,x, integral_form=False, **kw):
         if integral_form:
             return self.distr.cdf(x)
         else:
@@ -410,10 +430,11 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
 
     while mtot < mcluster + tolerance:
         # at least 1 sample, but potentially many more
-        nsamp = np.ceil((mcluster+tolerance-mtot) / expected_mass)
+        nsamp = int(np.ceil((mcluster+tolerance-mtot) / expected_mass))
         assert nsamp > 0
-        newmasses = inverse_imf(np.random.random(int(nsamp)),
-                                massfunc=massfunc, mmax=mmax, **kwargs)
+        #newmasses = inverse_imf(np.random.random(int(nsamp)),
+        #                        massfunc=massfunc, mmax=mmax, **kwargs)
+        newmasses = massfunc.distr.rvs(nsamp)
         masses = np.concatenate([masses,newmasses])
         mtot = masses.sum()
         if verbose:
@@ -635,15 +656,19 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
     colors: list
         A list of color tuples associated with each star
     """
-    cluster = make_cluster(clustermass, massfunc=massfunc, **kwargs)
+    cluster = make_cluster(clustermass, massfunc=massfunc, mmax=massfunc.mmax,
+                           **kwargs)
     colors = [color_from_mass(m) for m in cluster]
     massfunc = get_massfunc(massfunc)
     maxmass = cluster.max()
     pmin = massfunc(maxmass)
     if log:
-        yax = [np.random.rand()*(np.log10(massfunc(m))-np.log10(pmin)) + np.log10(pmin) for m in cluster]
+        yax = [np.random.rand()*(np.log10(massfunc(m))-np.log10(pmin))
+               + np.log10(pmin) for m in cluster]
     else:
         yax = [np.random.rand()*((massfunc(m))/(pmin)) + (pmin) for m in cluster]
+
+    assert all(np.isfinite(yax))
 
     return cluster,yax,colors
 
@@ -685,32 +710,32 @@ class KoenConvolvedPowerLaw(MassFunction):
             #       Returns
             #       -------
             #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
-    
+
                 def error(t):
                     return np.exp(-(t**2)/2)
-    
+
                 error_coeffecient = 1/np.sqrt(2*np.pi)
 
                 def error_integral(y):
                     error_integral = quad(error, -np.inf, (y-self.mmax)/self.sigma)[0]
                     return error_integral
-              
+
                 vector_errorintegral = np.vectorize(error_integral)
                 phi = vector_errorintegral(m) * error_coeffecient
-    
+
                 def integrand(x,y):
                     return (self.mmin**-self.gamma - x**-self.gamma) * np.exp((-1/2)*((y-x)/self.sigma)**2)
-        
+
                 coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
 
                 def eval_integral(y):
                     integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
-                    return integral 
+                    return integral
 
                 vector_integral = np.vectorize(eval_integral)
                 probability = phi + coef * vector_integral(m)
                 return probability
-              
+
 
         else:
             # Returns
@@ -720,17 +745,17 @@ class KoenConvolvedPowerLaw(MassFunction):
                     return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
 
                 coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
-    
+
                 def Integral(y):
-                    I = quad(integrand, self.mmin, self.mmax,args=(y))[0]   
+                    I = quad(integrand, self.mmin, self.mmax,args=(y))[0]
                     return I
 
-                vector_I = np.vectorize(Integral) 
+                vector_I = np.vectorize(Integral)
                 return  coef * vector_I(m)
-              
 
-            
-            
+
+
+
 
 class KoenTruePowerLaw(MassFunction):
     """
@@ -777,5 +802,5 @@ class KoenTruePowerLaw(MassFunction):
             cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
             return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
             return return_value
-     
-          
+
+

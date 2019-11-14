@@ -73,3 +73,22 @@ if __name__ == "__main__":
     pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
     pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
     pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')
+
+    # make two more plots, now showing a bottom- and a top-heavy  IMF
+    for massfunc, name in [(imf.Salpeter(alpha=1.5), 'Alpha1p5'),
+                           (imf.Salpeter(alpha=3), 'Alpha3p0')]:
+        pl.figure(1, figsize=(10,8))
+        pl.clf()
+        cluster,yax,colors = coolplot(1000, massfunc=massfunc)
+        pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+        pl.gca().set_xscale('log')
+
+        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+
+        pl.plot(masses,np.log10(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        pl.xlabel("Stellar Mass")
+        pl.ylabel("log(dN(M)/dM)")
+        pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+        pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
+        pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')

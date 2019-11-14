@@ -92,6 +92,9 @@ pl.xlabel("Temperature")
 pl.ylabel("Mass")
 pl.tight_layout()
 pl.savefig("mass_lum_diagram.svg")#, bbox_inches='tight')
+pl.loglog()
+pl.savefig("mass_lum_diagram_loglog.svg")#, bbox_inches='tight')
+pl.savefig("mass_lum_diagram_loglog.png", bbox_inches='tight')
 
 
 # HR diagram (temperature-luminosity)

@@ -50,7 +50,7 @@ class TruncatedLogNormal:
         return (self.d.cdf(np.clip(x,self.m1,self.m2)) - self.d.cdf(self.m1)) / self.norm
 
     def rvs(self, N):
-        x = np.random.uniform(self.d.cdf(self.m1),self.d.cdf(self.m2),size=N)
+        x = np.random.uniform(self.d.cdf(self.m1), self.d.cdf(self.m2), size=N)
         return self.d.ppf(x)
 
 class PowerLaw(Distribution):
