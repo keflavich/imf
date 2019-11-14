@@ -10,6 +10,7 @@ import imf
 import pylab as pl
 from astroquery.vizier import Vizier
 from labellines import labelLine, labelLines
+# pip install matplotlib-label-lines
 
 pl.rcParams['font.size'] = 20
 
@@ -92,9 +93,6 @@ pl.xlabel("Temperature")
 pl.ylabel("Mass")
 pl.tight_layout()
 pl.savefig("mass_lum_diagram.svg")#, bbox_inches='tight')
-pl.loglog()
-pl.savefig("mass_lum_diagram_loglog.svg")#, bbox_inches='tight')
-pl.savefig("mass_lum_diagram_loglog.png", bbox_inches='tight')
 
 
 # HR diagram (temperature-luminosity)
@@ -160,6 +158,15 @@ pl.scatter(hmasses,
            c=colors,
            s=10**htems/100)
 
+
+# from Zinnecker & Yorke fig 1
+pl.plot(np.logspace(0,1),
+        np.logspace(0,1)**3.7,
+        'k--')
+pl.plot(np.logspace(1,2),
+        np.logspace(1,2)**1.6 * 1e6/100**1.6,
+        'k--')
+
 #lines = []
 #for age in (6.5, 7, 8, 10):
 #    L, = pl.plot([masses.min(), hmasses.max()],
@@ -173,3 +180,6 @@ pl.xlabel("Mass")
 pl.ylabel("Luminosity")
 pl.tight_layout()
 pl.savefig("mass_luminosity.svg")#, bbox_inches='tight')
+pl.loglog()
+pl.savefig("mass_lum_diagram_loglog.svg")#, bbox_inches='tight')
+pl.savefig("mass_lum_diagram_loglog.png", bbox_inches='tight')
