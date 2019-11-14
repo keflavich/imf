@@ -44,7 +44,20 @@ Some basic examples below.
 
 
 
+Credits:
+ * Adam Ginsburg (@keflavich, wrote most of this)
+ * Sergey Koposov (@segasai, majorly refactored the distribution functions)
+ * Tiffany Christian (@teachristian, made some small corrections)
+
+No formal citation is available yet; please just reference the repository
+(https://github.com/keflavich/imf) if you use this.
+
+
+
 .. image:: https://d2weczhvl823v0.cloudfront.net/keflavich/imf/trend.png
    :alt: Bitdeli badge
    :target: https://bitdeli.com/free
+
+
+
 
