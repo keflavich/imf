@@ -6,6 +6,8 @@ import pylab as pl
 import matplotlib
 from astropy.utils.console import ProgressBar
 
+pl.rc('font', size=16)
+
 if os.path.exists('synth_data_m_to_l.json'):
     with open('synth_data_m_to_l.json', 'r') as fh:
         synth_data = json.load(fh)
@@ -18,14 +20,15 @@ for stop_crit in ('nearest', 'before', 'after', 'sorted'):
     if stop_crit not in synth_data:
         clusters, luminosities, masses, mean_luminosities, mean_masses, max_masses, number = {},{},{},{},{},{},{}
         for clmass in ProgressBar(np.concatenate([10**(np.random.rand(int(1e3))*1 + 4), 10**(np.random.rand(int(1e4))*2.5+1.5)])):
-            clusters[clmass] = imf.make_cluster(clmass, 'kroupa', mmax=150, silent=True, stop_criterion=stop_crit)
+            key = str(clmass) # for jsonification
+            clusters[key] = imf.make_cluster(clmass, 'kroupa', mmax=150, silent=True, stop_criterion=stop_crit)
             # cluster luminosities
-            luminosities[clmass] = imf.lum_of_cluster(clusters[clmass])
-            masses[clmass] = clmass
-            number[clmass] = len(clusters[clmass])
+            luminosities[key] = imf.lum_of_cluster(clusters[key])
+            masses[key] = clmass
+            number[key] = len(clusters[key])
             #mean_luminosities[clmass] = np.mean(luminosities[clmass])
-            mean_masses[clmass] = np.mean(clusters[clmass])
-            max_masses[clmass] = np.max(clusters[clmass])
+            mean_masses[key] = np.mean(clusters[key])
+            max_masses[key] = np.max(clusters[key])
 
         synth_data[stop_crit] = {#'clusters': clusters,
                                  'number': number,
@@ -73,7 +76,6 @@ for stop_crit in ('nearest', 'before', 'after', 'sorted'):
         m_to_l = 1e5/10**lum
         m_to_ls.append(m_to_l)
 
-    pl.rc('font', size=16)
     pl.figure(4).clf()
     pl.plot(slopes, m_to_ls)
     pl.xlabel("Upper-end power-law slope $\\alpha$")
@@ -87,9 +89,7 @@ for stop_crit in ('nearest', 'before', 'after', 'sorted'):
     pl.savefig(f"masstolight_vs_slope_{stop_crit}.png", bbox_inches='tight', dpi=200)
 
 
-
-    pl.rc('font', size=16)
-    pl.figure(4).clf()
+    pl.figure(5).clf()
     pl.semilogy(slopes, m_to_ls)
     ax = pl.gca()
     ylim = ax.get_ylim()
