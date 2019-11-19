@@ -76,6 +76,8 @@ if __name__ == "__main__":
 
     # make two more plots, now showing a bottom- and a top-heavy  IMF
     for massfunc, name in [(imf.Salpeter(alpha=1.5), 'Alpha1p5'),
+                           (imf.Salpeter(alpha=2), 'Alpha2p0'),
+                           (imf.Salpeter(alpha=1), 'Alpha1p0'),
                            (imf.Salpeter(alpha=3), 'Alpha3p0')]:
         pl.figure(1, figsize=(10,8))
         pl.clf()

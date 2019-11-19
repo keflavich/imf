@@ -64,17 +64,29 @@ class PowerLaw(Distribution):
         assert(m1 != -1)
 
     def pdf(self, x):
-        return x**self.slope * (self.slope + 1) / (
-            self.m2**(self.slope + 1) -
-            self.m1**(self.slope + 1)) * (x >= self.m1) * (x <= self.m2)
+        if self.slope == -1:
+            return (x**self.slope
+                    / (np.log(self.m2/self.m1))
+                    * (x >= self.m1) * (x <= self.m2))
+        else:
+            return x**self.slope * (self.slope + 1) / (
+                self.m2**(self.slope + 1) -
+                self.m1**(self.slope + 1)) * (x >= self.m1) * (x <= self.m2)
 
     def cdf(self, x):
-        return (np.clip(x, self.m1, self.m2)**(self.slope + 1) -
-                (self.m1**(self.slope + 1))) / (self.m2**(self.slope + 1) -
-                                                self.m1**(self.slope + 1))
+        if self.slope == -1:
+            raise "TODO"
+        else:
+            return (np.clip(x, self.m1, self.m2)**(self.slope + 1) -
+                    (self.m1**(self.slope + 1))) / (self.m2**(self.slope + 1) -
+                                                    self.m1**(self.slope + 1))
     def rvs(self, N):
         x = np.random.uniform(size=N)
-        return(x * (self.m2**(self.slope+1)-self.m1**(self.slope+1))+self.m1**(self.slope+1))**(1./(self.slope+1))
+        if self.slope == -1:
+            return np.exp(x * np.log(self.m2/self.m1)) * self.m1
+        else:
+            return(x * (self.m2**(self.slope+1) - self.m1**(self.slope+1))
+                   + self.m1**(self.slope+1))**(1./(self.slope+1))
 
 class BrokenPowerLaw:
     def __init__(self, slopes, breaks):
