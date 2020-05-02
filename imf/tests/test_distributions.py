@@ -11,6 +11,12 @@ def test_distr():
     ln.cdf(1)
     ln.rvs(1000)
 
+    mean,sig,N = 5, 20, 100000
+    ln2 = D.LogNormal(5,20)
+    samp = ln2.rvs(N)
+    assert(np.abs(np.log(samp).mean()-np.log(mean))< 0.01*sig)
+    assert(np.abs(np.log(samp).std()-sig)< 0.01*sig)
+
     ln = D.TruncatedLogNormal(1, 1, 2, 3)
     ln.pdf(1.)
     ln.cdf(1)
