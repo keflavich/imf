@@ -193,6 +193,9 @@ chabrier = Chabrier()
 class Chabrier2005(MassFunction):
     def __init__(self, lognormal_center=0.2, lognormal_width=0.55*np.log(10),
                  mmin=0.033, mmax=np.inf, alpha=2.35, mmid=1):
+        # The numbers are from Eqn 3 of https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
+        # importantly the lognormal center is the exp(M) where M is the mean of ln(mass)
+        # normal distribution
         self.mmin = mmin
         self.mmid = mmid
         self.mmax = mmax

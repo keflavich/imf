@@ -21,7 +21,10 @@ class LogNormal(Distribution):
     def __init__(self, mu, sig):
         """
         Define the Lognormal with distribution
-        ~ 1/x exp( -1/2 *(log(x/mu))^2/sig^2) """
+        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2) 
+        I.e. the mean of log of the samples will be log(mu) 
+        and the stddev of log of the samples will be sig
+        """
         self.m1 = 0
         self.m2 = np.inf
         self.d = scipy.stats.lognorm(s=sig, scale=mu)
