@@ -16,6 +16,10 @@ class Distribution:
     def rvs(self, N):
         """ Generate random sample """
         pass
+    def ppf(self,x):
+        #inverse cdf
+        raise RuntimeError('not implemented')
+        pass
 
 class LogNormal(Distribution):
     def __init__(self, mu, sig):
@@ -38,6 +42,9 @@ class LogNormal(Distribution):
     def rvs(self, N):
         return self.d.rvs(N)
 
+    def ppf(self, x):
+        return self.d.ppf(x)
+
 class TruncatedLogNormal:
     def __init__(self, mu, sig, m1, m2):
         """ Standard log-normal but truncated in the interval m1,m2 """
@@ -55,6 +62,11 @@ class TruncatedLogNormal:
     def rvs(self, N):
         x = np.random.uniform(self.d.cdf(self.m1), self.d.cdf(self.m2), size=N)
         return self.d.ppf(x)
+
+    def ppf(self,x):
+        cut1 = self.d.cdf(self.m1)
+        cut2 = self.d.cdf(self.m2)
+        return self.d.ppf(x*(cut2-cut1)+cut1)
 
 class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
@@ -78,18 +90,22 @@ class PowerLaw(Distribution):
 
     def cdf(self, x):
         if self.slope == -1:
-            raise "TODO"
+            raise RuntimeError('Not implemented')
         else:
             return (np.clip(x, self.m1, self.m2)**(self.slope + 1) -
                     (self.m1**(self.slope + 1))) / (self.m2**(self.slope + 1) -
                                                     self.m1**(self.slope + 1))
     def rvs(self, N):
         x = np.random.uniform(size=N)
+        return self.ppf(x)
+
+    def ppf(self, x):
         if self.slope == -1:
             return np.exp(x * np.log(self.m2/self.m1)) * self.m1
         else:
             return(x * (self.m2**(self.slope+1) - self.m1**(self.slope+1))
                    + self.m1**(self.slope+1))**(1./(self.slope+1))
+        
 
 class BrokenPowerLaw:
     def __init__(self, slopes, breaks):
@@ -117,7 +133,7 @@ class BrokenPowerLaw:
         self.slopes = slopes
         self.breaks = breaks
         self.pows = pows
-        self.weights = weights / np.sum(weights)
+        self.weights = weights / np.sum(weights) # relative normalizations
         self.nsegm = nsegm
         self.m1 = breaks[0]
         self.m2 = breaks[-1]
@@ -156,6 +172,22 @@ class BrokenPowerLaw:
                 ret.append(self.pows[ii].rvs(Ns[ii]))
         return np.concatenate(ret)
 
+    def ppf(self, x0):
+        x = np.asarray(x0)
+        x1 =np.atleast_1d(x)
+        assert(x1.min()>=0)
+        assert(x1.max()<=1)
+        edges = np.r_[[0],np.cumsum(self.weights)]
+        # edges of powerlaw in CDF scale from 0 to 1
+        pos = np.digitize(x1, edges) # bin positions, 1 is the leftmost 
+        left = edges[pos-1]
+        w = self.weights[pos-1]
+        x2 = np.clip((x1-left)/w,0,1) # mapping to 0,1 on the segment
+        ret =np.zeros_like(x1)
+        for ii in range(x.size):
+            ret[ii] = self.pows[pos[ii]-1].ppf(x2[ii])
+        return ret.reshape(x.shape)
+    
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
         """ A Composite distribution that consists of several distributions
@@ -223,3 +255,18 @@ class CompositeDistribution(Distribution):
             if Ns[ii]>0:
                 ret.append(self.distrs[ii].rvs(Ns[ii]))
         return np.concatenate(ret)
+
+    def ppf(self, x0):
+        x= np.asarray(x0)
+        x1 =np.atleast_1d(x)
+        assert(x1.min()>=0)
+        assert(x1.max()<=1)
+        edges = np.r_[[0],np.cumsum(self.weights)]
+        pos = np.digitize(x1, edges)
+        left = edges[pos-1]
+        w = self.weights[pos-1]
+        x2 = np.clip((x1-left)/w,0,1) # mapping to 0,1 on the segment
+        ret =np.zeros_like(x1)
+        for ii in range(x.size):
+            ret[ii] = self.distrs[pos[ii]-1].ppf(x2[ii])
+        return ret.reshape(x.shape)
