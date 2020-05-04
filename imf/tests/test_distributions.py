@@ -5,13 +5,23 @@ from .. import imf
 from .. import distributions as D
 
 
+def ppftest(distr):
+    # test that ppf is inverse of cdf
+    xs = np.random.uniform(0, 1, size=100)
+    eps = 1e-5
+    assert (np.all(np.abs(distr.cdf(distr.ppf(xs)) - xs) < eps))
+    # test on scalar
+    assert (np.abs(distr.cdf(distr.ppf(xs[0])) - xs[0]) < eps)
+    assert (np.isnan(distr.ppf(-0.1)))
+    assert (np.isnan(distr.ppf(1.1)))
+
+
 def test_lognorm():
     ln = D.LogNormal(1, 1)
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(2)) - 2) < 1e-5)
-    # test that ppf is inverse of cdf
+    ppftest(ln)
 
     for i in range(10):
         N = 100000
@@ -29,6 +39,9 @@ def test_broken_plaw():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
+    ppftest(ln)
+
+    # test values in each range
     assert (np.abs(ln.ppf(ln.cdf(0.5)) - 0.5) < 1e-5)
     assert (np.abs(ln.ppf(ln.cdf(1.5)) - 1.5) < 1e-5)
     assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
@@ -39,13 +52,12 @@ def test_distr():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
-
+    ppftest(ln)
     ln = D.PowerLaw(-2, 2, 6)
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(3)) - 3) < 1e-5)
+    ppftest(ln)
 
 
 def test_composite():
@@ -58,6 +70,8 @@ def test_composite():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
+    ppftest(ln)
+    # test values in each break
     assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
     assert (np.abs(ln.ppf(ln.cdf(3.5)) - 3.5) < 1e-5)
     assert (np.abs(ln.ppf(ln.cdf(4.5)) - 4.5) < 1e-5)
