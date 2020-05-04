@@ -147,31 +147,35 @@ def test_bounds():
     assert (ln.cdf(tleft) == 0)
     assert (ln.cdf(tright) == 1)
 
+def integralcheck(distr, left, x, val):
+    I,EI = scipy.integrate.quad(lambda y: distr.pdf(y), left, x)
+    assert (np.abs(val - I) < 1e-6)
 
+def integralcheck_many(distr,left, right):
+    integralcheck(distr, left, right, 1)
+    N = 100
+    xs = np.random.uniform(left, right ,size=N)
+    for x in xs:
+        integralcheck(distr, left, x, distr.cdf(x))
+        
 def test_integral():
     # test that the numerically integrated pdf is within 3 sigma of 1
     # for different kind of pdfs
 
-    def checker(x):
-        assert (np.abs(1 - x[0]) < 3 * x[1])
-
     left, right = 2, 3
-    ln = D.TruncatedLogNormal(1, 1, left, right)
-    checker(scipy.integrate.quad(lambda x: ln.pdf(x), left, right))
-
-    ln = D.PowerLaw(-2, left, right)
-    checker(scipy.integrate.quad(lambda x: ln.pdf(x), left, right))
-
-    ln = D.BrokenPowerLaw(
+    distrs = [
+        D.TruncatedLogNormal(1, 1, left, right),
+        D.PowerLaw(-2, left, right),
+        D.BrokenPowerLaw(
         [-2, -1.1, -3],
-        [left, .6 * left + .3 * right, .3 * left + .6 * right, right])
-    checker(scipy.integrate.quad(lambda x: ln.pdf(x), left, right))
-
-    ln = D.CompositeDistribution([
-        D.TruncatedLogNormal(1, 1, left, .75 * left + .25 * right),
-        D.PowerLaw(-2, .75 * left + .25 * right, .5 * left + .5 * right),
-        D.TruncatedLogNormal(1, 1, .5 * left + .5 * right,
+            [left, .6 * left + .3 * right, .3 * left + .6 * right, right]),
+        D.CompositeDistribution([
+            D.TruncatedLogNormal(1, 1, left, .75 * left + .25 * right),
+            D.PowerLaw(-2, .75 * left + .25 * right, .5 * left + .5 * right),
+            D.TruncatedLogNormal(1, 1, .5 * left + .5 * right,
                              .25 * left + .75 * right),
-        D.PowerLaw(-2, .25 * left + .75 * right, right)
-    ])
-    checker(scipy.integrate.quad(lambda x: ln.pdf(x), left, right))
+            D.PowerLaw(-2, .25 * left + .75 * right, right)
+        ])
+        ]
+    for curd in distrs:
+        integralcheck_many(curd, left, right)
