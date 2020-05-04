@@ -232,17 +232,22 @@ class CompositeDistribution(Distribution):
         weights = [1]
         breaks = [_.m1 for _ in self.distrs] + [self.distrs[-1].m2]
 
-        self.m1 = breaks[0]
-        self.m2 = breaks[-1]
+        self.m1 = breaks[0]  # leftmost edge
+        self.m2 = breaks[-1]  # rightmost edge
+
+        # check that edges of intervals match
         for ii in range(1, nsegm):
             assert (distrs[ii].m1 == distrs[ii - 1].m2)
 
         for ii in range(1, nsegm):
             rat = distrs[ii].pdf(breaks[ii]) / distrs[ii - 1].pdf(breaks[ii])
+            # relative normalization of next pdf to the previous one so they
+            # join without a break
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.breaks = breaks
         self.weights = weights / np.sum(weights)
+        # these are relative weights  of each pdf
         self.nsegm = nsegm
 
     def pdf(self, x):
@@ -274,7 +279,9 @@ class CompositeDistribution(Distribution):
         for ii in range(self.nsegm):
             if Ns[ii] > 0:
                 ret.append(self.distrs[ii].rvs(Ns[ii]))
-        return np.concatenate(ret)
+        ret = np.concatenate(ret)
+        ret = np.random.permutation(ret)  # permutation
+        return ret
 
     def ppf(self, x0):
         x = np.asarray(x0)
