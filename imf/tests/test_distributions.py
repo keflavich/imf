@@ -10,27 +10,28 @@ def test_lognorm():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(2))-2)<1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(2)) - 2) < 1e-5)
     # test that ppf is inverse of cdf
 
     for i in range(10):
         N = 100000
-        mean = np.random.uniform(0.1,10)
-        sig = np.random.uniform(0.1,10)
+        mean = np.random.uniform(0.1, 10)
+        sig = np.random.uniform(0.1, 10)
         ln2 = D.LogNormal(mean, sig)
         samp = ln2.rvs(N)
         # check that the means and sigmas are correct
-        assert(np.abs(np.log(samp).mean()-np.log(mean))< 0.01*sig)
-        assert(np.abs(np.log(samp).std()-sig)< 0.01*sig)
+        assert (np.abs(np.log(samp).mean() - np.log(mean)) < 0.01 * sig)
+        assert (np.abs(np.log(samp).std() - sig) < 0.01 * sig)
+
 
 def test_broken_plaw():
     ln = D.BrokenPowerLaw([-2, -1.1, -3], [0.1, 1, 2, 100])
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(0.5))-0.5)<1e-5)
-    assert (np.abs(ln.ppf(ln.cdf(1.5))-1.5)<1e-5)
-    assert (np.abs(ln.ppf(ln.cdf(2.5))-2.5)<1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(0.5)) - 0.5) < 1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(1.5)) - 1.5) < 1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
 
 
 def test_distr():
@@ -38,13 +39,14 @@ def test_distr():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(2.5))-2.5)<1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
 
     ln = D.PowerLaw(-2, 2, 6)
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(3))-3)<1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(3)) - 3) < 1e-5)
+
 
 def test_composite():
     ln = D.CompositeDistribution([
@@ -56,10 +58,10 @@ def test_composite():
     ln.pdf(1.)
     ln.cdf(1)
     ln.rvs(1000)
-    assert (np.abs(ln.ppf(ln.cdf(2.5))-2.5)<1e-5)
-    assert (np.abs(ln.ppf(ln.cdf(3.5))-3.5)<1e-5)
-    assert (np.abs(ln.ppf(ln.cdf(4.5))-4.5)<1e-5)
-    assert (np.abs(ln.ppf(ln.cdf(5.5))-5.5)<1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(2.5)) - 2.5) < 1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(3.5)) - 3.5) < 1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(4.5)) - 4.5) < 1e-5)
+    assert (np.abs(ln.ppf(ln.cdf(5.5)) - 5.5) < 1e-5)
 
 
 def test_bounds():
