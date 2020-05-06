@@ -375,13 +375,14 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
 
     mfc = get_massfunc(massfunc)
 
-    if mmin is not None or mmax is not None:
-        if mmin != mfc.mmin:
-            raise ValueError("the mmin specified doesn't agree with the mass "
-                    "function's mmin.")
-        if mmax != mfc.mmax:
-            raise ValueError("the mmax specified doesn't agree with the mass "
-                    "function's mmax.")
+    if mmin is not None and mmin != mfc.mmin:
+        mfc.mmin = mmin
+        warnings.warn(f"Setting mass function {massfunc}'s "
+                f"mmin={mmin}")
+    if mmax is not None and mmax != mfc.mmax:
+        mfc.mmax = mmax
+        warnings.warn(f"Setting mass function {massfunc}'s "
+                f"mmax={mmax}")
 
     mmin = mfc.mmin
     mmax = mfc.mmax
