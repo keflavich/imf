@@ -153,8 +153,14 @@ class BrokenPowerLaw:
         self.pows = pows
         self.weights = weights / np.sum(weights)  # relative normalizations
         self.nsegm = nsegm
-        self.m1 = breaks[0]
-        self.m2 = breaks[-1]
+
+    @property
+    def m1(self):
+        return breaks[0]
+
+    @property
+    def m2(self):
+        return breaks[-1]
 
     def pdf(self, x):
         x1 = np.asarray(x)

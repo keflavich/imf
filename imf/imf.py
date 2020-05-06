@@ -121,19 +121,19 @@ class Kroupa(MassFunction):
 
     @property
     def mmin(self):
-        return self.distr.m1
+        return self.distr.breaks[0]
 
     @mmin.setter
     def mmin(self, value):
-        self.distr.m1 = value
+        self.distr.breaks[0] = value
 
     @property
     def mmax(self):
-        return self.distr.m2
+        return self.distr.breaks[-1]
 
     @mmax.setter
     def mmax(self, value):
-        self.distr.m2 = value
+        self.distr.breaks[-1] = value
 
     def __call__(self, m, integral_form=False):
         """
