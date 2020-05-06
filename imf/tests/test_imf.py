@@ -79,3 +79,9 @@ def test_krouva_val():
 def test_make_cluster():
     cluster = imf.make_cluster(1000)
     assert np.abs(sum(cluster) - 1000 < 100)
+
+def test_kroupa_inverses():
+    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(), mmin=0.01) - 0.01) < 2e-3
+    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(mmin=0.01)) - 0.01) < 2e-3
+    assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(), mmax=200) - 200) < 1
+    assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(mmax=200)) - 200) < 1

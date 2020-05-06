@@ -111,14 +111,29 @@ class Kroupa(MassFunction):
         self.p1 = p1
         self.p2 = p2
         self.p3 = p3
-        self.mmin = mmin
         self.break1 = break1
         self.break2 = break2
-        self.mmax = mmax
         self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3],
                                                   [mmin, break1, break2, mmax])
+        self.mmin = mmin
+        self.mmax = mmax
         self.normfactor = 1
 
+    @property
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self, value):
+        self.distr.m1 = value
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self, value):
+        self.distr.m2 = value
 
     def __call__(self, m, integral_form=False):
         """
@@ -132,9 +147,6 @@ class Kroupa(MassFunction):
             The power-law slopes of the different segments of the IMF
         break1,break2 : floats
             The mass breakpoints at which to use the different power laws
-        mmin : float or None
-            The minimum mass of the MF.  Defaults to using the class' mmin, but
-            can be overridden
         """
 
 
