@@ -392,14 +392,14 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
 
     mfc = get_massfunc(massfunc)
 
-    if mmin is not None and mmin != mfc.mmin:
+    if mmin is not None and hasattr(mfc, 'mmin') and mmin != mfc.mmin:
         mfc.mmin = mmin
         warnings.warn(f"Setting mass function {massfunc}'s "
-                f"mmin={mmin}")
-    if mmax is not None and mmax != mfc.mmax:
+                      f"mmin={mmin}")
+    if mmax is not None and hasattr(mfc, 'mmax') and mmax != mfc.mmax:
         mfc.mmax = mmax
         warnings.warn(f"Setting mass function {massfunc}'s "
-                f"mmax={mmax}")
+                      f"mmax={mmax}")
 
     mmin = mfc.mmin
     mmax = mfc.mmax
@@ -423,7 +423,7 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
 
 
 def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
-                 tolerance=0.0, stop_criterion='nearest', mmax=None, mmin=None):
+                 tolerance=0.0, stop_criterion='nearest', mmax=120, mmin=None):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
@@ -446,21 +446,20 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     #          (nsamp,mtot,mcluster)))
 
     mf = get_massfunc(massfunc)
-    if mmax is not None and mf.mmax != mmax:
-        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
-        mf.mmax = mmax
-    if mmax is not None and mf.mmax != mmax:
+    if mmin is not None and hasattr(mf, 'mmin') and mf.mmin != mmin:
+        warnings.warn(f"Setting mass function {massfunc}'s mmin={mmin}")
+        mf.mmin = mmin
+    if mmax is not None and hasattr(mf, 'mmax') and mf.mmax != mmax:
         warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
         mf.mmax = mmax
 
-    if (massfunc, mf.mmin, mf.mmax) in expectedmass_cache:
-        expected_mass = expectedmass_cache[(massfunc,
-                                            mf.mmin, mf.mmax)]
+    if (massfunc, mf.mmin, mmax) in expectedmass_cache:
+        expected_mass = expectedmass_cache[(massfunc, mf.mmin, mmax)]
         assert expected_mass > 0
     else:
-        expected_mass = mf.m_integrate(mf.mmin, mf.mmax)[0]
+        expected_mass = mf.m_integrate(mf.mmin, mmax)[0]
         assert expected_mass > 0
-        expectedmass_cache[(massfunc, mf.mmin, mf.mmax)] = expected_mass
+        expectedmass_cache[(massfunc, mf.mmin, mmax)] = expected_mass
 
     if verbose:
         print("Expected mass is {0:0.3f}".format(expected_mass))

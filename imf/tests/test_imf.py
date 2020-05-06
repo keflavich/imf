@@ -15,7 +15,7 @@ def test_mmax(massfunc):
     if (not hasattr(imf.get_massfunc(massfunc), 'mmin')):
         pytest.skip("{0} doesn't have mmin defined".format(massfunc))
 
-    c = imf.make_cluster(10000, mmax=1, massfunc=massfunc)
+    c = imf.make_cluster(10000, mmax=1, mmin=0.01, massfunc=massfunc)
 
     assert c.max() <= 1
 
@@ -70,11 +70,11 @@ def test_chabrier_integral(mlow, mhigh):
     #        np.testing.assert_almost_equal(num, anl)
 
 
-def test_krouva_val():
-    assert np.allclose(kroupa(1), 0.09143468328964573, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(0.05), 5.615132028768199, rtol=1e-3, atol=1e-3)
-    assert np.allclose(kroupa(1.5), 0.03598330658344697, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(3), 0.007306881750306478, rtol=1e-4, atol=1e-4)
+def test_kroupa_val():
+    assert np.allclose(kroupa(1), 0.0914, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(0.05), 5.615, rtol=1e-3, atol=1e-3)
+    assert np.allclose(kroupa(1.5), 0.0359, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(3), 0.0073, rtol=1e-4, atol=1e-4)
 
 def test_make_cluster():
     cluster = imf.make_cluster(1000)
