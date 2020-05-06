@@ -193,13 +193,18 @@ kroupa = Kroupa()
 class Chabrier(MassFunction):
     def __init__(self):
         self.mmin = 0.57*np.log(10)
-        self.distr = distributions.LogNormal(0.22, self.mmin)
         self.multiplier = 0.86
+
+    @property
+    def distr(self):
+        return distributions.LogNormal(0.22, self.mmin)
+
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
             return self.distr.cdf(mass)*self.multiplier
         else:
             return self.distr.pdf(mass)*self.multiplier
+
 chabrier = Chabrier()
 
 class Chabrier2005(MassFunction):
@@ -418,7 +423,7 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
 
 
 def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
-                 tolerance=0.0, stop_criterion='nearest', mmax=120, **kwargs):
+                 tolerance=0.0, stop_criterion='nearest', mmax=None, mmin=None):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
@@ -429,7 +434,6 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
 
     stop criteria can be: 'nearest', 'before', 'after', 'sorted'
 
-    kwargs are passed to `inverse_imf`
     """
 
     # use most common mass to guess needed number of samples
@@ -441,23 +445,26 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp,mtot,mcluster)))
 
-    if (massfunc, get_massfunc(massfunc).mmin, mmax) in expectedmass_cache:
+    mf = get_massfunc(massfunc)
+    if mmax is not None and mf.mmax != mmax:
+        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
+        mf.mmax = mmax
+    if mmax is not None and mf.mmax != mmax:
+        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
+        mf.mmax = mmax
+
+    if (massfunc, mf.mmin, mf.mmax) in expectedmass_cache:
         expected_mass = expectedmass_cache[(massfunc,
-                                            get_massfunc(massfunc).mmin, mmax)]
+                                            mf.mmin, mf.mmax)]
         assert expected_mass > 0
     else:
-        expected_mass = get_massfunc(massfunc).m_integrate(get_massfunc(massfunc).mmin,
-                                                           mmax)[0]
+        expected_mass = mf.m_integrate(mf.mmin, mf.mmax)[0]
         assert expected_mass > 0
-        expectedmass_cache[(massfunc, get_massfunc(massfunc).mmin, mmax)] = expected_mass
+        expectedmass_cache[(massfunc, mf.mmin, mf.mmax)] = expected_mass
 
     if verbose:
         print("Expected mass is {0:0.3f}".format(expected_mass))
 
-    mf = get_massfunc(massfunc)
-    if mf.mmax != mmax:
-        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
-        mf.mmax = mmax
 
     mtot = 0
     masses = []

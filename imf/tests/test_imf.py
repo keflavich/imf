@@ -15,7 +15,7 @@ def test_mmax(massfunc):
     if (not hasattr(imf.get_massfunc(massfunc), 'mmin')):
         pytest.skip("{0} doesn't have mmin defined".format(massfunc))
 
-    c = imf.make_cluster(10000, mmax=1, mmin=0.01, massfunc=massfunc)
+    c = imf.make_cluster(10000, mmax=1, massfunc=massfunc)
 
     assert c.max() <= 1
 
