@@ -349,7 +349,7 @@ def get_massfunc_name(massfunc):
     else:
         raise ValueError("invalid mass function")
 
-def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa',
+def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
                 **kwargs):
     """
     Inverse mass function.  Creates a cumulative distribution function from the
@@ -373,13 +373,26 @@ def inverse_imf(p, nbins=1000, mmin=0.03, mmax=120, massfunc='kroupa',
         function
     """
 
+    mfc = get_massfunc(massfunc)
+
+    if mmin is not None or mmax is not None:
+        if mmin != mfc.mmin:
+            raise ValueError("the mmin specified doesn't agree with the mass "
+                    "function's mmin.")
+        if mmax != mfc.mmax:
+            raise ValueError("the mmax specified doesn't agree with the mass "
+                    "function's mmax.")
+
+    mmin = mfc.mmin
+    mmax = mfc.mmax
+
     ends = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
     masses = (ends[1:] + ends[:-1])/2.
     dm = np.diff(ends)
 
 
     # the full probability distribution function N(M) dm
-    mf = get_massfunc(massfunc)(masses, **kwargs)
+    mf = mfc(masses, **kwargs)
 
     # integrate by taking the cumulative sum of x dx
     mfcum = (mf*dm).cumsum()
