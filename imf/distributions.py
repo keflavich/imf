@@ -139,28 +139,48 @@ class BrokenPowerLaw:
         """
         assert (len(slopes) == len(breaks) - 1)
         assert ((np.diff(breaks) > 0).all())
-        nsegm = len(slopes)
-        pows = []
-        for ii in range(nsegm):
-            pows.append(PowerLaw(slopes[ii], breaks[ii], breaks[ii + 1]))
-        weights = [1]
-        for ii in range(1, nsegm):
-            rat = pows[ii].pdf(breaks[ii]) / pows[ii - 1].pdf(breaks[ii])
-            weights.append(weights[-1] / rat)
-        weights = np.array(weights)
         self.slopes = slopes
         self.breaks = breaks
-        self.pows = pows
-        self.weights = weights / np.sum(weights)  # relative normalizations
-        self.nsegm = nsegm
+        self._calcpows()
+        self._calcweights()
 
     @property
     def m1(self):
-        return breaks[0]
+        return self.breaks[0]
+
+    @m1.setter
+    def m1(self, value):
+        self.breaks[0] = value
+        self._calcpows()
+        self._calcweights()
 
     @property
     def m2(self):
-        return breaks[-1]
+        return self.breaks[-1]
+
+    @m2.setter
+    def m2(self, value):
+        self.breaks[-1] = value
+        self._calcpows()
+        self._calcweights()
+
+    def _calcpows(self):
+        nsegm = len(self.slopes)
+        pows = []
+        for ii in range(nsegm):
+            pows.append(PowerLaw(self.slopes[ii], self.breaks[ii], self.breaks[ii + 1]))
+        self.pows = pows
+        self.nsegm = nsegm
+
+    def _calcweights(self):
+        nsegm = len(self.slopes)
+        weights = [1]
+        for ii in range(1, nsegm):
+            rat = self.pows[ii].pdf(self.breaks[ii]) / self.pows[ii - 1].pdf(self.breaks[ii])
+            weights.append(weights[-1] / rat)
+        weights = np.array(weights)
+        self.weights = weights / np.sum(weights)  # relative normalizations
+        self.nsegm = nsegm
 
     def pdf(self, x):
         x1 = np.asarray(x)

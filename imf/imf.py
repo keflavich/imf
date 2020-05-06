@@ -121,19 +121,19 @@ class Kroupa(MassFunction):
 
     @property
     def mmin(self):
-        return self.distr.breaks[0]
+        return self.distr.m1
 
     @mmin.setter
     def mmin(self, value):
-        self.distr.breaks[0] = value
+        self.distr.m1 = value
 
     @property
     def mmax(self):
-        return self.distr.breaks[-1]
+        return self.distr.m2
 
     @mmax.setter
     def mmax(self, value):
-        self.distr.breaks[-1] = value
+        self.distr.m2 = value
 
     def __call__(self, m, integral_form=False):
         """
@@ -454,6 +454,11 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     if verbose:
         print("Expected mass is {0:0.3f}".format(expected_mass))
 
+    mf = get_massfunc(massfunc)
+    if mf.mmax != mmax:
+        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
+        mf.mmax = mmax
+
     mtot = 0
     masses = []
 
@@ -463,7 +468,7 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
         assert nsamp > 0
         #newmasses = inverse_imf(np.random.random(int(nsamp)),
         #                        massfunc=massfunc, mmax=mmax, **kwargs)
-        newmasses = get_massfunc(massfunc).distr.rvs(nsamp)
+        newmasses = mf.distr.rvs(nsamp)
         masses = np.concatenate([masses,newmasses])
         mtot = masses.sum()
         if verbose:
