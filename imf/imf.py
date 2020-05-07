@@ -393,13 +393,15 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
     mfc = get_massfunc(massfunc)
 
     if mmin is not None and hasattr(mfc, 'mmin') and mmin != mfc.mmin:
+        orig_mmin = mfc.mmin
         mfc.mmin = mmin
-        warnings.warn(f"Setting mass function {massfunc}'s "
-                      f"mmin={mmin}")
+        #warnings.warn(f"Setting mass function {massfunc}'s "
+        #              f"mmin={mmin}")
     if mmax is not None and hasattr(mfc, 'mmax') and mmax != mfc.mmax:
+        orig_mmax = mfc.mmax
         mfc.mmax = mmax
-        warnings.warn(f"Setting mass function {massfunc}'s "
-                      f"mmax={mmax}")
+        #warnings.warn(f"Setting mass function {massfunc}'s "
+        #              f"mmax={mmax}")
 
     mmin = mfc.mmin
     mmax = mfc.mmax
@@ -418,8 +420,14 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
     # normalize to sum (this turns into a cdf)
     mfcum /= mfcum.max()
 
-    return np.interp(p, mfcum, masses)
+    result = np.interp(p, mfcum, masses)
 
+    if 'orig_mmin' in locals():
+        mfc.mmin = orig_mmin
+    if 'orig_mmax' in locals():
+        mfc.mmax = orig_mmax
+
+    return result
 
 
 def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
@@ -445,21 +453,23 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp,mtot,mcluster)))
 
-    mf = get_massfunc(massfunc)
-    if mmin is not None and hasattr(mf, 'mmin') and mf.mmin != mmin:
-        warnings.warn(f"Setting mass function {massfunc}'s mmin={mmin}")
-        mf.mmin = mmin
-    if mmax is not None and hasattr(mf, 'mmax') and mf.mmax != mmax:
-        warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
-        mf.mmax = mmax
+    mfc = get_massfunc(massfunc)
+    if mmin is not None and hasattr(mf, 'mmin') and mfc.mmin != mmin:
+        #warnings.warn(f"Setting mass function {massfunc}'s mmin={mmin}")
+        orig_mmin = mfc.mmin
+        mfc.mmin = mmin
+    if mmax is not None and hasattr(mf, 'mmax') and mfc.mmax != mmax:
+        #warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
+        orig_mmax = mfc.mmax
+        mfc.mmax = mmax
 
-    if (massfunc, mf.mmin, mmax) in expectedmass_cache:
-        expected_mass = expectedmass_cache[(massfunc, mf.mmin, mmax)]
+    if (massfunc, mfc.mmin, mmax) in expectedmass_cache:
+        expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mmax)]
         assert expected_mass > 0
     else:
-        expected_mass = mf.m_integrate(mf.mmin, mmax)[0]
+        expected_mass = mfc.m_integrate(mfc.mmin, mmax)[0]
         assert expected_mass > 0
-        expectedmass_cache[(massfunc, mf.mmin, mmax)] = expected_mass
+        expectedmass_cache[(massfunc, mfc.mmin, mmax)] = expected_mass
 
     if verbose:
         print("Expected mass is {0:0.3f}".format(expected_mass))
@@ -474,7 +484,7 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
         assert nsamp > 0
         #newmasses = inverse_imf(np.random.random(int(nsamp)),
         #                        massfunc=massfunc, mmax=mmax, **kwargs)
-        newmasses = mf.distr.rvs(nsamp)
+        newmasses = mfc.distr.rvs(nsamp)
         masses = np.concatenate([masses,newmasses])
         mtot = masses.sum()
         if verbose:
@@ -507,6 +517,11 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
 
     if not silent:
         print("Total cluster mass is %g (limit was %g)" % (mtot,mcluster))
+
+    if 'orig_mmin' in locals():
+        mfc.mmin = orig_mmin
+    if 'orig_mmax' in locals():
+        mfc.mmax = orig_mmax
 
     return masses
 

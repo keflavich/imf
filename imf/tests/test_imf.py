@@ -14,7 +14,9 @@ from ..imf import kroupa, chabrier2005
                           (1, 0.0914, 1e-4, 1e-4),
                           (3, 0.0073, 1e-4, 1e-4),])
 def test_kroupa_val(inp, out, rtol, atol):
-    assert np.allclose(imf.kroupa(inp), out, rtol=rtol, atol=atol)
+    kroupa = imf.Kroupa()
+    np.testing.assert_allclose(kroupa(inp), out, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(imf.kroupa(inp), out, rtol=rtol, atol=atol)
 
 @pytest.mark.parametrize('massfunc', imf.massfunctions.keys())
 def test_mmax(massfunc):
@@ -89,3 +91,17 @@ def test_kroupa_inverses():
     assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(mmin=0.01)) - 0.01) < 2e-3
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(), mmax=200) - 200) < 1
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(mmax=200)) - 200) < 1
+
+@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
+                         [(0.05, 5.6159, 1e-3, 1e-3),
+                          (1.5, 0.0359, 1e-4, 1e-4),
+                          (1.0, 0.0914, 1e-4, 1e-4),
+                          (3.0, 0.0073, 1e-4, 1e-4),
+                          (1, 0.0914, 1e-4, 1e-4),
+                          (3, 0.0073, 1e-4, 1e-4),])
+def test_kroupa_val_unchanged(inp, out, rtol, atol):
+    # regression: make sure that imf.kroupa = imf.Kroupa
+    kroupa = imf.Kroupa()
+    np.testing.assert_allclose(kroupa(inp), out, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(imf.kroupa(inp), out, rtol=rtol, atol=atol)
+    np.testing.assert_allclose(kroupa(inp), imf.kroupa(inp))
