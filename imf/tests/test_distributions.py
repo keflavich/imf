@@ -1,7 +1,5 @@
-import pytest
 import numpy as np
 import scipy.interpolate
-from .. import imf
 from .. import distributions as D
 np.random.seed(1)
 
@@ -9,8 +7,11 @@ np.random.seed(1)
 def sampltest(distr, left=None, right=None, bounds=None):
     # check that mean and stddev from the generated sample
     # match what we get from integrating the PDF
-    FF1 = lambda x: distr.pdf(x) * x
-    FF2 = lambda x: distr.pdf(x) * x**2
+    def FF1(x):
+        return distr.pdf(x) * x
+    def FF2(x):
+        return distr.pdf(x) * x**2
+
     if left is None:
         left = 0
     if right is None:
@@ -147,17 +148,20 @@ def test_bounds():
     assert (ln.cdf(tleft) == 0)
     assert (ln.cdf(tright) == 1)
 
+
 def integralcheck(distr, left, x, val):
     I,EI = scipy.integrate.quad(lambda y: distr.pdf(y), left, x)
     assert (np.abs(val - I) < 1e-6)
 
+
 def integralcheck_many(distr,left, right):
     integralcheck(distr, left, right, 1)
     N = 100
-    xs = np.random.uniform(left, right ,size=N)
+    xs = np.random.uniform(left, right, size=N)
     for x in xs:
         integralcheck(distr, left, x, distr.cdf(x))
-        
+
+
 def test_integral():
     # test that the numerically integrated pdf is within 3 sigma of 1
     # for different kind of pdfs
@@ -166,16 +170,16 @@ def test_integral():
     distrs = [
         D.TruncatedLogNormal(1, 1, left, right),
         D.PowerLaw(-2, left, right),
-        D.BrokenPowerLaw(
-        [-2, -1.1, -3],
-            [left, .6 * left + .3 * right, .3 * left + .6 * right, right]),
+        D.BrokenPowerLaw([-2, -1.1, -3],
+                         [left, .6 * left + .3 * right, .3 * left + .6 * right, right]),
         D.CompositeDistribution([
             D.TruncatedLogNormal(1, 1, left, .75 * left + .25 * right),
             D.PowerLaw(-2, .75 * left + .25 * right, .5 * left + .5 * right),
-            D.TruncatedLogNormal(1, 1, .5 * left + .5 * right,
-                             .25 * left + .75 * right),
-            D.PowerLaw(-2, .25 * left + .75 * right, right)
-        ])
-        ]
+            D.TruncatedLogNormal(1, 1,
+                                 .5 * left + .5 * right,
+                                 .25 * left + .75 * right),
+            D.PowerLaw(-2, .25 * left + .75 * right, right)]
+        )
+    ]
     for curd in distrs:
         integralcheck_many(curd, left, right)
