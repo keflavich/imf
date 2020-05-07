@@ -70,13 +70,15 @@ def test_chabrier_integral(mlow, mhigh):
     #        np.testing.assert_almost_equal(num, anl)
 
 
-def test_kroupa_val():
-    assert np.allclose(kroupa(0.05), 5.615, rtol=1e-3, atol=1e-3)
-    assert np.allclose(kroupa(1.5), 0.0359, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(1.0), 0.0914, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(3.0), 0.0073, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(1), 0.0914, rtol=1e-4, atol=1e-4)
-    assert np.allclose(kroupa(3), 0.0073, rtol=1e-4, atol=1e-4)
+@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
+                         [(0.05, 5.615, 1e-3, 1e-3),
+                          (1.5, 0.0359, 1e-4, 1e-4),
+                          (1.0, 0.0914, 1e-4, 1e-4),
+                          (3.0, 0.0073, 1e-4, 1e-4),
+                          (1, 0.0914, 1e-4, 1e-4),
+                          (3, 0.0073, 1e-4, 1e-4),])
+def test_kroupa_val(inp, out, rtol, atol):
+    assert np.allclose(kroupa(inp), out, rtol=rtol, atol=atol)
 
 def test_make_cluster():
     cluster = imf.make_cluster(1000)
