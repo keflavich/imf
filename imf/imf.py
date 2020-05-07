@@ -99,10 +99,12 @@ class Salpeter(MassFunction):
 
 # three codes for dn/dlog(m)
 salpeter = Salpeter()
-#kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
+# kroupa
+# chabrier
 
 
 class Kroupa(MassFunction):
+    # kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
     def __init__(self, mmin=0.03, mmax=120, p1=0.3, p2=1.3, p3=2.3,
                  break1=0.08, break2=0.5):
         """
@@ -138,7 +140,8 @@ class Kroupa(MassFunction):
 
     def __call__(self, m, integral_form=False):
         """
-        Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005, http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
+        Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005,
+        http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
 
         Parameters
         ----------
@@ -211,7 +214,8 @@ chabrier = Chabrier()
 class Chabrier2005(MassFunction):
     def __init__(self, lognormal_center=0.2, lognormal_width=0.55*np.log(10),
                  mmin=0.033, mmax=np.inf, alpha=2.35, mmid=1):
-        # The numbers are from Eqn 3 of https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
+        # The numbers are from Eqn 3 of
+        # https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
         # importantly the lognormal center is the exp(M) where M is the mean of ln(mass)
         # normal distribution
         self.mmin = mmin
@@ -302,14 +306,11 @@ try:
             mmax = 10*m0
 
         # integrate the CDF from the minimum to maximum
-        # undefined posint = -m0 * mmax**-beta * (mmax/m0)**beta * scipy.special.gammainc(1-beta, mmax/m0)
-        # undefined negint = -m0 * mmin**-beta * (mmin/m0)**beta * scipy.special.gammainc(1-beta, mmin/m0)
         posint = -mmax**(1-beta) * scipy.special.expn(beta, mmax/m0)
         negint = -mmin**(1-beta) * scipy.special.expn(beta, mmin/m0)
         tot = posint-negint
 
         # normalize by the integral
-        # undefined ret = (-m0 * m**-beta * (m/m0)**beta * scipy.special.gammainc(1-beta, m/m0)) / tot
         ret = (-m**(1-beta) * scipy.special.expn(beta, m/m0) - negint)/ tot
 
         return ret
@@ -318,14 +319,6 @@ try:
         return lambda x: schechter_cdf(x, **kwargs)
 except ImportError:
     pass
-
-
-
-#def schechter_inv(m):
-#    """
-#    Return p(m)
-#    """
-#    return scipy.interpolate.interp1d(shfun,arange(.1,20,.01),bounds_error=False,fill_value=20.)
 
 def m_integrate(fn=kroupa, bins=np.logspace(-2, 2, 500)):
     xax = (bins[:-1]+bins[1:])/2.
@@ -355,7 +348,8 @@ def get_massfunc(massfunc):
     elif type(massfunc) is str:
         return massfunctions[massfunc]
     else:
-        raise ValueError("massfunc must either be a string in the set %s or a function" % (",".join(massfunctions.keys())))
+        raise ValueError("massfunc must either be a string in the set %s or a function"
+                         % (",".join(massfunctions.keys())))
 
 def get_massfunc_name(massfunc):
     if massfunc in reverse_mf_dict:
@@ -396,13 +390,9 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
     if mmin is not None and hasattr(mfc, 'mmin') and mmin != mfc.mmin:
         orig_mmin = mfc.mmin
         mfc.mmin = mmin
-        #warnings.warn(f"Setting mass function {massfunc}'s "
-        #              f"mmin={mmin}")
     if mmax is not None and hasattr(mfc, 'mmax') and mmax != mfc.mmax:
         orig_mmax = mfc.mmax
         mfc.mmax = mmax
-        #warnings.warn(f"Setting mass function {massfunc}'s "
-        #              f"mmax={mmax}")
 
     mmin = mfc.mmin
     mmax = mfc.mmax
@@ -446,21 +436,19 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     """
 
     # use most common mass to guess needed number of samples
-    #nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
-    #masses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
+    # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
+    # masses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
 
-    #mtot = masses.sum()
-    #if verbose:
+    # mtot = masses.sum()
+    # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp,mtot,mcluster)))
 
     mfc = get_massfunc(massfunc)
     if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
-        #warnings.warn(f"Setting mass function {massfunc}'s mmin={mmin}")
         orig_mmin = mfc.mmin
         mfc.mmin = mmin
     if mmax is not None and hasattr(mfc, 'mmax') and mfc.mmax != mmax:
-        #warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
         orig_mmax = mfc.mmax
         mfc.mmax = mmax
 
@@ -483,8 +471,6 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
         # at least 1 sample, but potentially many more
         nsamp = int(np.ceil((mcluster+tolerance-mtot) / expected_mass))
         assert nsamp > 0
-        #newmasses = inverse_imf(np.random.random(int(nsamp)),
-        #                        massfunc=massfunc, mmax=mmax, **kwargs)
         newmasses = mfc.distr.rvs(nsamp)
         masses = np.concatenate([masses, newmasses])
         mtot = masses.sum()
@@ -512,7 +498,8 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
             masses = masses[:last_ind]
             mtot = masses.sum()
             if verbose:
-                print("Selected the first %i out of %i masses to get %g total" % (last_ind, len(mcum), mtot))
+                print("Selected the first %i out of %i masses to get %g total"
+                      % (last_ind, len(mcum), mtot))
             # force the break, because some stopping criteria can push mtot < mcluster
             break
 
@@ -532,17 +519,14 @@ def mass_luminosity_interpolator(name):
     if name in mass_luminosity_interpolator_cache:
         return mass_luminosity_interpolator_cache[name]
     elif name == 'VGS':
-        # Vacca Garmany Shull log(lyman continuum) parameters
-        # Power-law extrapolated from 18 to 8 and from 50 to 150
-        # (using, e.g., ",".join(["%0.2f" % p for p in polyval(polyfit(log10(vgsmass[:5]),vgslogq[:5],1),log10(linspace(50,150,6)))[::-1]])
-        # where vgsmass does *not* include the extrapolated values)
-        # not used vgsmass = [150.,  130.,  110.,   90.,   70.,  51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4,18.,  16.,  14.,  12.,  10.,   8.][::-1]
-        # not used vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69,45.58,44.65,43.60,42.39,40.96,39.21][::-1]
 
         # non-extrapolated
-        vgsMass = [51.3, 44.2, 41.0, 38.1, 35.5, 33.1, 30.8, 28.8, 26.9, 25.1, 23.6, 22.1, 20.8, 19.5, 18.4]
-        vgslogL = [6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695, 5.631, 5.566, 5.499, 5.431, 5.360, 5.287, 5.211]
-        vgslogQ = [49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34, 48.16, 47.92, 47.63, 47.25, 46.77, 46.23, 45.69]
+        vgsMass = [51.3, 44.2, 41.0, 38.1, 35.5, 33.1, 30.8, 28.8, 26.9, 25.1,
+                   23.6, 22.1, 20.8, 19.5, 18.4]
+        vgslogL = [6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695,
+                   5.631, 5.566, 5.499, 5.431, 5.360, 5.287, 5.211]
+        vgslogQ = [49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34,
+                   48.16, 47.92, 47.63, 47.25, 46.77, 46.23, 45.69]
         # mass extrapolated
         vgsMe = np.concatenate([
             np.linspace(0.03, 0.43, 100),
@@ -556,14 +540,17 @@ def mass_luminosity_interpolator(name):
             np.log10(np.linspace(0.43,2,100)**4),
             np.log10(1.5*np.linspace(2,20,100)**3.5),
             vgslogL[::-1],
-            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogL[:3],1),np.log10(np.linspace(50,150,100)))])
+            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogL[:3],1),
+                                  np.log10(np.linspace(50,150,100)))])
         # log Q (lyman continuum) extrapolated
         vgslogQe = np.concatenate([
             np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
             np.zeros(100), # 0.43-2.0 solar mass stars produce 0 LyC photons
-            np.polyval(np.polyfit(np.log10(vgsass[-3:],vgslogQ[-3:],1),np.log10(np.linspace(8,18.4,100))),
+            np.polyval(np.polyfit(np.log10(vgsass[-3:],vgslogQ[-3:],1),
+                                  np.log10(np.linspace(8,18.4,100))),
             vgslogQ[::-1],
-            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogQ[:3],1),np.log10(np.linspace(50,150,100)))])
+            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogQ[:3],1),
+                                  np.log10(np.linspace(50,150,100)))])
 
         mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQ
 
@@ -779,8 +766,9 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
 
 class KoenConvolvedPowerLaw(MassFunction):
     """
-    Implementaton of convolved errror power-law described in 2009 Koen,Kondlo paper, Fitting power-law distributions to data with measurement errors
-    Equations  (3) and (5)
+    Implementaton of convolved errror power-law described in 2009 Koen,Kondlo
+    paper, Fitting power-law distributions to data with measurement errors.
+    Equations (3) and (5)
 
     Parameters
     ----------
@@ -809,52 +797,55 @@ class KoenConvolvedPowerLaw(MassFunction):
         if integral_form:
             #       Returns
             #       -------
-            #       Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
+            #       Probability that m < x for the given CDF with specified
+            #       mmin,mmax,sigma, and gamma
 
-                def error(t):
-                    return np.exp(-(t**2)/2)
+            def error(t):
+                return np.exp(-(t**2)/2)
 
-                error_coeffecient = 1/np.sqrt(2*np.pi)
+            error_coeffecient = 1/np.sqrt(2*np.pi)
 
-                def error_integral(y):
-                    error_integral = quad(error, -np.inf, (y-self.mmax)/self.sigma)[0]
-                    return error_integral
+            def error_integral(y):
+                error_integral = quad(error, -np.inf, (y-self.mmax)/self.sigma)[0]
+                return error_integral
 
-                vector_errorintegral = np.vectorize(error_integral)
-                phi = vector_errorintegral(m) * error_coeffecient
+            vector_errorintegral = np.vectorize(error_integral)
+            phi = vector_errorintegral(m) * error_coeffecient
 
-                def integrand(x,y):
-                    return (self.mmin**-self.gamma - x**-self.gamma) * np.exp((-1/2)*((y-x)/self.sigma)**2)
+            def integrand(x,y):
+                return ((self.mmin**-self.gamma - x**-self.gamma) *
+                        np.exp((-1/2)*((y-x)/self.sigma)**2))
 
-                coef = 1 / (self.sigma*np.sqrt(2*np.pi) * (self.mmin**-self.gamma - self.mmax**-self.gamma))
+            coef = (1 / (self.sigma*np.sqrt(2*np.pi) *
+                         (self.mmin**-self.gamma -
+                          self.mmax**-self.gamma)))
 
-                def eval_integral(y):
-                    integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
-                    return integral
+            def eval_integral(y):
+                integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
+                return integral
 
-                vector_integral = np.vectorize(eval_integral)
-                probability = phi + coef * vector_integral(m)
-                return probability
+            vector_integral = np.vectorize(eval_integral)
+            probability = phi + coef * vector_integral(m)
+            return probability
 
 
         else:
             # Returns
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
-                def integrand(x,y):
-                    return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
+            def integrand(x,y):
+                return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
 
-                coef = self.gamma/((self.sigma*np.sqrt(2*np.pi)) * ((self.mmin**-self.gamma) - (self.mmax**-self.gamma)))
+            coef = (self.gamma/((self.sigma*np.sqrt(2*np.pi)) *
+                                ((self.mmin**-self.gamma) -
+                                 (self.mmax**-self.gamma))))
 
-                def Integral(y):
-                    I = quad(integrand, self.mmin, self.mmax,args=(y))[0]
-                    return I
+            def Integral(y):
+                I = quad(integrand, self.mmin, self.mmax,args=(y))[0]
+                return I
 
-                vector_I = np.vectorize(Integral)
-                return  coef * vector_I(m)
-
-
-
+            vector_I = np.vectorize(Integral)
+            return  coef * vector_I(m)
 
 
 class KoenTruePowerLaw(MassFunction):
@@ -890,8 +881,11 @@ class KoenTruePowerLaw(MassFunction):
             # -------
             # Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
             # True for L<=x
-            pdf  = (self.mmin**-self.gamma - np.power(m,-self.gamma))/self.mmin**-self.gamma - self.mmax**-self.gamma
-            return_value = pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 * (m >= self.mmax) + 0 * (m <self.mmin)
+            pdf = ((self.mmin**-self.gamma -
+                    np.power(m,-self.gamma))/self.mmin**-self.gamma -
+                   self.mmax**-self.gamma)
+            return_value = (pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 *
+                            (m >= self.mmax) + 0 * (m <self.mmin))
             return return_value
 
         else:
@@ -899,6 +893,9 @@ class KoenTruePowerLaw(MassFunction):
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, and gamma
             # Answers it gives are true from mmin<=x<=mmax
-            cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
-            return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
+            cdf =
+            (self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma -
+                                                     self.mmax**-self.gamma))
+            return_value = (cdf * ((m > self.mmin) & (m < self.mmax)) + 0 *
+                            (m > self.mmax) + 0 * (m < self.mmin))
             return return_value
