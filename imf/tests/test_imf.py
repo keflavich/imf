@@ -18,6 +18,7 @@ def test_kroupa_val(inp, out, rtol, atol):
     np.testing.assert_allclose(kroupa(inp), out, rtol=rtol, atol=atol)
     np.testing.assert_allclose(imf.kroupa(inp), out, rtol=rtol, atol=atol)
 
+
 @pytest.mark.parametrize('massfunc', imf.massfunctions.keys())
 def test_mmax(massfunc):
     """
@@ -31,6 +32,7 @@ def test_mmax(massfunc):
 
     assert c.max() <= 1
 
+
 @pytest.mark.parametrize(('mlow', 'mhigh'),
                          itertools.product((0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
                                            (0.02, 0.08, 0.4, 0.5, 1.0, 120)))
@@ -43,6 +45,7 @@ def test_kroupa_integral(mlow, mhigh):
     np.testing.assert_almost_equal(num, anl)
     if num != 0:
         assert anl != 0
+
 
 @pytest.mark.parametrize(('mlow', 'mhigh'),
                          itertools.product((0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
@@ -86,11 +89,13 @@ def test_make_cluster():
     cluster = imf.make_cluster(1000)
     assert np.abs(sum(cluster) - 1000 < 100)
 
+
 def test_kroupa_inverses():
     assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(), mmin=0.01) - 0.01) < 2e-3
     assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(mmin=0.01)) - 0.01) < 2e-3
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(), mmax=200) - 200) < 1
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(mmax=200)) - 200) < 1
+
 
 @pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
                          [(0.05, 5.6159, 1e-3, 1e-3),
