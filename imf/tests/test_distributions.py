@@ -5,10 +5,13 @@ np.random.seed(1)
 
 
 def sampltest(distr, left=None, right=None, bounds=None):
+
     # check that mean and stddev from the generated sample
     # match what we get from integrating the PDF
+
     def FF1(x):
         return distr.pdf(x) * x
+
     def FF2(x):
         return distr.pdf(x) * x**2
 
@@ -150,11 +153,11 @@ def test_bounds():
 
 
 def integralcheck(distr, left, x, val):
-    I,EI = scipy.integrate.quad(lambda y: distr.pdf(y), left, x)
+    I, EI = scipy.integrate.quad(lambda y: distr.pdf(y), left, x)
     assert (np.abs(val - I) < 1e-6)
 
 
-def integralcheck_many(distr,left, right):
+def integralcheck_many(distr, left, right):
     integralcheck(distr, left, right, 1)
     N = 100
     xs = np.random.uniform(left, right, size=N)

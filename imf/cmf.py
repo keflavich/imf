@@ -30,10 +30,10 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     massfunc = imf.Salpeter(alpha=alpham1+1)
     massfunc.__name__ = 'salpeter'
     maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
-                              massfunc=massfunc,
-                              mmin=mmin.to(u.M_sun).value,
-                              mmax=mmax.to(u.M_sun).value,
-                              silent=True)*u.M_sun
+                             massfunc=massfunc,
+                             mmin=mmin.to(u.M_sun).value,
+                             mmax=mmax.to(u.M_sun).value,
+                             silent=True)*u.M_sun
 
     # sigma_squared of log(rho/rho0)
     sigma_squared = np.log(1+(MS0/2.)**2 * (1+1./beta)**-1)
@@ -47,8 +47,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     # x = np.exp(ln(rho/rho0)+sigma_squared/2)
     # ln(rho/rho0) = ln(x) - sigma_squared/2
     # rho = rho0 * exp(ln(x) - sigma_squared/2)
-    #### wrong x = (ln(rho/rho0) + (s/2))^2
-    #### wrong s = s
+
     s = sigma_squared**0.5
     pdf_func = scipy.stats.lognorm(s)
     x = pdf_func.rvs(len(maccr))
@@ -98,18 +97,18 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     core_mass = mnow[born & (~notseen) & (~stellar)].sum()
     stellar_mass = mnow[stellar].sum()
     print(("{0} of {1} have mass greater than final at t={2}."
-          " {3} are unborn.  {4} are stellar.  "
-          "{7} are not seen ({8:0.02f}%) because they are older than "
-          "one accretion time and have M<M_BE. "
-          "The cloud mass is {9}. "
-          "The CFE={5}"
-          " and SFE={6}".format((mnow>m_f).sum(), len(mnow), tnow*tcross,
-                                np.sum(~born), np.sum(stellar),
-                                (core_mass/m0).decompose().value,
-                                (stellar_mass/m0).decompose().value,
-                                notseen.sum(),
-                                (notseen.sum()/float(notseen.size))*100,
-                                m0
+           " {3} are unborn.  {4} are stellar.  "
+           "{7} are not seen ({8:0.02f}%) because they are older than "
+           "one accretion time and have M<M_BE. "
+           "The cloud mass is {9}. "
+           "The CFE={5}"
+           " and SFE={6}".format((mnow>m_f).sum(), len(mnow), tnow*tcross,
+                                 np.sum(~born), np.sum(stellar),
+                                 (core_mass/m0).decompose().value,
+                                 (stellar_mass/m0).decompose().value,
+                                 notseen.sum(),
+                                 (notseen.sum()/float(notseen.size))*100,
+                                 m0
          )))
 
     return mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born], mmax[born], forming[born]
@@ -139,9 +138,9 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     pl.xlabel("$m$, i.e. $m_{now}$")
 
     pl.figure(2).clf()
-    pl.hist((maccr/mnow)[mnow>0.1*u.M_sun], bins=np.logspace(0,2,12),
+    pl.hist((maccr/mnow)[mnow>0.1*u.M_sun], bins=np.logspace(0, 2, 12),
             histtype='step', color='k', log=True)
-    pl.hist((maccr/mnow)[mnow>(mbe/2.)], bins=np.logspace(0,2,12),
+    pl.hist((maccr/mnow)[mnow>(mbe/2.)], bins=np.logspace(0, 2, 12),
             histtype='step', linestyle='dashed', color='k', log=True)
     pl.gca().set_xscale('log')
     pl.ylabel("$N(m_{accr}/m)$")
@@ -155,10 +154,10 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
               markerfacecolor='none', alpha=0.5)
     pl.loglog(mnow[toplot & btw], (mnow/mbe)[toplot & btw], 'b+',
               markerfacecolor='none')
-    ct,bn = np.histogram(mnow[(mnow>mbe/2.) & toplot & (maccr<mbe)],
-                         bins=np.logspace(np.log10(0.05), np.log10(20)))
-    ctall,bn = np.histogram(mnow[(mnow>mbe/2.) & toplot],
-                         bins=np.logspace(np.log10(0.05), np.log10(20)))
+    ct, bn = np.histogram(mnow[(mnow>mbe/2.) & toplot & (maccr<mbe)],
+                          bins=np.logspace(np.log10(0.05), np.log10(20)))
+    ctall, bn = np.histogram(mnow[(mnow>mbe/2.) & toplot],
+                             bins=np.logspace(np.log10(0.05), np.log10(20)))
     bbn = (bn[1:]+bn[:-1])/2.
     pl.loglog(bbn, ct/ctall.astype('float'), 'k-')
     pl.ylabel("$m_{now}/m_{BE}$")
@@ -166,13 +165,13 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
 
     pl.figure(4)
     pl.clf()
-    pl.hist(mnow, bins=np.logspace(-2,2,nbins), histtype='step', log=True,
+    pl.hist(mnow, bins=np.logspace(-2, 2, nbins), histtype='step', log=True,
             edgecolor='k', label='$m$')
-    pl.hist(mnow[wc], bins=np.logspace(-2.02,1.98,nbins), histtype='step', log=True,
-            edgecolor='b', facecolor=(0,0,1,0.25), label='$m>m_{BE}/2$')
-    pl.hist(mbe, bins=np.logspace(-1.98,2.02, nbins), histtype='step',
+    pl.hist(mnow[wc], bins=np.logspace(-2.02, 1.98, nbins), histtype='step', log=True,
+            edgecolor='b', facecolor=(0, 0, 1, 0.25), label='$m>m_{BE}/2$')
+    pl.hist(mbe, bins=np.logspace(-1.98, 2.02, nbins), histtype='step',
             log=True, linestyle='dashed', color='g', label='$m_{BE}$')
-    pl.hist(mmax, bins=np.logspace(-1.96,2.04, nbins), histtype='step',
+    pl.hist(mmax, bins=np.logspace(-1.96, 2.04, nbins), histtype='step',
             log=True, linestyle='dashed', color='m', label='$m_{max}$')
     pl.gca().set_xscale('log')
     pl.legend(loc='best')
@@ -180,10 +179,10 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     pl.xlabel("$m$, i.e. $m_{now}$")
 
     many_realizations = [pn11_mf(**kwargs) for ii in range(nreal)]
-    mnow_many = np.hstack([x.value for x,y,z,w,v,s,t in many_realizations]).ravel()
+    mnow_many = np.hstack([x.value for x, y, z, w, v, s, t in many_realizations]).ravel()
     #mfwc = np.hstack([x[z].value for x,y,z,w,v,t in many_realizations]).ravel()
 
-    counts,bins = np.histogram(mnow_many.ravel(), bins=np.logspace(-2,2,nbins*nreal))
+    counts, bins = np.histogram(mnow_many.ravel(), bins=np.logspace(-2, 2, nbins*nreal))
     bbins = (bins[:-1]+bins[1:])/2.
     ok = np.log(counts) > 0
     ppars = np.polyfit(np.log(bbins)[ok], np.log(counts)[ok], 1)
@@ -273,15 +272,16 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
     # definition here is wrong.
 
     # eqn 21
-    N = (2./phit * N0 * Rtwiddle**-6 * (1 + (1-eta)*Mstar**2*Rtwiddle**(2*eta))
-         / (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta))
-         * (Mtwiddle/Rtwiddle**3)**(-1-1/(2*sigma**2)*np.log(Mtwiddle/Rtwiddle**3))
-         * np.exp(sigma**2/8.) * ((2*np.pi)**0.5 * sigma)
+    N = (2./phit * N0 * Rtwiddle**-6 * (1 + (1-eta)*Mstar**2*Rtwiddle**(2*eta)) /
+         (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta)) *
+         (Mtwiddle/Rtwiddle**3)**(-1-1/(2*sigma**2)*np.log(Mtwiddle/Rtwiddle**3)) *
+         np.exp(sigma**2/8.) * ((2*np.pi)**0.5 * sigma)
         ).to(u.dimensionless_unscaled)
 
     return N
 
+
 def test_hc13():
-    masses = np.logspace(-2,2,100)*u.M_sun
+    masses = np.logspace(-2, 2, 100)*u.M_sun
     sizescale = 10*u.pc
     return hc13_mf(mass=masses, sizescale=sizescale)
