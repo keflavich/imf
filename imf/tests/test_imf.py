@@ -6,6 +6,16 @@ from .. import imf
 
 from ..imf import kroupa, chabrier2005
 
+@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
+                         [(0.05, 5.6159, 1e-3, 1e-3),
+                          (1.5, 0.0359, 1e-4, 1e-4),
+                          (1.0, 0.0914, 1e-4, 1e-4),
+                          (3.0, 0.0073, 1e-4, 1e-4),
+                          (1, 0.0914, 1e-4, 1e-4),
+                          (3, 0.0073, 1e-4, 1e-4),])
+def test_kroupa_val(inp, out, rtol, atol):
+    assert np.allclose(imf.kroupa(inp), out, rtol=rtol, atol=atol)
+
 @pytest.mark.parametrize('massfunc', imf.massfunctions.keys())
 def test_mmax(massfunc):
     """
@@ -69,16 +79,6 @@ def test_chabrier_integral(mlow, mhigh):
     #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
     #        np.testing.assert_almost_equal(num, anl)
 
-
-@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
-                         [(0.05, 5.615, 1e-3, 1e-3),
-                          (1.5, 0.0359, 1e-4, 1e-4),
-                          (1.0, 0.0914, 1e-4, 1e-4),
-                          (3.0, 0.0073, 1e-4, 1e-4),
-                          (1, 0.0914, 1e-4, 1e-4),
-                          (3, 0.0073, 1e-4, 1e-4),])
-def test_kroupa_val(inp, out, rtol, atol):
-    assert np.allclose(kroupa(inp), out, rtol=rtol, atol=atol)
 
 def test_make_cluster():
     cluster = imf.make_cluster(1000)
