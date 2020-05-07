@@ -1,6 +1,7 @@
 """
 Various codes to work with the initial mass function
 """
+
 from __future__ import print_function
 import numpy as np
 import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
@@ -164,7 +165,7 @@ class Kroupa(MassFunction):
         if numerical:
             return super(Kroupa, self).integrate(mlow, mhigh)
 
-        return (self.distr.cdf(mhigh)- self.distr.cdf(mlow)) * self.normfactor,0
+        return (self.distr.cdf(mhigh)- self.distr.cdf(mlow)) * self.normfactor, 0
 
 
     def m_integrate(self, mlow, mhigh, numerical=False, **kwargs):
@@ -229,7 +230,7 @@ class Chabrier2005(MassFunction):
                                               self.mmid),
              distributions.PowerLaw(-self.alpha, self.mmid, self.mmax)])
 
-    def __call__(self,x, integral_form=False, **kw):
+    def __call__(self, x, integral_form=False, **kw):
         if integral_form:
             return self.distr.cdf(x)
         else:
@@ -289,7 +290,7 @@ def modified_schechter(m, m1, **kwargs):
 
 try:
     import scipy
-    def schechter_cdf(m,A=1,beta=2,m0=100,mmin=10,mmax=None,npts=1e4):
+    def schechter_cdf(m, A=1, beta=2, m0=100, mmin=10, mmax=None, npts=1e4):
         """
         Return the CDF value of a given mass for a set mmin,mmax
         mmax will default to 10 m0 if not specified
@@ -326,30 +327,30 @@ except ImportError:
 #    """
 #    return scipy.interpolate.interp1d(shfun,arange(.1,20,.01),bounds_error=False,fill_value=20.)
 
-def m_integrate(fn=kroupa, bins=np.logspace(-2,2,500)):
+def m_integrate(fn=kroupa, bins=np.logspace(-2, 2, 500)):
     xax = (bins[:-1]+bins[1:])/2.
     integral = xax*(bins[1:]-bins[:-1]) * (fn(bins[:-1])+fn(bins[1:])) / 2.
 
-    return xax,integral
+    return xax, integral
 
-def cumint(fn=kroupa, bins=np.logspace(-2,2,500)):
-    xax,integral = integrate(fn,bins)
+def cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
+    xax, integral = integrate(fn, bins)
     return integral.cumsum() / integral.sum()
 
-def m_cumint(fn=kroupa, bins=np.logspace(-2,2,500)):
-    xax,integral = m_integrate(fn,bins)
+def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
+    xax, integral = m_integrate(fn, bins)
     return integral.cumsum() / integral.sum()
 
-massfunctions = {'kroupa':kroupa, 'salpeter':salpeter, 'chabrier':chabrier,
-                 'schechter':schechter, 'modified_schechter':modified_schechter}
-reverse_mf_dict = {v:k for k,v in iteritems(massfunctions)}
+massfunctions = {'kroupa': kroupa, 'salpeter': salpeter, 'chabrier': chabrier,
+                 'schechter': schechter, 'modified_schechter': modified_schechter}
+reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
-mostcommonmass = {'kroupa':0.08, 'salpeter':0.01, 'chabrier':0.23,
-                  'schecter':0.01, 'modified_schechter':0.01}
+mostcommonmass = {'kroupa': 0.08, 'salpeter': 0.01, 'chabrier': 0.23,
+                  'schecter': 0.01, 'modified_schechter': 0.01}
 expectedmass_cache = {}
 
 def get_massfunc(massfunc):
-    if isinstance(massfunc, types.FunctionType) or hasattr(massfunc,'__call__'):
+    if isinstance(massfunc, types.FunctionType) or hasattr(massfunc, '__call__'):
         return massfunc
     elif type(massfunc) is str:
         return massfunctions[massfunc]
@@ -361,7 +362,7 @@ def get_massfunc_name(massfunc):
         return reverse_mf_dict[massfunc]
     elif type(massfunc) is str:
         return massfunc
-    elif hasattr(massfunc,'__name__'):
+    elif hasattr(massfunc, '__name__'):
         return massfunc.__name__
     else:
         raise ValueError("invalid mass function")
@@ -406,7 +407,7 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
     mmin = mfc.mmin
     mmax = mfc.mmax
 
-    ends = np.logspace(np.log10(mmin),np.log10(mmax),nbins)
+    ends = np.logspace(np.log10(mmin), np.log10(mmax), nbins)
     masses = (ends[1:] + ends[:-1])/2.
     dm = np.diff(ends)
 
@@ -485,7 +486,7 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
         #newmasses = inverse_imf(np.random.random(int(nsamp)),
         #                        massfunc=massfunc, mmax=mmax, **kwargs)
         newmasses = mfc.distr.rvs(nsamp)
-        masses = np.concatenate([masses,newmasses])
+        masses = np.concatenate([masses, newmasses])
         mtot = masses.sum()
         if verbose:
             print("Sampled %i new stars.  Total is now %g" % (int(nsamp), mtot))
@@ -511,12 +512,12 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
             masses = masses[:last_ind]
             mtot = masses.sum()
             if verbose:
-                print("Selected the first %i out of %i masses to get %g total" % (last_ind,len(mcum),mtot))
+                print("Selected the first %i out of %i masses to get %g total" % (last_ind, len(mcum), mtot))
             # force the break, because some stopping criteria can push mtot < mcluster
             break
 
     if not silent:
-        print("Total cluster mass is %g (limit was %g)" % (mtot,mcluster))
+        print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
 
     if 'orig_mmin' in locals():
         mfc.mmin = orig_mmin
@@ -535,34 +536,34 @@ def mass_luminosity_interpolator(name):
         # Power-law extrapolated from 18 to 8 and from 50 to 150
         # (using, e.g., ",".join(["%0.2f" % p for p in polyval(polyfit(log10(vgsmass[:5]),vgslogq[:5],1),log10(linspace(50,150,6)))[::-1]])
         # where vgsmass does *not* include the extrapolated values)
-        vgsmass = [150.,  130.,  110.,   90.,   70.,  51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4,18.,  16.,  14.,  12.,  10.,   8.][::-1]
-        vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69,45.58,44.65,43.60,42.39,40.96,39.21][::-1]
+        # not used vgsmass = [150.,  130.,  110.,   90.,   70.,  51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4,18.,  16.,  14.,  12.,  10.,   8.][::-1]
+        # not used vgslogq = [50.51,50.34,50.13,49.88,49.57,49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69,45.58,44.65,43.60,42.39,40.96,39.21][::-1]
 
         # non-extrapolated
-        vgsM    = [51.3,44.2,41.0,38.1,35.5,33.1,30.8,28.8,26.9,25.1,23.6,22.1,20.8,19.5,18.4]
-        vgslogL = [6.154,6.046,5.991,5.934,5.876,5.817,5.756,5.695,5.631,5.566,5.499,5.431,5.360,5.287,5.211]
-        vgslogQ = [49.18,48.99,48.90,48.81,48.72,48.61,48.49,48.34,48.16,47.92,47.63,47.25,46.77,46.23,45.69]
+        vgsMass = [51.3, 44.2, 41.0, 38.1, 35.5, 33.1, 30.8, 28.8, 26.9, 25.1, 23.6, 22.1, 20.8, 19.5, 18.4]
+        vgslogL = [6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695, 5.631, 5.566, 5.499, 5.431, 5.360, 5.287, 5.211]
+        vgslogQ = [49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34, 48.16, 47.92, 47.63, 47.25, 46.77, 46.23, 45.69]
         # mass extrapolated
         vgsMe = np.concatenate([
-            np.linspace(0.03,0.43,100),
-            np.linspace(0.43,2,100),
-            np.linspace(2,20,100),
-            vgsM[::-1],
-            np.linspace(50,150,100)])
+            np.linspace(0.03, 0.43, 100),
+            np.linspace(0.43, 2, 100),
+            np.linspace(2, 20, 100),
+            vgsMass[::-1],
+            np.linspace(50, 150, 100)])
         # log luminosity extrapolated
         vgslogLe = np.concatenate([
             np.log10(0.23*np.linspace(0.03,0.43,100)**2.3),
             np.log10(np.linspace(0.43,2,100)**4),
             np.log10(1.5*np.linspace(2,20,100)**3.5),
             vgslogL[::-1],
-            np.polyval(np.polyfit(np.log10(vgsM)[:3],vgslogL[:3],1),np.log10(np.linspace(50,150,100)))])
+            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogL[:3],1),np.log10(np.linspace(50,150,100)))])
         # log Q (lyman continuum) extrapolated
         vgslogQe = np.concatenate([
             np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
             np.zeros(100), # 0.43-2.0 solar mass stars produce 0 LyC photons
-            np.polyval(np.polyfit(np.log10(vgsM)[-3:],vgslogQ[-3:],1),np.log10(np.linspace(8,18.4,100))),
+            np.polyval(np.polyfit(np.log10(vgsass[-3:],vgslogQ[-3:],1),np.log10(np.linspace(8,18.4,100))),
             vgslogQ[::-1],
-            np.polyval(np.polyfit(np.log10(vgsM)[:3],vgslogQ[:3],1),np.log10(np.linspace(50,150,100)))])
+            np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogQ[:3],1),np.log10(np.linspace(50,150,100)))])
 
         mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQ
 
@@ -901,5 +902,3 @@ class KoenTruePowerLaw(MassFunction):
             cdf  = self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma - self.mmax**-self.gamma)
             return_value = cdf * ((m > self.mmin) & (m < self.mmax)) + 0 * (m > self.mmax) + 0 * (m < self.mmin)
             return return_value
-
-

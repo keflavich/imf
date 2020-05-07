@@ -6,13 +6,14 @@ from .. import imf
 
 from ..imf import kroupa, chabrier2005
 
+
 @pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
                          [(0.05, 5.6159, 1e-3, 1e-3),
                           (1.5, 0.0359, 1e-4, 1e-4),
                           (1.0, 0.0914, 1e-4, 1e-4),
                           (3.0, 0.0073, 1e-4, 1e-4),
                           (1, 0.0914, 1e-4, 1e-4),
-                          (3, 0.0073, 1e-4, 1e-4),])
+                          (3, 0.0073, 1e-4, 1e-4)])
 def test_kroupa_val(inp, out, rtol, atol):
     kroupa = imf.Kroupa()
     np.testing.assert_allclose(kroupa(inp), out, rtol=rtol, atol=atol)
@@ -74,15 +75,15 @@ def test_chabrier_integral(mlow, mhigh):
     print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
     np.testing.assert_almost_equal(num, anl)
 
-    #for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
-    #    for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
-    #        try:
-    #            num = chabrier2005.m_integrate(mlow, mhigh, numerical=True)[0]
-    #            anl = chabrier2005.m_integrate(mlow, mhigh, numerical=False)[0]
-    #        except ValueError:
-    #            continue
-    #        print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
-    #        np.testing.assert_almost_equal(num, anl)
+    # for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
+    #     for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
+    #         try:
+    #             num = chabrier2005.m_integrate(mlow, mhigh, numerical=True)[0]
+    #             anl = chabrier2005.m_integrate(mlow, mhigh, numerical=False)[0]
+    #         except ValueError:
+    #             continue
+    #         print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
+    #         np.testing.assert_almost_equal(num, anl)
 
 
 def test_make_cluster():
@@ -103,7 +104,7 @@ def test_kroupa_inverses():
                           (1.0, 0.0914, 1e-4, 1e-4),
                           (3.0, 0.0073, 1e-4, 1e-4),
                           (1, 0.0914, 1e-4, 1e-4),
-                          (3, 0.0073, 1e-4, 1e-4),])
+                          (3, 0.0073, 1e-4, 1e-4)])
 def test_kroupa_val_unchanged(inp, out, rtol, atol):
     # regression: make sure that imf.kroupa = imf.Kroupa
     kroupa = imf.Kroupa()
