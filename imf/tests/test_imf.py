@@ -71,9 +71,11 @@ def test_chabrier_integral(mlow, mhigh):
 
 
 def test_kroupa_val():
-    assert np.allclose(kroupa(1), 0.0914, rtol=1e-4, atol=1e-4)
     assert np.allclose(kroupa(0.05), 5.615, rtol=1e-3, atol=1e-3)
     assert np.allclose(kroupa(1.5), 0.0359, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(1.0), 0.0914, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(3.0), 0.0073, rtol=1e-4, atol=1e-4)
+    assert np.allclose(kroupa(1), 0.0914, rtol=1e-4, atol=1e-4)
     assert np.allclose(kroupa(3), 0.0073, rtol=1e-4, atol=1e-4)
 
 def test_make_cluster():
