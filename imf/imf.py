@@ -454,11 +454,11 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     #          (nsamp,mtot,mcluster)))
 
     mfc = get_massfunc(massfunc)
-    if mmin is not None and hasattr(mf, 'mmin') and mfc.mmin != mmin:
+    if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
         #warnings.warn(f"Setting mass function {massfunc}'s mmin={mmin}")
         orig_mmin = mfc.mmin
         mfc.mmin = mmin
-    if mmax is not None and hasattr(mf, 'mmax') and mfc.mmax != mmax:
+    if mmax is not None and hasattr(mfc, 'mmax') and mfc.mmax != mmax:
         #warnings.warn(f"Setting mass function {massfunc}'s mmax={mmax}")
         orig_mmax = mfc.mmax
         mfc.mmax = mmax
