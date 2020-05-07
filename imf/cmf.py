@@ -65,8 +65,8 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     birthday = np.random.random(len(maccr)) * tcross
     born = birthday < tnow*tcross
 
-    b=4.-(3./alpham1)
-    a=(b-1)/2.
+    b = 4.-(3./alpham1)
+    a = (b-1)/2.
     taccr = (tcross * sigma**((4.-4.*a)/(3.-2.*a)) *
              (maccr/m0)**((1-a)/(3-2*a))).to(u.Myr)
     print(("taccr=[{0} - {1}]".format(taccr.to(u.Myr).min(), taccr.to(u.Myr).max())))
@@ -87,7 +87,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
     forming = age < taccr
     m_f = np.vstack([mmax.value, maccr.value]).min(axis=0)*u.M_sun
 
-    mnow[mnow > m_f] = m_f[mnow>m_f]
+    mnow[mnow > m_f] = m_f[mnow > m_f]
     will_collapse = maccr > mbe/2.
 
     # We assume that cores that do not reach their BE mass are seen only during
@@ -102,7 +102,7 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
            "one accretion time and have M<M_BE. "
            "The cloud mass is {9}. "
            "The CFE={5}"
-           " and SFE={6}".format((mnow>m_f).sum(), len(mnow), tnow*tcross,
+           " and SFE={6}".format((mnow > m_f).sum(), len(mnow), tnow*tcross,
                                  np.sum(~born), np.sum(stellar),
                                  (core_mass/m0).decompose().value,
                                  (stellar_mass/m0).decompose().value,
@@ -111,7 +111,8 @@ def pn11_mf(tnow=1, mmin=0.01*u.M_sun, mmax=120*u.M_sun, T0=10*u.K,
                                  m0
          )))
 
-    return mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born], mmax[born], forming[born]
+    return (mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born],
+            mmax[born], forming[born])
 
 def test_pn11(nreal=5, nbins=50, **kwargs):
     mnow, mf, wc, maccr, mbe, mmax, forming = pn11_mf(**kwargs)
@@ -127,10 +128,10 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     pl.loglog(mnow[toplot & gtmax], (maccr/mnow)[toplot & gtmax], 'kd',
               markerfacecolor='none')
     print(("{0} have maccr<mbe and m>0.05".format((toplot & ltbe).sum())))
-    pl.loglog(mnow[toplot & ltbe],  (maccr/mnow)[toplot & ltbe], 'r.',
+    pl.loglog(mnow[toplot & ltbe], (maccr/mnow)[toplot & ltbe], 'r.',
               markersize=2, alpha=0.5,
               markerfacecolor='none')
-    pl.loglog(mnow[toplot & btw],   (maccr/mnow)[toplot & btw], 'b+',
+    pl.loglog(mnow[toplot & btw], (maccr/mnow)[toplot & btw], 'b+',
               markerfacecolor='none')
     pl.gca().set_ylim(0.5, 500)
     pl.gca().set_xlim(0.05, 50)
@@ -138,9 +139,9 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     pl.xlabel("$m$, i.e. $m_{now}$")
 
     pl.figure(2).clf()
-    pl.hist((maccr/mnow)[mnow>0.1*u.M_sun], bins=np.logspace(0, 2, 12),
+    pl.hist((maccr/mnow)[mnow > 0.1*u.M_sun], bins=np.logspace(0, 2, 12),
             histtype='step', color='k', log=True)
-    pl.hist((maccr/mnow)[mnow>(mbe/2.)], bins=np.logspace(0, 2, 12),
+    pl.hist((maccr/mnow)[mnow > (mbe/2.)], bins=np.logspace(0, 2, 12),
             histtype='step', linestyle='dashed', color='k', log=True)
     pl.gca().set_xscale('log')
     pl.ylabel("$N(m_{accr}/m)$")
@@ -154,9 +155,9 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
               markerfacecolor='none', alpha=0.5)
     pl.loglog(mnow[toplot & btw], (mnow/mbe)[toplot & btw], 'b+',
               markerfacecolor='none')
-    ct, bn = np.histogram(mnow[(mnow>mbe/2.) & toplot & (maccr<mbe)],
+    ct, bn = np.histogram(mnow[(mnow > mbe/2.) & toplot & (maccr < mbe)],
                           bins=np.logspace(np.log10(0.05), np.log10(20)))
-    ctall, bn = np.histogram(mnow[(mnow>mbe/2.) & toplot],
+    ctall, bn = np.histogram(mnow[(mnow > mbe/2.) & toplot],
                              bins=np.logspace(np.log10(0.05), np.log10(20)))
     bbn = (bn[1:]+bn[:-1])/2.
     pl.loglog(bbn, ct/ctall.astype('float'), 'k-')
@@ -180,7 +181,6 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
 
     many_realizations = [pn11_mf(**kwargs) for ii in range(nreal)]
     mnow_many = np.hstack([x.value for x, y, z, w, v, s, t in many_realizations]).ravel()
-    #mfwc = np.hstack([x[z].value for x,y,z,w,v,t in many_realizations]).ravel()
 
     counts, bins = np.histogram(mnow_many.ravel(), bins=np.logspace(-2, 2, nbins*nreal))
     bbins = (bins[:-1]+bins[1:])/2.
@@ -191,12 +191,6 @@ def test_pn11(nreal=5, nbins=50, **kwargs):
     pl.figure(5).clf()
     pl.plot(maccr[toplot], mbe[toplot], 'k,')
 
-    #return counts,bbins
-    #pl.hist(mf.ravel(), bins=np.logspace(-2,2,nbins*nreal), histtype='step', log=True,
-    #        edgecolor='r')
-    #pl.hist(mfwc.ravel(), bins=np.logspace(-2,2,nbins*nreal), histtype='step',
-    #        edgecolor='g',
-    #        log=True)
     return mnow, mf, wc, maccr, mbe, mmax
 
 def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
@@ -255,8 +249,8 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
     lambdaJ0 = (np.pi**0.5 * c_s / Cm * (constants.G*rho_bar)**-0.5).to(u.pc)
 
     # Eqn 7 of Paper I
-    #delta = np.log(rho/rho_bar
-    #R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
+    # delta = np.log(rho/rho_bar
+    # R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
 
     Rtwiddle = (sizescale / lambdaJ0).to(u.dimensionless_unscaled)
 

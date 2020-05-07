@@ -10,7 +10,7 @@ import numpy as np
 import scipy.integrate
 import warnings
 
-from .imf import MassFunction, Chabrier2005, Kroupa
+from .imf import MassFunction, Chabrier2005
 
 chabrier2005 = Chabrier2005()
 
@@ -42,10 +42,16 @@ class McKeeOffner_PLF(MassFunction):
                 return self.imf(x)*x**(self.j-self.jf-1) * tf
 
             def integrate(lolim, luminosity_):
-                integral = scipy.integrate.quad(num_func, lolim, self.mmax, args=(luminosity_,), **kwargs)[0]
+                integral = scipy.integrate.quad(num_func, lolim, self.mmax,
+                                                args=(luminosity_,),
+                                                **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mmin < luminosity, luminosity, self.mmin), luminosity)
+            numerator = np.vectorize(integrate)(np.where(self.mmin <
+                                                         luminosity,
+                                                         luminosity,
+                                                         self.mmin),
+                                                luminosity)
 
         else:
             def num_func(x):
@@ -55,7 +61,10 @@ class McKeeOffner_PLF(MassFunction):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
                 return integral
 
-            numerator = np.vectorize(integrate)(np.where(self.mmin < luminosity, luminosity, self.mmin))
+            numerator = np.vectorize(integrate)(np.where(self.mmin <
+                                                         luminosity,
+                                                         luminosity,
+                                                         self.mmin))
 
         result = (1-self.j) * luminosity**(1-self.j) * numerator / self.denominator
         if integral_form:

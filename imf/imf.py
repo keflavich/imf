@@ -4,7 +4,7 @@ Various codes to work with the initial mass function
 
 from __future__ import print_function
 import numpy as np
-import types # I use typechecking.  Is there a better way to do this?  (see inverse_imf below)
+import types
 import scipy.integrate
 from scipy.special import erf
 import warnings
@@ -12,6 +12,7 @@ from six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
 from . import distributions
+
 
 class MassFunction(object):
     """
@@ -92,9 +93,9 @@ class Salpeter(MassFunction):
 
     def __call__(self, m, integral_form=False):
         if not integral_form:
-            return self.distr.pdf(m) *self.normfactor
+            return self.distr.pdf(m) * self.normfactor
         else:
-            return self.distr.cdf(m) *self.normfactor
+            return self.distr.cdf(m) * self.normfactor
 
 
 # three codes for dn/dlog(m)
@@ -159,6 +160,7 @@ class Kroupa(MassFunction):
         else:
             return self.normfactor * self.distr.pdf(m)
 
+
     def integrate(self, mlow, mhigh, numerical=False):
         """
         Integrate the mass function over some range
@@ -168,7 +170,7 @@ class Kroupa(MassFunction):
         if numerical:
             return super(Kroupa, self).integrate(mlow, mhigh)
 
-        return (self.distr.cdf(mhigh)- self.distr.cdf(mlow)) * self.normfactor, 0
+        return (self.distr.cdf(mhigh) - self.distr.cdf(mlow)) * self.normfactor, 0
 
 
     def m_integrate(self, mlow, mhigh, numerical=False, **kwargs):
@@ -209,6 +211,7 @@ class Chabrier(MassFunction):
         else:
             return self.distr.pdf(mass)*self.multiplier
 
+
 chabrier = Chabrier()
 
 class Chabrier2005(MassFunction):
@@ -239,6 +242,7 @@ class Chabrier2005(MassFunction):
             return self.distr.cdf(x)
         else:
             return self.distr.pdf(x)
+
 
 chabrier2005 = Chabrier2005()
 
@@ -311,7 +315,7 @@ try:
         tot = posint-negint
 
         # normalize by the integral
-        ret = (-m**(1-beta) * scipy.special.expn(beta, m/m0) - negint)/ tot
+        ret = (-m**(1-beta) * scipy.special.expn(beta, m/m0) - negint) / tot
 
         return ret
 
