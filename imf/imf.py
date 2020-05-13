@@ -104,7 +104,7 @@ salpeter = Salpeter()
 
 
 class Kroupa(MassFunction):
-    # kroupa = BrokenPowerLaw(breaks={0.08:-0.3, 0.5:1.3, 'last':2.3},mmin=0.03,mmax=120)
+    # kroupa = BrokenPowerLaw(breaks={0.08: -0.3, 0.5: 1.3, 'last': 2.3}, mmin=0.03, mmax=120)
     def __init__(self, mmin=0.03, mmax=120, p1=0.3, p2=1.3, p3=2.3,
                  break1=0.08, break2=0.5):
         """
@@ -145,11 +145,11 @@ class Kroupa(MassFunction):
 
         Parameters
         ----------
-        m : float array
+        m: float array
             The mass at which to evaluate the function (Msun)
-        p1,p2,p3 : floats
+        p1, p2, p3: floats
             The power-law slopes of the different segments of the IMF
-        break1,break2 : floats
+        break1, break2: floats
             The mass breakpoints at which to use the different power laws
         """
 
@@ -255,13 +255,13 @@ def schechter(m, A=1, beta=2, m0=100, integral=False):
 
     Parameters
     ----------
-        m : np.ndarray
+        m: np.ndarray
             List of masses for which to compute the Schechter function
-        A : float
+        A: float
             Arbitrary amplitude of the Schechter function
-        beta : float
+        beta: float
             Power law exponent
-        m0 : float
+        m0: float
             Characteristic mass (mass at which exponential decay takes over)
 
     Returns
@@ -281,9 +281,9 @@ def modified_schechter(m, m1, **kwargs):
     "
     Parameters
     ----------
-        m : np.ndarray
+        m: np.ndarray
             List of masses for which to compute the Schechter function
-        m1 : float
+        m1: float
             Characteristic minimum mass (exponential decay below this mass)
         ** See schecter for other parameters **
 
@@ -299,7 +299,7 @@ try:
     import scipy
     def schechter_cdf(m, A=1, beta=2, m0=100, mmin=10, mmax=None, npts=1e4):
         """
-        Return the CDF value of a given mass for a set mmin,mmax
+        Return the CDF value of a given mass for a set mmin, mmax
         mmax will default to 10 m0 if not specified
 
         Analytic integral of the Schechter function:
@@ -352,7 +352,7 @@ def get_massfunc(massfunc):
         return massfunctions[massfunc]
     else:
         raise ValueError("massfunc must either be a string in the set %s or a function"
-                         % (",".join(massfunctions.keys())))
+                         % (", ".join(massfunctions.keys())))
 
 def get_massfunc_name(massfunc):
     if massfunc in reverse_mf_dict:
@@ -374,16 +374,16 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
 
     Parameters
     ----------
-    p : np.array
-        An array of floats in the range [0,1).  These should be uniformly random
+    p: np.array
+        An array of floats in the range [0, 1).  These should be uniformly random
         numbers.
-    nbins : int
+    nbins: int
         The number of bins in the cumulative distribution function to sample
         over.  More bins results in (marginally) higher precision.
-    mmin : float
-    mmax : float
+    mmin: float
+    mmax: float
         Minimum and maximum stellar mass in the distribution
-    massfunc : string or function
+    massfunc: string or function
         massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a
         function
     """
@@ -445,7 +445,7 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     # mtot = masses.sum()
     # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
-    #          (nsamp,mtot,mcluster)))
+    #          (nsamp, mtot, mcluster)))
 
     mfc = get_massfunc(massfunc)
     if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
@@ -595,7 +595,7 @@ def lum_of_star(mass, grid='Ekstrom'):
     Uses the Vacca, Garmany, Shull 1996 Table 5 Log Q and Mspec parameters
 
     returns LogL in solar luminosities
-    **WARNING** Extrapolates for M not in [18.4,50] msun
+    **WARNING** Extrapolates for M not in [18.4, 50] msun
 
     http://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
 
@@ -669,54 +669,54 @@ def color_from_mass(mass, outtype=float):
     """
 
     mcolor = {
-             100 :(150,175,255),
-              50 :(157,180,255),
-              20 :(162,185,255),
-              10 :(167,188,255),
-               8 :(170,191,255),
-               6 :(175,195,255),
-             2.2 :(186,204,255),
-             2.0 :(192,209,255),
-            1.86 :(202,216,255),
-             1.6 :(228,232,255),
-             1.5 :(237,238,255),
-             1.3 :(251,248,255),
-             1.2 :(255,249,249),
-               1 :(255,245,236),
-            0.95 :(255,244,232),
-            0.90 :(255,241,223),
-            0.85 :(255,235,209),
-            0.70 :(255,215,174),
-            0.60 :(255,198,144),
-            0.50 :(255,190,127),
-            0.40 :(255,187,123),
-            0.35 :(255,187,123),
-            0.30 :(255,177,113),
-            0.20 :(255,107,63),
-            0.10 :(155,57,33),
-            0.10 :(155,57,33),
-            0.003 :(105,27,0),
+             100: (150, 175, 255),
+              50: (157, 180, 255),
+              20: (162, 185, 255),
+              10: (167, 188, 255),
+               8: (170, 191, 255),
+               6: (175, 195, 255),
+             2.2: (186, 204, 255),
+             2.0: (192, 209, 255),
+            1.86: (202, 216, 255),
+             1.6: (228, 232, 255),
+             1.5: (237, 238, 255),
+             1.3: (251, 248, 255),
+             1.2: (255, 249, 249),
+               1: (255, 245, 236),
+            0.95: (255, 244, 232),
+            0.90: (255, 241, 223),
+            0.85: (255, 235, 209),
+            0.70: (255, 215, 174),
+            0.60: (255, 198, 144),
+            0.50: (255, 190, 127),
+            0.40: (255, 187, 123),
+            0.35: (255, 187, 123),
+            0.30: (255, 177, 113),
+            0.20: (255, 107, 63),
+            0.10: (155, 57, 33),
+            0.10: (155, 57, 33),
+           0.003: (105, 27, 0),
             }
 
     keys = sorted(mcolor.keys())
 
-    reds,greens,blues = zip(*[mcolor[k] for k in keys])
+    reds, greens, blues = zip(*[mcolor[k] for k in keys])
 
-    r = np.interp(mass,keys,reds)
-    g = np.interp(mass,keys,greens)
-    b = np.interp(mass,keys,blues)
+    r = np.interp(mass, keys, reds)
+    g = np.interp(mass, keys, greens)
+    b = np.interp(mass, keys, blues)
 
     if outtype == int:
-        return (r,g,b)
+        return (r, g, b)
     elif outtype == float:
-        return (r/255.,g/255.,b/255.)
+        return (r/255., g/255., b/255.)
     else:
         raise NotImplementedError
 
 def color_of_cluster(cluster, colorfunc=color_from_mass):
     colors       = np.array([colorfunc(m) for m in cluster])
     luminosities = 10**np.array([lum_of_star(m) for m in cluster])
-    mean_color = (colors*luminosities[:,None]).sum(axis=0)/luminosities.sum()
+    mean_color = (colors*luminosities[:, None]).sum(axis=0)/luminosities.sum()
     return mean_color
 
 def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
@@ -761,7 +761,7 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
 
     assert all(np.isfinite(yax))
 
-    return cluster,yax,colors
+    return cluster, yax, colors
 
     # import pylab as pl
     # pl.scatter(cluster, yax, c=colors, s=np.log10(cluster)*5)
@@ -770,30 +770,30 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
 
 class KoenConvolvedPowerLaw(MassFunction):
     """
-    Implementaton of convolved errror power-law described in 2009 Koen,Kondlo
+    Implementaton of convolved errror power-law described in 2009 Koen, Kondlo
     paper, Fitting power-law distributions to data with measurement errors.
     Equations (3) and (5)
 
     Parameters
     ----------
-    m : float
+    m: float
         The mass at which to evaluate the function
-    mmin,mmax : floats
+    mmin, mmax: floats
         The upper and lower bounds for the power law distribution
-    gamma : floats
+    gamma: floats
         The specified gamma for the distribution, slope = -gamma - 1
-    sigma : float or None
+    sigma: float or None
         specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
     """
 
 
-    def __init__(self,mmin,mmax,gamma,sigma):
+    def __init__(self, mmin, mmax, gamma, sigma):
         self.mmin = mmin
         self.mmax = mmax
         self.sigma = sigma
         self.gamma = gamma
 
-    def __call__(self,m, integral_form=False):
+    def __call__(self, m, integral_form=False):
         m = np.asarray(m)
         if self.mmax<self.mmin:
             raise ValueError("mmax must be greater than mmin")
@@ -802,7 +802,7 @@ class KoenConvolvedPowerLaw(MassFunction):
             #       Returns
             #       -------
             #       Probability that m < x for the given CDF with specified
-            #       mmin,mmax,sigma, and gamma
+            #       mmin, mmax, sigma, and gamma
 
             def error(t):
                 return np.exp(-(t**2)/2)
@@ -816,7 +816,7 @@ class KoenConvolvedPowerLaw(MassFunction):
             vector_errorintegral = np.vectorize(error_integral)
             phi = vector_errorintegral(m) * error_coeffecient
 
-            def integrand(x,y):
+            def integrand(x, y):
                 return ((self.mmin**-self.gamma - x**-self.gamma) *
                         np.exp((-1/2)*((y-x)/self.sigma)**2))
 
@@ -825,7 +825,7 @@ class KoenConvolvedPowerLaw(MassFunction):
                           self.mmax**-self.gamma)))
 
             def eval_integral(y):
-                integral = quad(integrand,self.mmin,self.mmax,args=(y))[0]
+                integral = quad(integrand, self.mmin, self.mmax, args=(y))[0]
                 return integral
 
             vector_integral = np.vectorize(eval_integral)
@@ -836,8 +836,8 @@ class KoenConvolvedPowerLaw(MassFunction):
         else:
             # Returns
             # ------
-            # Probability of getting x given the PDF with specified mmin,mmax, sigma, and gamma
-            def integrand(x,y):
+            # Probability of getting x given the PDF with specified mmin, mmax, sigma, and gamma
+            def integrand(x, y):
                 return (x**-(self.gamma+1)) * np.exp(-.5*((y-x)/self.sigma)**2)
 
             coef = (self.gamma/((self.sigma*np.sqrt(2*np.pi)) *
@@ -845,7 +845,7 @@ class KoenConvolvedPowerLaw(MassFunction):
                                  (self.mmax**-self.gamma))))
 
             def Integral(y):
-                I = quad(integrand, self.mmin, self.mmax,args=(y))[0]
+                I = quad(integrand, self.mmin, self.mmax, args=(y))[0]
                 return I
 
             vector_I = np.vectorize(Integral)
@@ -863,30 +863,30 @@ class KoenTruePowerLaw(MassFunction):
 
     Parameters
     ----------
-    m : float
+    m: float
         The mass at which to evaluate the function
-    mmin,mmax : floats
+    mmin, mmax: floats
         The upper and lower bounds for the power law distribution
-    gamma : floats
+    gamma: floats
         The specified gamma for the distribution, related to the slope, alpha = -gamma + 1
     """
 
-    def __init__(self,mmin,mmax,gamma):
+    def __init__(self, mmin, mmax, gamma):
         self.mmin = mmin
         self.mmax = mmax
         self.gamma = gamma
 
-    def __call__(self,m, integral_form=False):
+    def __call__(self, m, integral_form=False):
         m = np.asarray(m)
         if self.mmax<self.mmin:
             raise ValueError('mmax must be greater than mmin')
         if integral_form:
             # Returns
             # -------
-            # Probability that m < x for the given CDF with specified mmin,mmax,sigma, and gamma
+            # Probability that m < x for the given CDF with specified mmin, mmax, sigma, and gamma
             # True for L<=x
             pdf = ((self.mmin**-self.gamma -
-                    np.power(m,-self.gamma))/self.mmin**-self.gamma -
+                    np.power(m, -self.gamma))/self.mmin**-self.gamma -
                    self.mmax**-self.gamma)
             return_value = (pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 *
                             (m >= self.mmax) + 0 * (m <self.mmin))
@@ -895,7 +895,7 @@ class KoenTruePowerLaw(MassFunction):
         else:
             # Returns
             # ------
-            # Probability of getting x given the PDF with specified mmin,mmax, and gamma
+            # Probability of getting x given the PDF with specified mmin, mmax, and gamma
             # Answers it gives are true from mmin<=x<=mmax
             cdf = (self.gamma*np.power(m,
                                        -(self.gamma+1))/(self.mmin**-self.gamma
