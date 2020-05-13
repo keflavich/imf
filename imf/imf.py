@@ -7,7 +7,6 @@ import numpy as np
 import types
 import scipy.integrate
 from scipy.special import erf
-import warnings
 from six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
@@ -544,16 +543,16 @@ def mass_luminosity_interpolator(name):
             np.log10(np.linspace(0.43, 2, 100)**4),
             np.log10(1.5*np.linspace(2, 20, 100)**3.5),
             vgslogL[::-1],
-            np.polyval(np.polyfit(np.log10(vgsass[:3], vgslogL[:3], 1),
+            np.polyval(np.polyfit(np.log10(vgsMass[:3], vgslogL[:3], 1),
                                   np.log10(np.linspace(50, 150, 100))))])
         # log Q (lyman continuum) extrapolated
         vgslogQe = np.concatenate([
             np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
             np.zeros(100), # 0.43-2.0 solar mass stars produce 0 LyC photons
-            np.polyval(np.polyfit(np.log10(vgsass[-3:], vgslogQ[-3:], 1),
+            np.polyval(np.polyfit(np.log10(vgsMass[-3:], vgslogQ[-3:], 1),
                                   np.log10(np.linspace(8, 18.4, 100)))),
             vgslogQ[::-1],
-            np.polyval(np.polyfit(np.log10(vgsass[:3], vgslogQ[:3], 1),
+            np.polyval(np.polyfit(np.log10(vgsMass[:3], vgslogQ[:3], 1),
                                   np.log10(np.linspace(50, 150, 100))))
         ])
 
@@ -898,8 +897,10 @@ class KoenTruePowerLaw(MassFunction):
             # ------
             # Probability of getting x given the PDF with specified mmin,mmax, and gamma
             # Answers it gives are true from mmin<=x<=mmax
-            cdf = (self.gamma*np.power(m,-(self.gamma+1))/(self.mmin**-self.gamma -
-                                                     self.mmax**-self.gamma))
+            cdf = (self.gamma*np.power(m,
+                                       -(self.gamma+1))/(self.mmin**-self.gamma
+                                                         -
+                                                         self.mmax**-self.gamma))
             return_value = (cdf * ((m > self.mmin) & (m < self.mmax)) + 0 *
                             (m > self.mmax) + 0 * (m < self.mmin))
             return return_value
