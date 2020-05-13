@@ -668,7 +668,7 @@ def color_from_mass(mass, outtype=float):
   0.30 M8(V)        255 167 123   #ffbb7b  # my addition
     """
 
-    mcolor = {
+    mcolor = { # noqa: E131
              100: (150, 175, 255),
               50: (157, 180, 255),
               20: (162, 185, 255),
@@ -878,7 +878,7 @@ class KoenTruePowerLaw(MassFunction):
 
     def __call__(self, m, integral_form=False):
         m = np.asarray(m)
-        if self.mmax<self.mmin:
+        if self.mmax < self.mmin:
             raise ValueError('mmax must be greater than mmin')
         if integral_form:
             # Returns
@@ -889,7 +889,7 @@ class KoenTruePowerLaw(MassFunction):
                     np.power(m, -self.gamma))/self.mmin**-self.gamma -
                    self.mmax**-self.gamma)
             return_value = (pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 *
-                            (m >= self.mmax) + 0 * (m <self.mmin))
+                            (m >= self.mmax) + 0 * (m < self.mmin))
             return return_value
 
         else:
