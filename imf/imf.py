@@ -545,7 +545,7 @@ def mass_luminosity_interpolator(name):
             np.log10(1.5*np.linspace(2,20,100)**3.5),
             vgslogL[::-1],
             np.polyval(np.polyfit(np.log10(vgsass[:3],vgslogL[:3],1),
-                                  np.log10(np.linspace(50,150,100)))])
+                                  np.log10(np.linspace(50,150,100))))])
         # log Q (lyman continuum) extrapolated
         vgslogQe = np.concatenate([
             np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
