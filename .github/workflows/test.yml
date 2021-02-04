@@ -19,8 +19,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: 'x64'
       - name: Dependencies
+        env:
+          TOXARGS: '-v'
+          TOXPOSARGS: ''
         run: |
           pip install tox
-          TOXENV=${{ TOXENV }}
+          TOXENV=${{ matrix.TOXENV }}
           tox $TOXARGS -- $TOXPOSARGS
 
