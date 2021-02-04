@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.8]
-        TOXENV: ['py37-test','py38-test-cov', 'build_docs','py38-test-devdeps','py36-test-astropylts-numpy116', 'py38-test-devdeps', 'codestyle']
+        python-version: [3.8]
+        TOXENV: ['py38-test-cov', 'build_docs', 'codestyle']
     steps:
       - name: Checkout 
         uses: actions/checkout@v2
@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: 'x64'
-      - name: Dependencies
+      - name: Execute test
         env:
           TOXARGS: '-v'
           TOXPOSARGS: ''
