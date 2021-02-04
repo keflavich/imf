@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8]
-        TOXENV: ['py38-test-cov', 'build_docs', 'codestyle']
+        TOXENV: ['py38-test-cov', 'codestyle']
     steps:
       - name: Checkout 
         uses: actions/checkout@v2
