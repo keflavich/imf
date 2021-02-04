@@ -24,6 +24,6 @@ jobs:
           TOXPOSARGS: ''
         run: |
           pip install tox
-          TOXENV=${{ matrix.TOXENV }}
+          export TOXENV=${{ matrix.TOXENV }}
           tox $TOXARGS -- $TOXPOSARGS
 
