@@ -10,6 +10,7 @@ from scipy.special import erf
 from six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
+from astropy import units as u
 from . import distributions
 
 
@@ -446,6 +447,8 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
     # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp, mtot, mcluster)))
+
+    mcluster = u.Quantity(mcluster, u.M_sun).value
 
     mfc = get_massfunc(massfunc)
     if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
