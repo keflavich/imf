@@ -137,8 +137,12 @@ class BrokenPowerLaw:
             Array of points/edges of powerlaw segments must be larger by one
             then the list of slopes
         """
-        assert (len(slopes) == len(breaks) - 1)
-        assert ((np.diff(breaks) > 0).all())
+        if not (len(slopes) == len(breaks) - 1):
+            raise ValueError(
+                'The length of array of slopes must be equal to length of ' +
+                'array of break points minus 1')
+        if not ((np.diff(breaks) > 0).all()):
+            raise ValueError('Power law break-points must be uniform')
         self.slopes = slopes
         self.breaks = breaks
         self._calcpows()
@@ -168,7 +172,9 @@ class BrokenPowerLaw:
         nsegm = len(self.slopes)
         pows = []
         for ii in range(nsegm):
-            pows.append(PowerLaw(self.slopes[ii], self.breaks[ii], self.breaks[ii + 1]))
+            pows.append(
+                PowerLaw(self.slopes[ii], self.breaks[ii],
+                         self.breaks[ii + 1]))
         self.pows = pows
         self.nsegm = nsegm
 
@@ -176,7 +182,8 @@ class BrokenPowerLaw:
         nsegm = len(self.slopes)
         weights = [1]
         for ii in range(1, nsegm):
-            rat = self.pows[ii].pdf(self.breaks[ii]) / self.pows[ii - 1].pdf(self.breaks[ii])
+            rat = self.pows[ii].pdf(self.breaks[ii]) / self.pows[ii - 1].pdf(
+                self.breaks[ii])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.weights = weights / np.sum(weights)  # relative normalizations
