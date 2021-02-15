@@ -137,12 +137,6 @@ class BrokenPowerLaw:
             Array of points/edges of powerlaw segments must be larger by one
             then the list of slopes
         """
-        if not (len(slopes) == len(breaks) - 1):
-            raise ValueError(
-                'The length of array of slopes must be equal to length of ' +
-                'array of break points minus 1')
-        if not ((np.diff(breaks) > 0).all()):
-            raise ValueError('Power law break-points must be uniform')
         self.slopes = slopes
         self.breaks = breaks
         self._calcpows()
@@ -169,6 +163,12 @@ class BrokenPowerLaw:
         self._calcweights()
 
     def _calcpows(self):
+        if not (len(self.slopes) == len(self.breaks) - 1):
+            raise ValueError(
+                'The length of array of slopes must be equal to length of ' +
+                'array of break points minus 1')
+        if not ((np.diff(self.breaks) > 0).all()):
+            raise ValueError('Power law break-points must be monotonic')
         nsegm = len(self.slopes)
         pows = []
         for ii in range(nsegm):
