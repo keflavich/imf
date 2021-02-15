@@ -7,13 +7,13 @@ from .. import imf
 from ..imf import kroupa, chabrier2005
 
 
-@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
-                         [(0.05, 5.6159, 1e-3, 1e-3),
-                          (1.5, 0.0359, 1e-4, 1e-4),
-                          (1.0, 0.0914, 1e-4, 1e-4),
-                          (3.0, 0.0073, 1e-4, 1e-4),
-                          (1, 0.0914, 1e-4, 1e-4),
-                          (3, 0.0073, 1e-4, 1e-4)])
+@pytest.mark.parametrize(
+    ('inp', 'out', 'rtol', 'atol'), [(0.05, 5.6159, 1e-3, 1e-3),
+                                     (1.5, 0.0359, 1e-4, 1e-4),
+                                     (1.0, 0.0914, 1e-4, 1e-4),
+                                     (3.0, 0.0073, 1e-4, 1e-4),
+                                     (1, 0.0914, 1e-4, 1e-4),
+                                     (3, 0.0073, 1e-4, 1e-4)])
 def test_kroupa_val(inp, out, rtol, atol):
     kroupa = imf.Kroupa()
     np.testing.assert_allclose(kroupa(inp), out, rtol=rtol, atol=atol)
@@ -62,9 +62,10 @@ def test_kroupa_mintegral(mlow, mhigh):
         assert anl != 0
 
 
-@pytest.mark.parametrize(('mlow', 'mhigh'),
-                         itertools.product((0.033, 0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
-                                           (0.02, 0.05, 0.08, 0.4, 0.5, 1.0, 120)))
+@pytest.mark.parametrize(
+    ('mlow', 'mhigh'),
+    itertools.product((0.033, 0.01, 0.08, 0.1, 0.5, 1.0, 0.03),
+                      (0.02, 0.05, 0.08, 0.4, 0.5, 1.0, 120)))
 def test_chabrier_integral(mlow, mhigh):
     if mlow >= mhigh:
         pytest.skip("mmin >= mmax")
@@ -92,19 +93,22 @@ def test_make_cluster():
 
 
 def test_kroupa_inverses():
-    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(), mmin=0.01) - 0.01) < 2e-3
-    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(mmin=0.01)) - 0.01) < 2e-3
-    assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(), mmax=200) - 200) < 1
+    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(), mmin=0.01) -
+                  0.01) < 2e-3
+    assert np.abs(imf.inverse_imf(0, massfunc=imf.Kroupa(mmin=0.01)) -
+                  0.01) < 2e-3
+    assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(), mmax=200) -
+                  200) < 1
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(mmax=200)) - 200) < 1
 
 
-@pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
-                         [(0.05, 5.6159, 1e-3, 1e-3),
-                          (1.5, 0.0359, 1e-4, 1e-4),
-                          (1.0, 0.0914, 1e-4, 1e-4),
-                          (3.0, 0.0073, 1e-4, 1e-4),
-                          (1, 0.0914, 1e-4, 1e-4),
-                          (3, 0.0073, 1e-4, 1e-4)])
+@pytest.mark.parametrize(
+    ('inp', 'out', 'rtol', 'atol'), [(0.05, 5.6159, 1e-3, 1e-3),
+                                     (1.5, 0.0359, 1e-4, 1e-4),
+                                     (1.0, 0.0914, 1e-4, 1e-4),
+                                     (3.0, 0.0073, 1e-4, 1e-4),
+                                     (1, 0.0914, 1e-4, 1e-4),
+                                     (3, 0.0073, 1e-4, 1e-4)])
 def test_kroupa_val_unchanged(inp, out, rtol, atol):
     # regression: make sure that imf.kroupa = imf.Kroupa
     kroupa = imf.Kroupa()
