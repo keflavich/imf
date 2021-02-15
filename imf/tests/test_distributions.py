@@ -173,16 +173,16 @@ def test_integral():
     distrs = [
         D.TruncatedLogNormal(1, 1, left, right),
         D.PowerLaw(-2, left, right),
-        D.BrokenPowerLaw([-2, -1.1, -3],
-                         [left, .6 * left + .3 * right, .3 * left + .6 * right, right]),
+        D.BrokenPowerLaw(
+            [-2, -1.1, -3],
+            [left, .6 * left + .3 * right, .3 * left + .6 * right, right]),
         D.CompositeDistribution([
             D.TruncatedLogNormal(1, 1, left, .75 * left + .25 * right),
             D.PowerLaw(-2, .75 * left + .25 * right, .5 * left + .5 * right),
-            D.TruncatedLogNormal(1, 1,
-                                 .5 * left + .5 * right,
+            D.TruncatedLogNormal(1, 1, .5 * left + .5 * right,
                                  .25 * left + .75 * right),
-            D.PowerLaw(-2, .25 * left + .75 * right, right)]
-        )
+            D.PowerLaw(-2, .25 * left + .75 * right, right)
+        ])
     ]
     for curd in distrs:
         integralcheck_many(curd, left, right)
