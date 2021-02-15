@@ -6,7 +6,6 @@ from __future__ import print_function
 import numpy as np
 import types
 import scipy.integrate
-from scipy.special import erf
 from six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
@@ -95,12 +94,6 @@ class Salpeter(MassFunction):
             return self.distr.pdf(m) * self.normfactor
         else:
             return self.distr.cdf(m) * self.normfactor
-
-
-# three codes for dn/dlog(m)
-salpeter = Salpeter()
-# kroupa
-# chabrier
 
 
 class Kroupa(MassFunction):
@@ -194,9 +187,6 @@ class Kroupa(MassFunction):
             return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
 
 
-kroupa = Kroupa()
-
-
 class Chabrier(MassFunction):
     def __init__(self):
         self.mmin = 0.57 * np.log(10)
@@ -211,9 +201,6 @@ class Chabrier(MassFunction):
             return self.distr.cdf(mass) * self.multiplier
         else:
             return self.distr.pdf(mass) * self.multiplier
-
-
-chabrier = Chabrier()
 
 
 class Chabrier2005(MassFunction):
@@ -249,9 +236,6 @@ class Chabrier2005(MassFunction):
             return self.distr.cdf(x)
         else:
             return self.distr.pdf(x)
-
-
-chabrier2005 = Chabrier2005()
 
 
 def schechter(m, A=1, beta=2, m0=100, integral=False):
@@ -335,29 +319,20 @@ try:
 except ImportError:
     pass
 
+# these are global objects
+salpeter = Salpeter()
+kroupa = Kroupa()
+chabrier = Chabrier()
+chabrier2005 = Chabrier2005()
 
-def m_integrate(fn=kroupa, bins=np.logspace(-2, 2, 500)):
-    xax = (bins[:-1] + bins[1:]) / 2.
-    integral = xax * (bins[1:] - bins[:-1]) * (fn(bins[:-1]) +
-                                               fn(bins[1:])) / 2.
-
-    return xax, integral
-
-
-def cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
-    xax, integral = integrate(fn, bins)
-    return integral.cumsum() / integral.sum()
-
-
-def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
-    xax, integral = m_integrate(fn, bins)
-    return integral.cumsum() / integral.sum()
-
+massfunctionsClass = {
+    'kroupa': Kroupa,
+    'salpeter': Salpeter,
+    'chabrier': Chabrier,
+    'chabrier2005': Chabrier2005
+}
 
 massfunctions = {
-    'kroupa': kroupa,
-    'salpeter': salpeter,
-    'chabrier': chabrier,
     'schechter': schechter,
     'modified_schechter': modified_schechter
 }
@@ -378,7 +353,13 @@ def get_massfunc(massfunc):
             massfunc, '__call__'):
         return massfunc
     elif type(massfunc) is str:
-        return massfunctions[massfunc]
+        if massfunc in massfunctionsClass:
+            return massfunctionsClass[massfunc]()
+        # we initialize the class as we may be changing it in the future
+        elif massfunc in massfunctions:
+            return massfunctions[massfunc]
+        else:
+            raise ValueError("Cannot recognize mass function")
     else:
         raise ValueError(
             "massfunc must either be a string in the set %s or a function" %
@@ -394,6 +375,24 @@ def get_massfunc_name(massfunc):
         return massfunc.__name__
     else:
         raise ValueError("invalid mass function")
+
+
+def m_integrate(fn=kroupa, bins=np.logspace(-2, 2, 500)):
+    xax = (bins[:-1] + bins[1:]) / 2.
+    integral = xax * (bins[1:] - bins[:-1]) * (fn(bins[:-1]) +
+                                               fn(bins[1:])) / 2.
+
+    return xax, integral
+
+
+def cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
+    xax, integral = integrate(fn, bins)
+    return integral.cumsum() / integral.sum()
+
+
+def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
+    xax, integral = m_integrate(fn, bins)
+    return integral.cumsum() / integral.sum()
 
 
 def inverse_imf(p,
