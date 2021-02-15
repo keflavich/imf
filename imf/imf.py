@@ -189,12 +189,30 @@ class Kroupa(MassFunction):
 
 class Chabrier(MassFunction):
     def __init__(self):
-        self.mmin = 0.57 * np.log(10)
+        self.m0 = 0.57 * np.log(10)
         self.multiplier = 0.86
+        mmin = 0
+        mmax = np.inf
+        self.distr = distributions.TruncatedLogNormal(0.22, self.m0, mmin,
+                                                      mmax)
+        self.mmin = mmin
+        self.mmax = mmax
 
     @property
-    def distr(self):
-        return distributions.LogNormal(0.22, self.mmin)
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self, value):
+        self.distr.m1 = value
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self, value):
+        self.distr.m2 = value
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
