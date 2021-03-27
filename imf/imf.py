@@ -84,10 +84,7 @@ class Salpeter(MassFunction):
         self.mmax = mmax
         self.alpha = alpha
         self.normfactor = 1
-
-    @property
-    def distr(self):
-        return distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
+        self.distr = distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
 
     def __call__(self, m, integral_form=False):
         if not integral_form:
@@ -239,10 +236,7 @@ class Chabrier2005(MassFunction):
         self.alpha = alpha
         self.lognormal_width = lognormal_width
         self.lognormal_center = lognormal_center
-
-    @property
-    def distr(self):
-        return distributions.CompositeDistribution([
+        self.distr = distributions.CompositeDistribution([
             distributions.TruncatedLogNormal(self.lognormal_center,
                                              self.lognormal_width, self.mmin,
                                              self.mmid),
