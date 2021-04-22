@@ -414,15 +414,14 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
 
 
 def inverse_imf(p,
-                nbins=1000,
                 mmin=None,
                 mmax=None,
                 massfunc='kroupa',
                 **kwargs):
     """
-    Inverse mass function.  Creates a cumulative distribution function from the
-    mass function and samples it using the given randomly distributed values
-    ``p``.
+    Inverse mass function.  Given a likelihood value in the range [0, 1),
+    return the appropriate mass.  This just calls the mass function's ppdf
+under the hood.
 
 
     Parameters
@@ -430,9 +429,6 @@ def inverse_imf(p,
     p: np.array
         An array of floats in the range [0, 1).  These should be uniformly random
         numbers.
-    nbins: int
-        The number of bins in the cumulative distribution function to sample
-        over.  More bins results in (marginally) higher precision.
     mmin: float
     mmax: float
         Minimum and maximum stellar mass in the distribution
@@ -448,29 +444,6 @@ def inverse_imf(p,
         return mfc.distr.ppf(p)
     else:
         raise NotImplementedError
-
-    if mfc.mmin <= 0:
-        raise ValueError("This implementation of inverse-IMF doesn't work with mmin=0")
-    if np.isinf(mfc.mmax):
-        raise ValueError("This implementation of inverse-IMF doesn't work with mmax=inf")
-
-    ends = np.logspace(np.log10(mfc.mmin), np.log10(mfc.mmax), nbins)
-    masses = (ends[1:] + ends[:-1]) / 2.
-    dm = np.diff(ends)
-
-    # the full probability distribution function N(M) dm
-    mf = mfc(masses, **kwargs)
-
-    # integrate by taking the cumulative sum of x dx
-    mfcum = (mf * dm).cumsum()
-
-    # normalize to sum (this turns into a cdf)
-    mfcum /= mfcum.max()
-
-    result = np.interp(p, mfcum, masses)
-
-    return result
-
 
 def make_cluster(mcluster,
                  massfunc='kroupa',
