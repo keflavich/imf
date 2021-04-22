@@ -535,11 +535,6 @@ def make_cluster(mcluster,
     if not silent:
         print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
 
-    if 'orig_mmin' in locals():
-        mfc.mmin = orig_mmin
-    if 'orig_mmax' in locals():
-        mfc.mmax = orig_mmax
-
     return masses
 
 
