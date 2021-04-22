@@ -19,6 +19,10 @@ class MassFunction(object):
 
     (this is mostly meant to be subclassed by other functions, not used itself)
     """
+    def __init__(self, mmin=None, mmax=None):
+        self._mmin = self.default_mmin if mmin is None else mmin
+        self._mmax = self.default_mmax if mmax is None else mmax
+
     def dndm(self, m, **kwargs):
         """
         The differential form of the mass function, d N(M) / dM
@@ -73,15 +77,27 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
+    @property
+    def mmin(self):
+        return self._mmin
+
+    @property
+    def mmax(self):
+        return self._mmax
+
+
 
 class Salpeter(MassFunction):
-    def __init__(self, alpha=2.35, mmin=0.3, mmax=120):
+    default_mmin = 0.3
+    default_mmax = 120
+
+    def __init__(self, alpha=2.35, mmin=default_mmin, mmax=default_mmax):
         """
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
         """
-        self.mmin = mmin
-        self.mmax = mmax
+        super().__init__(mmin=mmin, mmax=mmax)
+
         self.alpha = alpha
         self.normfactor = 1
         self.distr = distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
@@ -95,9 +111,12 @@ class Salpeter(MassFunction):
 
 class Kroupa(MassFunction):
     # kroupa = BrokenPowerLaw(breaks={0.08: -0.3, 0.5: 1.3, 'last': 2.3}, mmin=0.03, mmax=120)
+    default_mmin = 0.03
+    default_mmax = 120
+
     def __init__(self,
-                 mmin=0.03,
-                 mmax=120,
+                 mmin=default_mmin,
+                 mmax=default_mmax,
                  p1=0.3,
                  p2=1.3,
                  p3=2.3,
@@ -107,32 +126,16 @@ class Kroupa(MassFunction):
         The Kroupa IMF with two power-law breaks, p1 and p2. See __call__ for
         details.
         """
+        super().__init__(mmin=mmin, mmax=mmax)
+
         self.p1 = p1
         self.p2 = p2
         self.p3 = p3
         self.break1 = break1
         self.break2 = break2
         self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3],
-                                                  [mmin, break1, break2, mmax])
-        self.mmin = mmin
-        self.mmax = mmax
+                                                  [self.mmin, break1, break2, self.mmax])
         self.normfactor = 1
-
-    @property
-    def mmin(self):
-        return self.distr.m1
-
-    @mmin.setter
-    def mmin(self, value):
-        self.distr.m1 = value
-
-    @property
-    def mmax(self):
-        return self.distr.m2
-
-    @mmax.setter
-    def mmax(self, value):
-        self.distr.m2 = value
 
     def __call__(self, m, integral_form=False):
         """
@@ -185,21 +188,17 @@ class Kroupa(MassFunction):
 
 
 class Chabrier(MassFunction):
-    def __init__(self, mmin=0.57*np.log(10), mmax=np.inf):
+    default_mmin = 0
+    default_mmax = np.inf
+
+    def __init__(self, mmin=default_mmin, mmax=default_mmax):
+        super().__init__(mmin=mmin, mmax=mmax)
+
         self.multiplier = 0.86
-        self._mmin = mmin
-        self._mmax = mmax
+        self.m0 = 0.57*np.log(10)
 
         self.distr = distributions.TruncatedLogNormal(0.22, self.m0, self.mmin,
                                                       self.mmax)
-
-    @property
-    def mmin(self):
-        return self._mmin
-
-    @property
-    def mmax(self):
-        return self._mmax
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
@@ -209,38 +208,32 @@ class Chabrier(MassFunction):
 
 
 class Chabrier2005(MassFunction):
+    default_mmin = 0.033
+    default_mmax = np.inf
+
     def __init__(self,
                  lognormal_center=0.2,
                  lognormal_width=0.55 * np.log(10),
-                 mmin=0.033,
-                 mmax=np.inf,
+                 mmin=default_mmin,
+                 mmax=default_mmax,
                  alpha=2.35,
                  mmid=1):
         # The numbers are from Eqn 3 of
         # https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
         # importantly the lognormal center is the exp(M) where M is the mean of ln(mass)
         # normal distribution
-        self._mmin = mmin
+        super().__init__(mmin=mmin, mmax=mmax)
         self._mmid = mmid
-        self._mmax = mmax
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
         self.distr = distributions.CompositeDistribution([
             distributions.TruncatedLogNormal(self._lognormal_center,
                                              self._lognormal_width,
-                                             self._mmin,
+                                             self.mmin,
                                              self._mmid),
-            distributions.PowerLaw(-self._alpha, self._mmid, self._mmax)
+            distributions.PowerLaw(-self._alpha, self._mmid, self.mmax)
         ])
-
-    @property
-    def mmin(self):
-        return self._mmin
-
-    @property
-    def mmax(self):
-        return self._mmax
 
     def __call__(self, x, integral_form=False, **kw):
         if integral_form:
@@ -253,16 +246,18 @@ chabrier2005 = Chabrier2005()
 
 
 class Schechter(MassFunction):
-    def __init__(self, mmin=None, mmax=None):
-        if mmin is None:
-            raise NotImplementedError("mmin is not implemented for the Schechter MF")
-        if mmax is None:
-            raise NotImplementedError("mmax is not implemented for the Schechter MF")
+    default_mmin = 0
+    default_mmax = np.inf
+
+    def __init__(self, mmin=default_mmin, mmax=default_mmax):
+        super().__init__(mmin=mmin, mmax=mmax)
 
     def __call__(self, m, A=1, beta=2, m0=100, integral=False):
         """
         A Schechter function with arbitrary defaults
         (integral may not be correct - exponent hasn't been dealt with at all)
+        
+        (TODO: this should be replaced with a Truncated Power Law Distribution)
 
         $$ A m^{-\\beta} e^{-m/m_0} $$
 
@@ -285,21 +280,21 @@ class Schechter(MassFunction):
         """
         if integral:
             beta -= 1
-        return A * m**-beta * np.exp(-m/m0)
+        return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
 
 class ModifiedSchecter(Schechter):
-    def __init__(self, mmin=None, mmax=None):
-        if mmin is None:
-            raise NotImplementedError("mmin is not implemented for the Schechter MF")
-        if mmax is None:
-            raise NotImplementedError("mmax is not implemented for the Schechter MF")
+    default_mmin = 0
+    default_mmax = np.inf
 
-        self.schechter = super().__init__()
+    def __init__(self, mmin=default_mmin, mmax=default_mmax):
+        self.schechter = super().__init__(mmin=mmin, mmax=mmax)
 
     def __call__(self, m, m1, **kwargs):
         """
         A Schechter function with a low-level exponential cutoff
-        "
+
+        (TODO: this should be replaced with a Truncated Power Law Distribution)
+
         Parameters
         ----------
             m: np.ndarray
@@ -314,7 +309,7 @@ class ModifiedSchecter(Schechter):
             as a function of that object's mass
             (though you could interpret mass as anything, it's just a number)
         """
-        return self.schechter(m, **kwargs) * np.exp(-m1 / m)
+        return self.schechter(m, **kwargs) * np.exp(-m1 / m) * (m > self.mmin) * (m < self.mmax)
 
 try:
     import scipy
@@ -365,11 +360,11 @@ mostcommonmass = {
 }
 expectedmass_cache = {}
 
-def get_massfunc(massfunc, **kwargs):
+def get_massfunc(massfunc, mmin=None, mmax=None):
     if isinstance(massfunc, MassFunction):
         return massfunc
     elif type(massfunc) is str:
-        return massfunctions[massfunc](**kwargs)
+        return massfunctions[massfunc](mmin=mmin, mmax=mmax)
     else:
         raise ValueError("massfunc must either be a string in the set %s or a MassFunction instance"
                          % (", ".join(massfunctions.keys())))
@@ -405,8 +400,8 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
 
 def inverse_imf(p,
                 nbins=1000,
-                mmin=None,
-                mmax=None,
+                mmin=0,
+                mmax=np.inf,
                 massfunc='kroupa',
                 **kwargs):
     """
@@ -483,12 +478,6 @@ def make_cluster(mcluster,
     mcluster = u.Quantity(mcluster, u.M_sun).value
 
     mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
-    if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
-        orig_mmin = mfc.mmin
-        mfc.mmin = mmin
-    if mmax is not None and hasattr(mfc, 'mmax') and mfc.mmax != mmax:
-        orig_mmax = mfc.mmax
-        mfc.mmax = mmax
 
     if (massfunc, mfc.mmin, mmax) in expectedmass_cache:
         expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mmax)]
@@ -845,9 +834,11 @@ class KoenConvolvedPowerLaw(MassFunction):
     sigma: float or None
         specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
     """
+    default_mmin = 0
+    default_mmax = np.inf
+
     def __init__(self, mmin, mmax, gamma, sigma):
-        self.mmin = mmin
-        self.mmax = mmax
+        super().__init__(mmin, mmax)
         self.sigma = sigma
         self.gamma = gamma
 
@@ -928,9 +919,11 @@ class KoenTruePowerLaw(MassFunction):
     gamma: floats
         The specified gamma for the distribution, related to the slope, alpha = -gamma + 1
     """
+    default_mmin = 0
+    default_mmax = np.inf
+
     def __init__(self, mmin, mmax, gamma):
-        self.mmin = mmin
-        self.mmax = mmax
+        super().__init__(mmin, mmax)
         self.gamma = gamma
 
     def __call__(self, m, integral_form=False):
