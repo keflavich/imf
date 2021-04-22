@@ -774,12 +774,7 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
                   luminosities[:, None]).sum(axis=0) / luminosities.sum()
     return mean_color
 
-<<<<<<< HEAD
 def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
-=======
-
-def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
->>>>>>> dc1627773b23fbe6e05437f6afbab18724927c43
     """
     "cool plot" is just because the plot is kinda neat.
 
