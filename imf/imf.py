@@ -224,6 +224,9 @@ class Chabrier2005(MassFunction):
         # normal distribution
         super().__init__(mmin=mmin, mmax=mmax)
         self._mmid = mmid
+        if self.mmax <= self._mmid:
+            raise ValueError("The Chabrier2005 Mass Function does not support "
+                             "mmax < mmid")
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
@@ -250,9 +253,10 @@ class Schechter(MassFunction):
     default_mmax = np.inf
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax):
+        raise NotImplementedError("Schechter function needs to be refactored")
         super().__init__(mmin=mmin, mmax=mmax)
 
-    def __call__(self, m, A=1, beta=2, m0=100, integral=False):
+    def __call__(self, m, A=1, beta=2, m0=100, integral_form=False):
         """
         A Schechter function with arbitrary defaults
         (integral may not be correct - exponent hasn't been dealt with at all)
@@ -278,7 +282,7 @@ class Schechter(MassFunction):
             as a function of that object's mass
             (though you could interpret mass as anything, it's just a number)
         """
-        if integral:
+        if integral_form:
             beta -= 1
         return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
 
@@ -348,7 +352,8 @@ chabrier = Chabrier()
 chabrier2005 = Chabrier2005()
 
 massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter, 'chabrier': Chabrier,
-                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
+                 'chabrier2005': Chabrier2005}
+#                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
 reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
 mostcommonmass = {
@@ -360,11 +365,21 @@ mostcommonmass = {
 }
 expectedmass_cache = {}
 
-def get_massfunc(massfunc, mmin=None, mmax=None):
+def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
     if isinstance(massfunc, MassFunction):
+        if mmax is not None and massfunc.mmax != mmax:
+            raise ValueError("mmax was specified, but a massfunction instance"
+                             " was specified with a different mmax")
+        if mmin is not None and massfunc.mmin != mmin:
+            raise ValueError("mmin was specified, but a massfunction instance"
+                             " was specified with a different mmin")
         return massfunc
-    elif type(massfunc) is str:
-        return massfunctions[massfunc](mmin=mmin, mmax=mmax)
+    elif massfunc in massfunctions.values():
+        # if the massfunction is a known MassFunc class
+        return massfunc(mmin=mmin, mmax=mmax, **kwargs)
+    elif massfunc in massfunctions:
+        # if the massfunction is the _name_ of a massfunc class
+        return massfunctions[massfunc](mmin=mmin, mmax=mmax, **kwargs)
     else:
         raise ValueError("massfunc must either be a string in the set %s or a MassFunction instance"
                          % (", ".join(massfunctions.keys())))
@@ -400,8 +415,8 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
 
 def inverse_imf(p,
                 nbins=1000,
-                mmin=0,
-                mmax=np.inf,
+                mmin=None,
+                mmax=None,
                 massfunc='kroupa',
                 **kwargs):
     """
@@ -428,7 +443,18 @@ def inverse_imf(p,
 
     mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
 
-    ends = np.logspace(np.log10(mmin), np.log10(mmax), nbins)
+    # this should be the entirety of "inverse-imf".  The rest is a hack
+    if hasattr(mfc, 'distr'):
+        return mfc.distr.ppf(p)
+    else:
+        raise NotImplementedError
+
+    if mfc.mmin <= 0:
+        raise ValueError("This implementation of inverse-IMF doesn't work with mmin=0")
+    if np.isinf(mfc.mmax):
+        raise ValueError("This implementation of inverse-IMF doesn't work with mmax=inf")
+
+    ends = np.logspace(np.log10(mfc.mmin), np.log10(mfc.mmax), nbins)
     masses = (ends[1:] + ends[:-1]) / 2.
     dm = np.diff(ends)
 
@@ -453,7 +479,8 @@ def make_cluster(mcluster,
                  tolerance=0.0,
                  stop_criterion='nearest',
                  mmax=120,
-                 mmin=None):
+                 mmin=None,
+                 **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
@@ -477,7 +504,7 @@ def make_cluster(mcluster,
 
     mcluster = u.Quantity(mcluster, u.M_sun).value
 
-    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
+    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
 
     if (massfunc, mfc.mmin, mmax) in expectedmass_cache:
         expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mmax)]
