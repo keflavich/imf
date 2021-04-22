@@ -1,0 +1,29 @@
+name: Imf
+
+on: push
+
+jobs:
+  tester:
+    name: Test the code
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+        TOXENV: ['py38-test-cov', 'codestyle']
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+      - name: Python setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: 'x64'
+      - name: Execute test
+        env:
+          TOXARGS: '-v'
+          TOXPOSARGS: ''
+        run: |
+          pip install tox
+          export TOXENV=${{ matrix.TOXENV }}
+          tox $TOXARGS -- $TOXPOSARGS
+
