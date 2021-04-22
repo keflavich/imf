@@ -197,9 +197,14 @@ kroupa = Kroupa()
 
 
 class Chabrier(MassFunction):
-    def __init__(self):
+    def __init__(self, mmin=None, mmax=None):
         self.mmin = 0.57*np.log(10)
         self.multiplier = 0.86
+
+        if mmin is not None:
+            raise ValueError(f"Chabrier MF must have mmin={self.mmin}")
+        if mmax is not None:
+            raise NotImplementedError("Chabrier MF does not have mmax implemented")
 
     @property
     def distr(self):
@@ -247,54 +252,70 @@ class Chabrier2005(MassFunction):
 chabrier2005 = Chabrier2005()
 
 
-def schechter(m, A=1, beta=2, m0=100, integral=False):
-    """
-    A Schechter function with arbitrary defaults
-    (integral may not be correct - exponent hasn't been dealt with at all)
+class Schechter(MassFunction):
+    def __init__(self, mmin=None, mmax=None):
+        if mmin is None:
+            raise NotImplementedError("mmin is not implemented for the Schechter MF")
+        if mmax is None:
+            raise NotImplementedError("mmax is not implemented for the Schechter MF")
 
-    $$ A m^{-\\beta} e^{-m/m_0} $$
+    def __call__(self, m, A=1, beta=2, m0=100, integral=False):
+        """
+        A Schechter function with arbitrary defaults
+        (integral may not be correct - exponent hasn't been dealt with at all)
 
-    Parameters
-    ----------
-        m: np.ndarray
-            List of masses for which to compute the Schechter function
-        A: float
-            Arbitrary amplitude of the Schechter function
-        beta: float
-            Power law exponent
-        m0: float
-            Characteristic mass (mass at which exponential decay takes over)
+        $$ A m^{-\\beta} e^{-m/m_0} $$
 
-    Returns
-    -------
-        p(m) - the (unnormalized) probability of an object of a given mass
-        as a function of that object's mass
-        (though you could interpret mass as anything, it's just a number)
+        Parameters
+        ----------
+            m: np.ndarray
+                List of masses for which to compute the Schechter function
+            A: float
+                Arbitrary amplitude of the Schechter function
+            beta: float
+                Power law exponent
+            m0: float
+                Characteristic mass (mass at which exponential decay takes over)
 
-    """
-    if integral:
-        beta -= 1
-    return A*m**-beta * np.exp(-m/m0)
+        Returns
+        -------
+            p(m) - the (unnormalized) probability of an object of a given mass
+            as a function of that object's mass
+            (though you could interpret mass as anything, it's just a number)
 
-def modified_schechter(m, m1, **kwargs):
-    """
-    A Schechter function with a low-level exponential cutoff
-    "
-    Parameters
-    ----------
-        m: np.ndarray
-            List of masses for which to compute the Schechter function
-        m1: float
-            Characteristic minimum mass (exponential decay below this mass)
-        ** See schecter for other parameters **
+        """
+        if integral:
+            beta -= 1
+        return A*m**-beta * np.exp(-m/m0)
 
-    Returns
-    -------
-        p(m) - the (unnormalized) probability of an object of a given mass
-        as a function of that object's mass
-        (though you could interpret mass as anything, it's just a number)
-    """
-    return schechter(m, **kwargs) * np.exp(-m1/m)
+class ModifiedSchecter(Schechter):
+    def __init__(self, mmin=None, mmax=None):
+        if mmin is None:
+            raise NotImplementedError("mmin is not implemented for the Schechter MF")
+        if mmax is None:
+            raise NotImplementedError("mmax is not implemented for the Schechter MF")
+
+        self.schechter = super().__init__()
+
+    def __call__(self, m, m1, **kwargs):
+        """
+        A Schechter function with a low-level exponential cutoff
+        "
+        Parameters
+        ----------
+            m: np.ndarray
+                List of masses for which to compute the Schechter function
+            m1: float
+                Characteristic minimum mass (exponential decay below this mass)
+            ** See schecter for other parameters **
+
+        Returns
+        -------
+            p(m) - the (unnormalized) probability of an object of a given mass
+            as a function of that object's mass
+            (though you could interpret mass as anything, it's just a number)
+        """
+        return self.schechter(m, **kwargs) * np.exp(-m1/m)
 
 try:
     import scipy
@@ -338,21 +359,21 @@ def m_cumint(fn=kroupa, bins=np.logspace(-2, 2, 500)):
     xax, integral = m_integrate(fn, bins)
     return integral.cumsum() / integral.sum()
 
-massfunctions = {'kroupa': kroupa, 'salpeter': salpeter, 'chabrier': chabrier,
-                 'schechter': schechter, 'modified_schechter': modified_schechter}
+massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter, 'chabrier': Chabrier,
+                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
 reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
 mostcommonmass = {'kroupa': 0.08, 'salpeter': 0.01, 'chabrier': 0.23,
                   'schecter': 0.01, 'modified_schechter': 0.01}
 expectedmass_cache = {}
 
-def get_massfunc(massfunc):
-    if isinstance(massfunc, types.FunctionType) or hasattr(massfunc, '__call__'):
+def get_massfunc(massfunc, **kwargs):
+    if isinstance(massfunc, MassFunction):
         return massfunc
     elif type(massfunc) is str:
-        return massfunctions[massfunc]
+        return massfunctions[massfunc](**kwargs)
     else:
-        raise ValueError("massfunc must either be a string in the set %s or a function"
+        raise ValueError("massfunc must either be a string in the set %s or a MassFunction instance"
                          % (", ".join(massfunctions.keys())))
 
 def get_massfunc_name(massfunc):
@@ -389,22 +410,11 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
         function
     """
 
-    mfc = get_massfunc(massfunc)
-
-    if mmin is not None and hasattr(mfc, 'mmin') and mmin != mfc.mmin:
-        orig_mmin = mfc.mmin
-        mfc.mmin = mmin
-    if mmax is not None and hasattr(mfc, 'mmax') and mmax != mfc.mmax:
-        orig_mmax = mfc.mmax
-        mfc.mmax = mmax
-
-    mmin = mfc.mmin
-    mmax = mfc.mmax
+    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
 
     ends = np.logspace(np.log10(mmin), np.log10(mmax), nbins)
     masses = (ends[1:] + ends[:-1])/2.
     dm = np.diff(ends)
-
 
     # the full probability distribution function N(M) dm
     mf = mfc(masses, **kwargs)
@@ -416,11 +426,6 @@ def inverse_imf(p, nbins=1000, mmin=None, mmax=None, massfunc='kroupa',
     mfcum /= mfcum.max()
 
     result = np.interp(p, mfcum, masses)
-
-    if 'orig_mmin' in locals():
-        mfc.mmin = orig_mmin
-    if 'orig_mmax' in locals():
-        mfc.mmax = orig_mmax
 
     return result
 
@@ -450,7 +455,7 @@ def make_cluster(mcluster, massfunc='kroupa', verbose=False, silent=False,
 
     mcluster = u.Quantity(mcluster, u.M_sun).value
 
-    mfc = get_massfunc(massfunc)
+    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
     if mmin is not None and hasattr(mfc, 'mmin') and mfc.mmin != mmin:
         orig_mmin = mfc.mmin
         mfc.mmin = mmin
@@ -722,7 +727,7 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
     mean_color = (colors*luminosities[:, None]).sum(axis=0)/luminosities.sum()
     return mean_color
 
-def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
+def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
     """
     "cool plot" is just because the plot is kinda neat.
 
@@ -736,8 +741,7 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
     clustermass: float
         The mass of the cluster in solar masses
     massfunc: str
-        The name of the mass function to use, determined using the
-        `get_massfunc` function.
+        A MassFunction instance
     log: bool
         Is the Y-axis log-scaled?
 
@@ -753,7 +757,7 @@ def coolplot(clustermass, massfunc='kroupa', log=True, **kwargs):
     cluster = make_cluster(clustermass, massfunc=massfunc, mmax=massfunc.mmax,
                            **kwargs)
     colors = [color_from_mass(m) for m in cluster]
-    massfunc = get_massfunc(massfunc)
+
     maxmass = cluster.max()
     pmin = massfunc(maxmass)
     if log:
