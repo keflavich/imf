@@ -84,10 +84,7 @@ class Salpeter(MassFunction):
         self.mmax = mmax
         self.alpha = alpha
         self.normfactor = 1
-
-    @property
-    def distr(self):
-        return distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
+        self.distr = distributions.PowerLaw(-self.alpha, self.mmin, self.mmax)
 
     def __call__(self, m, integral_form=False):
         if not integral_form:
@@ -195,24 +192,16 @@ class Chabrier(MassFunction):
         mmax = np.inf
         self.distr = distributions.TruncatedLogNormal(0.22, self.m0, mmin,
                                                       mmax)
-        self.mmin = mmin
-        self.mmax = mmax
+        self._mmin = mmin
+        self._mmax = mmax
 
     @property
     def mmin(self):
-        return self.distr.m1
-
-    @mmin.setter
-    def mmin(self, value):
-        self.distr.m1 = value
+        return self._mmin
 
     @property
     def mmax(self):
-        return self.distr.m2
-
-    @mmax.setter
-    def mmax(self, value):
-        self.distr.m2 = value
+        return self._mmax
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
@@ -233,21 +222,27 @@ class Chabrier2005(MassFunction):
         # https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
         # importantly the lognormal center is the exp(M) where M is the mean of ln(mass)
         # normal distribution
-        self.mmin = mmin
-        self.mmid = mmid
-        self.mmax = mmax
-        self.alpha = alpha
-        self.lognormal_width = lognormal_width
-        self.lognormal_center = lognormal_center
+        self._mmin = mmin
+        self._mmid = mmid
+        self._mmax = mmax
+        self._alpha = alpha
+        self._lognormal_width = lognormal_width
+        self._lognormal_center = lognormal_center
+        self.distr = distributions.CompositeDistribution([
+            distributions.TruncatedLogNormal(self._lognormal_center,
+                                             self._lognormal_width,
+                                             self._mmin,
+                                             self._mmid),
+            distributions.PowerLaw(-self._alpha, self._mmid, self._mmax)
+        ])
 
     @property
-    def distr(self):
-        return distributions.CompositeDistribution([
-            distributions.TruncatedLogNormal(self.lognormal_center,
-                                             self.lognormal_width, self.mmin,
-                                             self.mmid),
-            distributions.PowerLaw(-self.alpha, self.mmid, self.mmax)
-        ])
+    def mmin(self):
+        return self._mmin
+
+    @property
+    def mmax(self):
+        return self._mmax
 
     def __call__(self, x, integral_form=False, **kw):
         if integral_form:
