@@ -191,11 +191,11 @@ class Chabrier(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax, m0=0.57*np.log(10)):
         super().__init__(mmin=mmin, mmax=mmax)
 
         self.multiplier = 0.86
-        self.m0 = 0.57*np.log(10)
+        self.m0 = m0
 
         self.distr = distributions.TruncatedLogNormal(0.22, self.m0, self.mmin,
                                                       self.mmax)
