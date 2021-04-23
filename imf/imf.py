@@ -451,18 +451,31 @@ def make_cluster(mcluster,
                  silent=False,
                  tolerance=0.0,
                  stop_criterion='nearest',
-                 mmax=120,
+                 sampling='random',
+                 mmax=None,
                  mmin=None,
                  **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
-    massfunc must be a string
-    tolerance is how close the cluster mass must be to the requested mass.
-    If the last star is greater than this tolerance, the total mass will not be within
-    tolerance of the requested
-
-    stop criteria can be: 'nearest', 'before', 'after', 'sorted'
+    Parameters
+    ==========
+    mcluster : float
+        The target cluster mass.
+    massfunc : string or MassFunction
+        A mass function to use.
+    tolerance : float
+        tolerance is how close the cluster mass must be to the requested mass.
+        It can be zero, but this does not guarantee that the final cluster mass will be
+        exactly `mcluster`
+    stop_criterion : 'nearest', 'before', 'after', 'sorted'
+        The criterion to stop sampling when the total cluster mass is reached.
+        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract
+    sampling: 'random' or 'optimal'
+        Optimal sampling is based on https://ui.adsabs.harvard.edu/abs/2015A%26A...582A..93S/abstract
+        (though as of April 23, 2021, it is not yet correct)
+        Optimal sampling is only to be used in the context of a variable M_max
+        that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
 
     """
 
@@ -479,16 +492,24 @@ def make_cluster(mcluster,
 
     mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
 
-    if (massfunc, mfc.mmin, mmax) in expectedmass_cache:
-        expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mmax)]
+
+    if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
+        expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
         assert expected_mass > 0
     else:
-        expected_mass = mfc.m_integrate(mfc.mmin, mmax)[0]
+        expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
         assert expected_mass > 0
-        expectedmass_cache[(massfunc, mfc.mmin, mmax)] = expected_mass
+        expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
 
     if verbose:
         print("Expected mass is {0:0.3f}".format(expected_mass))
+
+    if sampling == 'optimal':
+        # this is probably not _quite_ right, but it's a first step...
+        p = np.linspace(0, 1, int(mcluster/expected_mass))
+        return mfc.distr.ppf(p)
+    elif sampling != 'random':
+        raise ValueError("Only random sampling and optimal sampling are supported")
 
     mtot = 0
     masses = []
@@ -504,7 +525,7 @@ def make_cluster(mcluster,
             print("Sampled %i new stars.  Total is now %g" %
                   (int(nsamp), mtot))
 
-        if mtot > mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
+        if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
             mcum = masses.cumsum()
             if stop_criterion == 'sorted':
                 masses = np.sort(masses)
