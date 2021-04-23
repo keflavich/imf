@@ -11,14 +11,17 @@ from .imf import MassFunction, Chabrier2005, Kroupa
 chabrier2005 = Chabrier2005()
 
 class McKeeOffner_PMF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0, imf=chabrier2005, **kwargs):
+    default_mmin = 0.033
+    default_mmax = 3.0
+
+    def __init__(self, j=1, n=1, jf=3/4., mmin=default_mmin, mmax=default_mmax,
+                 imf=chabrier2005, **kwargs):
         """
         """
+        super().__init__(mmin=mmin, mmax=mmax)
         self.j = j
         self.jf = jf
         self.n = n
-        self.mmin = mmin
-        self.mmax = mmax
         self.imf = imf
 
         def den_func(x):
@@ -62,14 +65,16 @@ class McKeeOffner_PMF(MassFunction):
 
 class McKeeOffner_2CTC(MassFunction):
     """ 2-component Turbulent Core variant """
-    def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mmin=0.033, mmax=3.0,
+    default_mmin = 0.033
+    default_mmax = 3.0
+
+    def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mmin=default_mmin, mmax=default_mmax,
                  imf=chabrier2005, **kwargs):
         """
         """
+        super().__init__(mmin=mmin, mmax=mmax)
         self.j = j
         self.jf = jf
-        self.mmin = mmin
-        self.mmax = mmax
         self.Rmdot = Rmdot
         self.imf = imf
 
@@ -119,9 +124,12 @@ ChabrierPMF_2CTC = McKeeOffner_2CTC()
 
 class McKeeOffner_SalpeterPMF(MassFunction):
     " special case; above is now generalized to obsolete this "
-    def __init__(self, j=1, jf=3/4., alpha=2.35, mmax=3.0):
+    default_mmin = 0.033
+    default_mmax = 3.0
+
+    def __init__(self, j=1, jf=3/4., alpha=2.35, mmin=default_mmin, mmax=default_mmax):
+        super().__init__(mmin=mmin, mmax=mmax)
         self.alpha = alpha
-        self.mmax = mmax
         self.j = j
         self.jf = jf
 
@@ -142,7 +150,10 @@ KroupaPMF_CA = McKeeOffner_PMF(j=2/3., jf=1.0, imf=kroupa)
 KroupaPMF_2CTC = McKeeOffner_2CTC(imf=kroupa)
 
 class McKeeOffner_AcceleratingSF_PMF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0,
+    default_mmin = 0.033
+    default_mmax = 3.0
+
+    def __init__(self, j=1, n=1, jf=3/4., mmin=default_mmin, mmax=default_mmax,
                  tau=1, # current time, Myr
                  tm=0.54, # SF timescale, Myr
                  tf1=0.50, # accretion  timescale for a 1-msun star
@@ -150,13 +161,12 @@ class McKeeOffner_AcceleratingSF_PMF(MassFunction):
         """
         McKee & Offner 2010 Protostellar Mass Function with an accelerating star formation rate
         """
+        super().__init__(mmin=mmin, mmax=mmax)
         self.j = j
         self.jf = jf
         self.n = n
         self.tau = tau
         self.tm = tm
-        self.mmin = mmin
-        self.mmax = mmax
         self.imf = imf
         self.tf1 = tf1
 

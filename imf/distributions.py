@@ -234,10 +234,15 @@ class BrokenPowerLaw:
         left = edges[pos - 1]
         w = self.weights[pos - 1]
         x2 = np.clip((x1 - left) / w, 0, 1)  # mapping to 0,1 on the segment
-        ret = np.zeros_like(x1)
+
+        # must force float b/c int dtypes can result in truncation
+        ret = np.zeros_like(x1, dtype='float')
         for ii in range(x.size):
             ret[ii] = self.pows[pos[ii] - 1].ppf(x2[ii])
-        ret[(x1 < 0) | (x1 > 1)] = np.nan
+
+        isnan = (x1 < 0) | (x1 > 1)
+        if any(isnan):
+            ret[isnan] = np.nan
         return ret.reshape(x.shape)
 
 
