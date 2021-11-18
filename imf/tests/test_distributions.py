@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.interpolate
 from .. import distributions as D
+
 np.random.seed(1)
 
 
@@ -114,6 +115,13 @@ def test_composite():
     assert (np.abs(ln.ppf(ln.cdf(5.5)) - 5.5) < 1e-5)
 
     sampltest(ln, 1, np.inf, bounds=[[1, 3], [3, 4], [4, 5], [5, np.inf]])
+    ln1 = D.CompositeDistribution([
+        D.TruncatedLogNormal(1, 1, 2, 3),
+        D.PowerLaw(-2, 3, 4),
+    ])
+    # check the exact edges work
+    assert (ln1.cdf(4) == 1)
+    assert (ln1.cdf(2) == 0)
 
 
 def test_bounds():
