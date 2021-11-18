@@ -22,7 +22,7 @@ class Distribution:
         pass
 
     def ppf(self, x):
-        #inverse cdf
+        # inverse cdf
         raise RuntimeError('not implemented')
         pass
 
@@ -31,8 +31,8 @@ class LogNormal(Distribution):
     def __init__(self, mu, sig):
         """
         Define the Lognormal with distribution
-        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2) 
-        I.e. the mean of log of the samples will be log(mu) 
+        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2)
+        I.e. the mean of log of the samples will be log(mu)
         and the stddev of log of the samples will be sig
         """
         self.m1 = 0
@@ -229,8 +229,8 @@ class BrokenPowerLaw:
         edges = np.r_[[0], np.cumsum(self.weights)]
         # edges of powerlaw in CDF scale from 0 to 1
         pos = np.digitize(x1, edges)  # bin positions, 1 is the leftmost
-        pos = np.clip(pos, 1,
-                      self.nsegm)  #  we can get zeros here if input is corrupt
+        pos = np.clip(pos, 1, self.nsegm)
+        #  we can get zeros here if input is corrupt
         left = edges[pos - 1]
         w = self.weights[pos - 1]
         x2 = np.clip((x1 - left) / w, 0, 1)  # mapping to 0,1 on the segment
@@ -306,7 +306,7 @@ class CompositeDistribution(Distribution):
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.distrs[ii].cdf(
                     x1[xind])
-        xind = x1 > self.breaks[-1]
+        xind = x1 >= self.breaks[-1]
         if xind.sum():
             ret[xind] = 1
         return ret.reshape(x1.shape)
