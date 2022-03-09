@@ -22,7 +22,7 @@ class Distribution:
         pass
 
     def ppf(self, x):
-        #inverse cdf
+        # inverse cdf
         raise RuntimeError('not implemented')
         pass
 
@@ -31,8 +31,8 @@ class LogNormal(Distribution):
     def __init__(self, mu, sig):
         """
         Define the Lognormal with distribution
-        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2) 
-        I.e. the mean of log of the samples will be log(mu) 
+        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2)
+        I.e. the mean of log of the samples will be log(mu)
         and the stddev of log of the samples will be sig
         """
         self.m1 = 0
@@ -137,8 +137,6 @@ class BrokenPowerLaw:
             Array of points/edges of powerlaw segments must be larger by one
             then the list of slopes
         """
-        assert (len(slopes) == len(breaks) - 1)
-        assert ((np.diff(breaks) > 0).all())
         self.slopes = slopes
         self.breaks = breaks
         self._calcpows()
@@ -165,10 +163,18 @@ class BrokenPowerLaw:
         self._calcweights()
 
     def _calcpows(self):
+        if not (len(self.slopes) == len(self.breaks) - 1):
+            raise ValueError(
+                'The length of array of slopes must be equal to length of ' +
+                'array of break points minus 1')
+        if not ((np.diff(self.breaks) > 0).all()):
+            raise ValueError('Power law break-points must be monotonic')
         nsegm = len(self.slopes)
         pows = []
         for ii in range(nsegm):
-            pows.append(PowerLaw(self.slopes[ii], self.breaks[ii], self.breaks[ii + 1]))
+            pows.append(
+                PowerLaw(self.slopes[ii], self.breaks[ii],
+                         self.breaks[ii + 1]))
         self.pows = pows
         self.nsegm = nsegm
 
@@ -176,7 +182,8 @@ class BrokenPowerLaw:
         nsegm = len(self.slopes)
         weights = [1]
         for ii in range(1, nsegm):
-            rat = self.pows[ii].pdf(self.breaks[ii]) / self.pows[ii - 1].pdf(self.breaks[ii])
+            rat = self.pows[ii].pdf(self.breaks[ii]) / self.pows[ii - 1].pdf(
+                self.breaks[ii])
             weights.append(weights[-1] / rat)
         weights = np.array(weights)
         self.weights = weights / np.sum(weights)  # relative normalizations
@@ -222,15 +229,20 @@ class BrokenPowerLaw:
         edges = np.r_[[0], np.cumsum(self.weights)]
         # edges of powerlaw in CDF scale from 0 to 1
         pos = np.digitize(x1, edges)  # bin positions, 1 is the leftmost
-        pos = np.clip(pos, 1,
-                      self.nsegm)  #  we can get zeros here if input is corrupt
+        pos = np.clip(pos, 1, self.nsegm)
+        #  we can get zeros here if input is corrupt
         left = edges[pos - 1]
         w = self.weights[pos - 1]
         x2 = np.clip((x1 - left) / w, 0, 1)  # mapping to 0,1 on the segment
-        ret = np.zeros_like(x1)
+
+        # must force float b/c int dtypes can result in truncation
+        ret = np.zeros_like(x1, dtype='float')
         for ii in range(x.size):
             ret[ii] = self.pows[pos[ii] - 1].ppf(x2[ii])
-        ret[(x1 < 0) | (x1 > 1)] = np.nan
+
+        isnan = (x1 < 0) | (x1 > 1)
+        if any(isnan):
+            ret[isnan] = np.nan
         return ret.reshape(x.shape)
 
 
@@ -294,7 +306,7 @@ class CompositeDistribution(Distribution):
             if xind.sum() > 0:
                 ret[xind] = cums[ii] + self.weights[ii] * self.distrs[ii].cdf(
                     x1[xind])
-        xind = x1 > self.breaks[-1]
+        xind = x1 >= self.breaks[-1]
         if xind.sum():
             ret[xind] = 1
         return ret.reshape(x1.shape)
