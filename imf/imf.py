@@ -141,7 +141,7 @@ class Kroupa(MassFunction):
     def __call__(self, m, integral_form=False):
         """
         Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005,
-        http://adsabs.harvard.edu/abs/2001MNRAS.322..231K)
+        http://adsabs.harvard.edu/abs/2001MNRAS.322..231K) eqn 2
 
         Parameters
         ----------
@@ -543,20 +543,21 @@ def mass_luminosity_interpolator(name):
             np.log10(np.linspace(0.43, 2, 100)**4),
             np.log10(1.5*np.linspace(2, 20, 100)**3.5),
             vgslogL[::-1],
-            np.polyval(np.polyfit(np.log10(vgsMass[:3], vgslogL[:3], 1),
-                                  np.log10(np.linspace(50, 150, 100))))])
+            np.polyval(np.polyfit(np.log10(vgsMass[:3]), vgslogL[:3], 1),
+                       np.log10(np.linspace(50, 150, 100)))
+        ])
         # log Q (lyman continuum) extrapolated
         vgslogQe = np.concatenate([
             np.zeros(100), # 0.03-0.43 solar mass stars produce 0 LyC photons
             np.zeros(100), # 0.43-2.0 solar mass stars produce 0 LyC photons
-            np.polyval(np.polyfit(np.log10(vgsMass[-3:], vgslogQ[-3:], 1),
-                                  np.log10(np.linspace(8, 18.4, 100)))),
+            np.polyval(np.polyfit(np.log10(vgsMass[-3:]), vgslogQ[-3:], 1),
+                       np.log10(np.linspace(8, 18.4, 100))),
             vgslogQ[::-1],
-            np.polyval(np.polyfit(np.log10(vgsMass[:3], vgslogQ[:3], 1),
-                                  np.log10(np.linspace(50, 150, 100))))
+            np.polyval(np.polyfit(np.log10(vgsMass[:3]), vgslogQ[:3], 1),
+                       np.log10(np.linspace(50, 150, 100)))
         ])
 
-        mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQ
+        mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQe
 
         return mass_luminosity_interpolator_cache[name]
     elif name == 'Ekstrom':
@@ -617,27 +618,28 @@ def lum_of_cluster(masses, grid='Ekstrom'):
     logLtot = np.log10( (10**logL).sum() )
     return logLtot
 
-def lyc_of_star(mass):
+def lyc_of_star(mass, grid='VGS'):
     """
     Determine lyman continuum luminosity of a star given its mass
     Uses the Vacca, Garmany, Shull 1996 Table 5 Log Q and Mspec parameters
 
     returns LogQ
     """
-    masses, _, logQ =  mass_luminosity_interpolator(grid)
+    masses, _, logQ = mass_luminosity_interpolator(grid)
 
     return np.interp(mass, masses, logQ)
 
-def lyc_of_cluster(masses):
+def lyc_of_cluster(masses, grid='VGS'):
     """
     Determine the log of the integrated lyman continuum luminosity of a cluster
     Only M>=8msun count
 
     masses is a list or array of masses.
     """
-    if max(masses) < 8: return 0
-    logq = lyc_of_star(masses[masses >= 8])
-    logqtot = np.log10( (10**logq).sum() )
+    if max(masses) < 8:
+        return 0
+    logq = lyc_of_star(masses[masses >= 8], grid=grid)
+    logqtot = np.log10((10**logq).sum())
     return logqtot
 
 def color_from_mass(mass, outtype=float):
