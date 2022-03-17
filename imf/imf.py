@@ -395,6 +395,8 @@ salpeter = Salpeter()
 kroupa = Kroupa()
 lognormal = chabrierlognormal = ChabrierLogNormal()
 chabrier = chabrierpowerlaw = ChabrierPowerLaw()
+chabrier2005 = ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
+                                lognormal_center=0.2, alpha=2.35)
 
 massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierlognormal': ChabrierLogNormal,
