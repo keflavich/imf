@@ -10,12 +10,12 @@ import numpy as np
 import scipy.integrate
 import warnings
 
-from .imf import MassFunction, Chabrier2005
+from .imf import MassFunction, ChabrierPowerLaw
 
-chabrier2005 = Chabrier2005()
+chabrierpowerlaw = ChabrierPowerLaw()
 
 class McKeeOffner_PLF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0, imf=chabrier2005, **kwargs):
+    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0, imf=chabrierpowerlaw, **kwargs):
         """
         Incomplete.  The PLF requires a protostellar evolution code as part of its input.
         """
