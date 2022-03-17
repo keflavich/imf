@@ -4,12 +4,12 @@ import itertools
 
 from .. import imf
 
-from ..imf import kroupa, chabrier2005
+from ..imf import kroupa, chabrierpowerlaw
 
 
 extra_massfunc_kwargs = {'schecter': {'m1': 1.0},
                          'modified_schecter': {'m1': 1.0},
-                         'chabrier2005': {'mmid': 0.5},
+                         'chabrierpowerlaw': {'mmid': 0.5},
                         }
 
 @pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
@@ -76,8 +76,8 @@ def test_chabrier_integral(mlow, mhigh):
     if mlow >= mhigh:
         pytest.skip("mmin >= mmax")
 
-    num = chabrier2005.integrate(mlow, mhigh, numerical=True)[0]
-    anl = chabrier2005.integrate(mlow, mhigh, numerical=False)[0]
+    num = chabrierpowerlaw.integrate(mlow, mhigh, numerical=True)[0]
+    anl = chabrierpowerlaw.integrate(mlow, mhigh, numerical=False)[0]
 
     print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
     np.testing.assert_almost_equal(num, anl)
@@ -85,8 +85,8 @@ def test_chabrier_integral(mlow, mhigh):
     # for mlow in (0.01, 0.08, 0.1, 0.5, 1.0):
     #     for mhigh in (0.02, 0.08, 0.4, 0.5, 1.0):
     #         try:
-    #             num = chabrier2005.m_integrate(mlow, mhigh, numerical=True)[0]
-    #             anl = chabrier2005.m_integrate(mlow, mhigh, numerical=False)[0]
+    #             num = chabrierpowerlaw.m_integrate(mlow, mhigh, numerical=True)[0]
+    #             anl = chabrierpowerlaw.m_integrate(mlow, mhigh, numerical=False)[0]
     #         except ValueError:
     #             continue
     #         print("{0} {1} {2:0.3f} {3:0.3f}".format(mlow, mhigh, num, anl))
