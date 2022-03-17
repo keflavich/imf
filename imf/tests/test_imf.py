@@ -36,9 +36,9 @@ def test_mmax(massfunc):
 
     extra_kwargs = extra_massfunc_kwargs.get(massfunc, {})
 
-    c = imf.make_cluster(10000, mmax=1, mmin=0.01, massfunc=massfunc, **extra_kwargs)
+    c = imf.make_cluster(10000, mmax=1.001, mmin=0.01, massfunc=massfunc, **extra_kwargs)
 
-    assert c.max() <= 1
+    assert c.max() <= 1.001
 
 
 @pytest.mark.parametrize(('mlow', 'mhigh'),
