@@ -210,7 +210,7 @@ class ChabrierLogNormal(MassFunction):
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
                  lognormal_center=0.22,
-                 lognormal_width=0.57,
+                 lognormal_width=0.57*np.log(10),
                  leading_constant=0.086):
         super().__init__(mmin=mmin, mmax=mmax)
 
@@ -235,10 +235,10 @@ class ChabrierPowerLaw(MassFunction):
 
     def __init__(self,
                  lognormal_center=0.22,
-                 lognormal_width=0.57,
+                 lognormal_width=0.57*np.log(10),
                  mmin=default_mmin,
                  mmax=default_mmax,
-                 alpha=2.35,
+                 alpha=2.3,
                  mmid=1):
         """
         From Equation 18 of Chabrier 2003
@@ -248,6 +248,8 @@ class ChabrierPowerLaw(MassFunction):
         ----------
         lognormal_center : float
         lognormal_width : float
+            The lognormal width.  Scipy.stats.lognorm uses log_n,
+            so we need to scale this b/c Chabrier uses log_10
         mmin : float
         mmax : float
         alpha : float
