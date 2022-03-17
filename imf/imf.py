@@ -397,12 +397,6 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
 #                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
 reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
 # salpeter and schechter selections are arbitrary
-mostcommonmass = {
-    'kroupa': 0.08,
-    'salpeter': 0.01,
-    'schecter': 0.01,
-    'modified_schechter': 0.01
-}
 expectedmass_cache = {}
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
