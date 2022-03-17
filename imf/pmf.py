@@ -6,16 +6,16 @@ import numpy as np
 import scipy.integrate
 import warnings
 
-from .imf import MassFunction, Chabrier2005, Kroupa
+from .imf import MassFunction, ChabrierPowerLaw, Kroupa
 
-chabrier2005 = Chabrier2005()
+chabrierpowerlaw = ChabrierPowerLaw()
 
 class McKeeOffner_PMF(MassFunction):
     default_mmin = 0.033
     default_mmax = 3.0
 
     def __init__(self, j=1, n=1, jf=3/4., mmin=default_mmin, mmax=default_mmax,
-                 imf=chabrier2005, **kwargs):
+                 imf=chabrierpowerlaw, **kwargs):
         """
         """
         super().__init__(mmin=mmin, mmax=mmax)
@@ -69,7 +69,7 @@ class McKeeOffner_2CTC(MassFunction):
     default_mmax = 3.0
 
     def __init__(self, Rmdot=3.6, j=0.5, jf=3/4., mmin=default_mmin, mmax=default_mmax,
-                 imf=chabrier2005, **kwargs):
+                 imf=chabrierpowerlaw, **kwargs):
         """
         """
         super().__init__(mmin=mmin, mmax=mmax)
@@ -157,7 +157,7 @@ class McKeeOffner_AcceleratingSF_PMF(MassFunction):
                  tau=1, # current time, Myr
                  tm=0.54, # SF timescale, Myr
                  tf1=0.50, # accretion  timescale for a 1-msun star
-                 imf=chabrier2005, **kwargs):
+                 imf=chabrierpowerlaw, **kwargs):
         """
         McKee & Offner 2010 Protostellar Mass Function with an accelerating star formation rate
         """
