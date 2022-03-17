@@ -27,6 +27,8 @@ if __name__ == "__main__":
         pl.figure(1, figsize=(10,8))
         pl.clf()
         cluster,yax,colors = coolplot(1000, massfunc=massfunc)
+        cluster = np.array(cluster)
+        yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                    linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         pl.gca().set_xscale('log')
@@ -43,6 +45,8 @@ if __name__ == "__main__":
         pl.figure(2, figsize=(20,16))
         pl.clf()
         cluster,yax,colors = coolplot(1000, massfunc=massfunc, log=False)
+        cluster = np.array(cluster)
+        yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                    linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         pl.gca().set_xscale('log')
@@ -53,7 +57,32 @@ if __name__ == "__main__":
         pl.xlabel("Stellar Mass")
         pl.ylabel("dN(M)/dM")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_linear.png".format(name),bbox_inches='tight')
+        pl.savefig("{0}_imf_figure_loglinear.png".format(name),bbox_inches='tight')
+
+        pl.rc('font',size=20)
+        pl.figure(3, figsize=(20,16))
+        ax1 = pl.subplot(1,3,1)
+        ax1.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        ax1.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+        ax2 = pl.subplot(1,3,2)
+        ax2.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        ax2.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+        ax3 = pl.subplot(1,3,3)
+        ax3.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        ax3.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+        ax2.set_xlabel("Stellar Mass", fontsize=30)
+        ax1.set_ylabel("dN(M)/dM", fontsize=30)
+        ax1.axis([min(cluster)/1.1,1,min(yax)-0.2,max(yax)+0.5])
+        ax2.axis([1,5,min(yax)-0.2,max(yax[cluster>1])+0.5])
+        ax3.axis([5,max(cluster)*1.1,min(yax)-0.2,max(yax[cluster>5])+0.5])
+        pl.tight_layout()
+        pl.savefig("{0}_imf_figure_linearlinear.png".format(name),
+                   bbox_inches='tight')
+
+        pl.rc('font',size=30)
 
     # make one more plot, now showing a top-heavy (shallow-tail) IMF
     massfunc = imf.Kroupa(p3=1.75)

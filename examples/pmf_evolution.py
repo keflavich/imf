@@ -23,8 +23,8 @@ for mmax in (3, 120):
     #ChabrierPMF_AcceleratingSF_2CTC.normalize(log=True, mmin=mmin, mmax=mmax)
 
 
-    chabrier2005 = imf.Chabrier2005()
-    chabrier2005.normalize(log=True, mmin=mmin, mmax=mmax)
+    chabrierpowerlaw = imf.ChabrierPowerLaw()
+    chabrierpowerlaw.normalize(log=True, mmin=mmin, mmax=mmax)
 
     print("Now plotting.")
     masses = np.logspace(np.log10(mmin), np.log10(mmax), 100)
@@ -35,7 +35,7 @@ for mmax in (3, 120):
         fig1.clf()
         ax = fig1.gca()
         ax.set_title("Accelerating SF McKee/Offner + Chabrier PMF")
-        ax.loglog(masses, chabrier2005.__getattribute__(fname)(masses), label="IMF", color='k')
+        ax.loglog(masses, chabrierpowerlaw.__getattribute__(fname)(masses), label="IMF", color='k')
         for tau, lw in zip((0.1, 1.0, 10.0), (1,2,3,)):
             ax.loglog(masses, ChabrierPMF_AcceleratingSF_IS.__getattribute__(fname)(masses, tau=tau), label="IS", color='r', linewidth=lw, linestyle=':')
             ax.loglog(masses, ChabrierPMF_AcceleratingSF_TC.__getattribute__(fname)(masses, tau=tau), label="TC", color='g', linewidth=lw, linestyle='-.')

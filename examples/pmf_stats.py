@@ -45,8 +45,8 @@ KroupaPMF_TC.normalize(log=False, mmin=mmin, mmax=mmax)
 KroupaPMF_CA.normalize(log=False, mmin=mmin, mmax=mmax)
 KroupaPMF_2CTC.normalize(log=False, mmin=mmin, mmax=mmax)
 
-chabrier2005 = imf.Chabrier2005()
-chabrier2005.normalize(log=False, mmin=mmin, mmax=mmax)
+chabrierpowerlaw = imf.ChabrierPowerLaw()
+chabrierpowerlaw.normalize(log=False, mmin=mmin, mmax=mmax)
 kroupa = imf.Kroupa()
 kroupa.normalize(log=False, mmin=mmin, mmax=mmax)
 
@@ -56,7 +56,7 @@ mfs = {'ChabrierPMF_IS': ChabrierPMF_IS,
        'ChabrierPMF_TC': ChabrierPMF_TC,
        'ChabrierPMF_CA': ChabrierPMF_CA,
        'ChabrierPMF_2CTC': ChabrierPMF_2CTC,
-       'ChabrierIMF': chabrier2005,
+       'ChabrierIMF': chabrierpowerlaw,
        'KroupaPMF_IS': KroupaPMF_IS,
        'KroupaPMF_TC': KroupaPMF_TC,
        'KroupaPMF_CA': KroupaPMF_CA,

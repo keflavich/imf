@@ -6,7 +6,6 @@ from __future__ import print_function
 import numpy as np
 import types
 import scipy.integrate
-from six import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
 from astropy import units as u
@@ -187,18 +186,40 @@ class Kroupa(MassFunction):
             return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
 
 
-class Chabrier(MassFunction):
+class ChabrierLogNormal(MassFunction):
+    """
+    Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
+    is eqn3 of https://ui.adsabs.harvard.edu/abs/2003ApJ...586L.133C/abstract
+    
+    \\xi = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
+    
+    This function is a pure lognormal; see ChabrierPowerLaw for the version
+    with a power-law extension to high mass
+
+    Parameters
+    ----------
+    lognormal_center : float
+    lognormal_width : float
+    mmin : float
+    mmax : float
+    leading_constant : float
+    """
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax, m0=0.57*np.log(10)):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 lognormal_center=0.22,
+                 lognormal_width=0.57*np.log(10),
+                 leading_constant=0.086):
         super().__init__(mmin=mmin, mmax=mmax)
 
-        self.multiplier = 0.86
-        self.m0 = m0
+        self.multiplier = leading_constant
+        self.lognormal_width = lognormal_width
 
-        self.distr = distributions.TruncatedLogNormal(0.22, self.m0, self.mmin,
-                                                      self.mmax)
+        self.distr = distributions.TruncatedLogNormal(mu=lognormal_center,
+                                                      sig=self.lognormal_width,
+                                                      m1=self.mmin,
+                                                      m2=self.mmax)
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
@@ -207,26 +228,52 @@ class Chabrier(MassFunction):
             return self.distr.pdf(mass) * self.multiplier
 
 
-class Chabrier2005(MassFunction):
-    default_mmin = 0.033
+class ChabrierPowerLaw(MassFunction):
+    default_mmin = 0
     default_mmax = np.inf
 
     def __init__(self,
-                 lognormal_center=0.2,
-                 lognormal_width=0.55 * np.log(10),
+                 lognormal_center=0.22,
+                 lognormal_width=0.57*np.log(10),
                  mmin=default_mmin,
                  mmax=default_mmax,
-                 alpha=2.35,
+                 alpha=2.3,
                  mmid=1):
+        """
+        From Equation 18 of Chabrier 2003
+        https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
+
+        Parameters
+        ----------
+        lognormal_center : float
+        lognormal_width : float
+            The lognormal width.  Scipy.stats.lognorm uses log_n,
+            so we need to scale this b/c Chabrier uses log_10
+        mmin : float
+        mmax : float
+        alpha : float
+            The high-mass power-law slope
+        mmid : float
+            The mass to transition from lognormal to power-law
+
+
+        Notes
+        -----
+        A previous version of this function used sigma=0.55,
+        center=0.2, and alpha=2.35, which come from McKee & Offner 2010 
+        (https://ui.adsabs.harvard.edu/abs/2010ApJ...716..167M/abstract)
+        but those exact numbers don't appear in Chabrier 2005
+        """
         # The numbers are from Eqn 3 of
         # https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
+        # There is no equation 3 in that paper, though?
         # importantly the lognormal center is the exp(M) where M is the mean of ln(mass)
         # normal distribution
         super().__init__(mmin=mmin, mmax=mmax)
         self._mmid = mmid
         if self.mmax <= self._mmid:
-            raise ValueError("The Chabrier2005 Mass Function does not support "
-                             "mmax < mmid")
+            raise ValueError("The Chabrier Mass Function does not support "
+                             "mmax <= mmid")
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
@@ -244,8 +291,6 @@ class Chabrier2005(MassFunction):
         else:
             return self.distr.pdf(x)
 
-
-chabrier2005 = Chabrier2005()
 
 
 class Schechter(MassFunction):
@@ -348,21 +393,17 @@ except ImportError:
 # these are global objects
 salpeter = Salpeter()
 kroupa = Kroupa()
-chabrier = Chabrier()
-chabrier2005 = Chabrier2005()
+lognormal = chabrierlognormal = ChabrierLogNormal()
+chabrier = chabrierpowerlaw = ChabrierPowerLaw()
 
-massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter, 'chabrier': Chabrier,
-                 'chabrier2005': Chabrier2005}
+massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
+                 'chabrierlognormal': ChabrierLogNormal,
+                 'chabrierpowerlaw': ChabrierPowerLaw,
+                 'chabrier': ChabrierPowerLaw,
+                }
 #                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
-reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
+reverse_mf_dict = {v: k for k, v in massfunctions.items()}
 # salpeter and schechter selections are arbitrary
-mostcommonmass = {
-    'kroupa': 0.08,
-    'salpeter': 0.01,
-    'chabrier': 0.23,
-    'schecter': 0.01,
-    'modified_schechter': 0.01
-}
 expectedmass_cache = {}
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
