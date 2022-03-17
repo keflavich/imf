@@ -6,7 +6,6 @@ from __future__ import print_function
 import numpy as np
 import types
 import scipy.integrate
-import iteritems
 import scipy.integrate as integrate
 from scipy.integrate import quad
 from astropy import units as u
@@ -395,7 +394,7 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrier': ChabrierPowerLaw,
                 }
 #                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
-reverse_mf_dict = {v: k for k, v in iteritems(massfunctions)}
+reverse_mf_dict = {v: k for k, v in massfunctions.items()}
 # salpeter and schechter selections are arbitrary
 expectedmass_cache = {}
 
