@@ -255,6 +255,14 @@ class ChabrierPowerLaw(MassFunction):
             The high-mass power-law slope
         mmid : float
             The mass to transition from lognormal to power-law
+
+
+        Notes
+        -----
+        A previous version of this function used sigma=0.55,
+        center=0.2, and alpha=2.35, which come from McKee & Offner 2010 
+        (https://ui.adsabs.harvard.edu/abs/2010ApJ...716..167M/abstract)
+        but those exact numbers don't appear in Chabrier 2005
         """
         # The numbers are from Eqn 3 of
         # https://ui.adsabs.harvard.edu/abs/2005ASSL..327...41C/abstract
@@ -265,7 +273,7 @@ class ChabrierPowerLaw(MassFunction):
         self._mmid = mmid
         if self.mmax <= self._mmid:
             raise ValueError("The Chabrier Mass Function does not support "
-                             "mmax < mmid")
+                             "mmax <= mmid")
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
