@@ -53,11 +53,11 @@ class LogNormal(Distribution):
 
 
 class TruncatedLogNormal:
-    def __init__(self, mu, sig, m1, m2):
+    def __init__(self, mu, sig, m1, m2, distr=scipy.stats.lognorm):
         """ Standard log-normal but truncated in the interval m1,m2 """
         self.m1 = m1
         self.m2 = m2
-        self.d = scipy.stats.lognorm(s=sig, scale=mu)
+        self.d = distr(s=sig, scale=mu)
         self.norm = self.d.cdf(self.m2) - self.d.cdf(self.m1)
 
     def pdf(self, x):

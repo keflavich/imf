@@ -191,7 +191,7 @@ class ChabrierLogNormal(MassFunction):
     Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
     is eqn3 of https://ui.adsabs.harvard.edu/abs/2003ApJ...586L.133C/abstract
     
-    \\xi = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
+    \\xi(log m) = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
     
     This function is a pure lognormal; see ChabrierPowerLaw for the version
     with a power-law extension to high mass
@@ -397,6 +397,13 @@ lognormal = chabrierlognormal = ChabrierLogNormal()
 chabrier = chabrierpowerlaw = ChabrierPowerLaw()
 chabrier2005 = ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
                                 lognormal_center=0.2, alpha=2.35)
+
+# From Kroupa review 2013, eqn 56
+kroupa_canonical_lognormal = ChabrierPowerLaw(lognormal_width=0.75*np.log(10),
+                                              lognormal_center=0.055,
+                                              alpha=2.30,
+                                              mmax=150)
+
 
 massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierlognormal': ChabrierLogNormal,
