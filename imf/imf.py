@@ -190,9 +190,9 @@ class ChabrierLogNormal(MassFunction):
     """
     Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
     is eqn3 of https://ui.adsabs.harvard.edu/abs/2003ApJ...586L.133C/abstract
-    
-    \\xi(log m) = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
-    
+
+    \\xi(log m) = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2))
+
     This function is a pure lognormal; see ChabrierPowerLaw for the version
     with a power-law extension to high mass
 
@@ -260,7 +260,7 @@ class ChabrierPowerLaw(MassFunction):
         Notes
         -----
         A previous version of this function used sigma=0.55,
-        center=0.2, and alpha=2.35, which come from McKee & Offner 2010 
+        center=0.2, and alpha=2.35, which come from McKee & Offner 2010
         (https://ui.adsabs.harvard.edu/abs/2010ApJ...716..167M/abstract)
         but those exact numbers don't appear in Chabrier 2005
         """
@@ -305,7 +305,7 @@ class Schechter(MassFunction):
         """
         A Schechter function with arbitrary defaults
         (integral may not be correct - exponent hasn't been dealt with at all)
-        
+
         (TODO: this should be replaced with a Truncated Power Law Distribution)
 
         $$ A m^{-\\beta} e^{-m/m_0} $$

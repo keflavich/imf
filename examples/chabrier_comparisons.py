@@ -11,9 +11,11 @@ chabrier2005 = imf.ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
                                     lognormal_center=0.2,
                                     alpha=2.35)
 kroupa_lognormal = imf.ChabrierPowerLaw(lognormal_width=(0.75)*np.log(10),
-                                        lognormal_center=0.055, alpha=2.3)
+                                        lognormal_center=0.055*np.log(10),
+                                        alpha=2.3)
 chabrier_single = imf.ChabrierPowerLaw(lognormal_width=(0.69)*np.log(10),
-                                       lognormal_center=0.079, alpha=2.3)
+                                       lognormal_center=0.079*np.log(10),
+                                       alpha=2.3)
 
 masses = np.geomspace(0.01, 10, 1000)
 pl.figure(1).clf()
