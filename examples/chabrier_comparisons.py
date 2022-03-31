@@ -7,6 +7,7 @@ import numpy as np
 import pylab as pl
 
 chabrier = imf.chabrierpowerlaw
+# Eq2 of McKee & Offner use psi(m) d ln m, but eqn 51 - which provides these numbers - gives psi as a function of log10
 chabrier2005 = imf.ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
                                     lognormal_center=0.2,
                                     alpha=2.35)
