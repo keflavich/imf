@@ -190,9 +190,9 @@ class ChabrierLogNormal(MassFunction):
     """
     Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
     is eqn3 of https://ui.adsabs.harvard.edu/abs/2003ApJ...586L.133C/abstract
-    
-    \\xi = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
-    
+
+    \\xi(log m) = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2))
+
     This function is a pure lognormal; see ChabrierPowerLaw for the version
     with a power-law extension to high mass
 
@@ -260,7 +260,7 @@ class ChabrierPowerLaw(MassFunction):
         Notes
         -----
         A previous version of this function used sigma=0.55,
-        center=0.2, and alpha=2.35, which come from McKee & Offner 2010 
+        center=0.2, and alpha=2.35, which come from McKee & Offner 2010
         (https://ui.adsabs.harvard.edu/abs/2010ApJ...716..167M/abstract)
         but those exact numbers don't appear in Chabrier 2005
         """
@@ -305,7 +305,7 @@ class Schechter(MassFunction):
         """
         A Schechter function with arbitrary defaults
         (integral may not be correct - exponent hasn't been dealt with at all)
-        
+
         (TODO: this should be replaced with a Truncated Power Law Distribution)
 
         $$ A m^{-\\beta} e^{-m/m_0} $$
@@ -397,6 +397,13 @@ lognormal = chabrierlognormal = ChabrierLogNormal()
 chabrier = chabrierpowerlaw = ChabrierPowerLaw()
 chabrier2005 = ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
                                 lognormal_center=0.2, alpha=2.35)
+
+# From Kroupa review 2013, eqn 56
+kroupa_canonical_lognormal = ChabrierPowerLaw(lognormal_width=0.75*np.log(10),
+                                              lognormal_center=0.055,
+                                              alpha=2.30,
+                                              mmax=150)
+
 
 massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierlognormal': ChabrierLogNormal,
@@ -549,7 +556,8 @@ def make_cluster(mcluster,
 
     if sampling == 'optimal':
         # this is probably not _quite_ right, but it's a first step...
-        p = np.linspace(0, 1, int(mcluster/expected_mass))
+        # 1-1/n so that we never include m_max, only m_max_cl
+        p = np.linspace(0, 1-expected_mass/mcluster, int(mcluster/expected_mass))
         return mfc.distr.ppf(p)
     elif sampling != 'random':
         raise ValueError("Only random sampling and optimal sampling are supported")
