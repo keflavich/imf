@@ -7,7 +7,7 @@ if __name__ == "__main__":
     alpha = 2
     m0 = 5e2
     mmax = 5e5
-    cluster_mass_xax = np.logspace(np.log10(m0),np.log10(mmax),1e4)
+    cluster_mass_xax = np.geomspace(m0, mmax, int(1e4))
     def pr(m):
         return (m/m0)**-alpha
     probabilities = pr(cluster_mass_xax)
@@ -28,7 +28,8 @@ if __name__ == "__main__":
         cr = np.log10(mmax)-np.log10(mmin)
         lm = np.log10(mass)-np.log10(mmin)
         return pl.cm.RdBu(lm/cr)
-    colors = [color_of_cluster(c,ctable) for c in clusters]
+    colors = np.array([color_of_cluster(c,ctable) for c in clusters])
+    colors[colors > 1] = 1
 
     yax = [np.random.rand()*(np.log10(pr(m))-np.log10(pr(mmax))) + np.log10(pr(mmax)) for m in cluster_masses]
 

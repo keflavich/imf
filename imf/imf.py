@@ -556,7 +556,8 @@ def make_cluster(mcluster,
 
     if sampling == 'optimal':
         # this is probably not _quite_ right, but it's a first step...
-        p = np.linspace(0, 1, int(mcluster/expected_mass))
+        # 1-1/n so that we never include m_max, only m_max_cl
+        p = np.linspace(0, 1-expected_mass/mcluster, int(mcluster/expected_mass))
         return mfc.distr.ppf(p)
     elif sampling != 'random':
         raise ValueError("Only random sampling and optimal sampling are supported")
