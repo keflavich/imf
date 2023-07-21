@@ -8,6 +8,7 @@ import types
 import scipy.integrate
 import scipy.integrate as integrate
 from scipy.integrate import quad
+from scipy.optimize import root_scalar
 from astropy import units as u
 from . import distributions
 
@@ -160,8 +161,8 @@ class Kroupa(MassFunction):
         """
         Integrate the mass function over some range
         """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
+        if mhigh < mlow:
+            raise ValueError("Must have mlow <= mhigh in integral")
         if numerical:
             return super(Kroupa, self).integrate(mlow, mhigh)
 
@@ -172,8 +173,8 @@ class Kroupa(MassFunction):
         """
         Integrate the mass function over some range
         """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
+        if mhigh < mlow:
+            raise ValueError("Must have mlow <= mhigh in integral")
 
         if numerical:
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
@@ -488,6 +489,64 @@ under the hood.
     else:
         raise NotImplementedError
 
+##This section contains the functions required to optimally sample a cluster##
+
+def prefactor(m_max,dist='kroupa',m_upper=120):
+    """
+    Returns the multiplier required for an IMF to have at most one star above m_max.
+    """
+    return 1/get_massfunc(dist).integrate(m_max,m_upper)[0]
+    
+def M_cluster(m,dist='kroupa',m_lower=0.03):
+    """
+    Returns the mass of a cluster distributed according to some IMF where the 
+    largest star has mass m.
+    """
+    k = prefactor(m,dist)    
+    return k*get_massfunc(dist).m_integrate(m_lower,m)[0]+m
+
+def max_star(m,M_res,dist='kroupa'):
+    """
+    Returns the most massive star capable of forming in a cluster of mass M_res
+    according to the m_max/M_cluster relation. Formatted for use with root finding.
+    """
+    return M_res-M_cluster(m,dist)
+
+def approx_max_star(m,M_res):
+    """
+    Implements Eq. 10 from Pflamm-Altenburg et al. 2007 to determine the most 
+    massive star capable of forming in a cluster of mass M_res based on the 
+    m_max/M_cluster relation. Formatted for use with root finding.
+    """
+    return 2.56*np.log10(M_res)*(3.82**9.17+np.log10(M_res)**9.17)**(-1/9.17)-0.38-np.log10(m)
+
+def get_next_m(m,last_m,k,dist='kroupa'):
+    """
+    Returns the next smallest star in an optimally sampled cluster given the 
+    previous star and overall IMF. Formatted for use with root finding.
+    """
+    return k*get_massfunc(dist).m_integrate(m,last_m)[0]-m
+
+def opt_sample(M_res,massfunc,mmax):
+    """
+    Returns a numpy array containing stellar masses that optimally sample an
+    IMF for a cluster with mass M_res.
+    """
+    mmin = get_massfunc(massfunc).mmin
+    sol = root_scalar(max_star,args=(M_res,massfunc),x0=mmin,x1=mmax/2)
+    k = prefactor(sol.root,massfunc)
+    M_tot = sol.root; stars = [sol.root]
+
+    while np.abs(M_res-M_tot) > mmin:
+        sol = root_scalar(get_next_m,args=(stars[-1],k,massfunc),bracket=[mmin,stars[-1]])
+        m = sol.root    
+        stars.append(m)
+        M_tot += m
+    
+    return np.array(stars)
+
+##############################################################################
+
 def make_cluster(mcluster,
                  massfunc='kroupa',
                  verbose=False,
@@ -531,73 +590,85 @@ def make_cluster(mcluster,
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp, mtot, mcluster)))
 
-    mcluster = u.Quantity(mcluster, u.M_sun).value
-
-    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-
-
-    if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
-        expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
-        assert expected_mass > 0
-    else:
-        expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
-        assert expected_mass > 0
-        expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
-
-    if verbose:
-        print("Expected mass is {0:0.3f}".format(expected_mass))
-
     if sampling == 'optimal':
-        # this is probably not _quite_ right, but it's a first step...
-        p = np.linspace(0, 1, int(mcluster/expected_mass))
-        return mfc.distr.ppf(p)
+        masses = opt_sample(mcluster,massfunc,mmax)
+        mtot = masses.sum()
+        if verbose:
+            print(f'Sampled {len(masses)} new stars.')
+
     elif sampling != 'random':
         raise ValueError("Only random sampling and optimal sampling are supported")
 
-    mtot = 0
-    masses = []
+    else:
+        mcluster = u.Quantity(mcluster, u.M_sun).value
 
-    while mtot < mcluster + tolerance:
-        # at least 1 sample, but potentially many more
-        nsamp = int(np.ceil((mcluster + tolerance - mtot) / expected_mass))
-        assert nsamp > 0
-        newmasses = mfc.distr.rvs(nsamp)
-        masses = np.concatenate([masses, newmasses])
-        mtot = masses.sum()
+        mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
+
+
+        if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
+            expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
+            assert expected_mass > 0
+        else:
+            expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
+            assert expected_mass > 0
+            expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
+
         if verbose:
-            print("Sampled %i new stars.  Total is now %g" %
-                  (int(nsamp), mtot))
+            print("Expected mass is {0:0.3f}".format(expected_mass))
 
-        if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
-            mcum = masses.cumsum()
-            if stop_criterion == 'sorted':
-                masses = np.sort(masses)
-                if np.abs(masses[:-1].sum() - mcluster) < np.abs(masses.sum() -
-                                                                 mcluster):
-                    # if the most massive star makes the cluster a worse fit, reject it
-                    # (this follows Krumholz+ 2015 appendix A1)
-                    last_ind = len(masses) - 1
-                else:
-                    last_ind = len(masses)
-            else:
-                if stop_criterion == 'nearest':
-                    # find the closest one, and use +1 to include it
-                    last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
-                elif stop_criterion == 'before':
-                    last_ind = np.argmax(mcum > mcluster)
-                elif stop_criterion == 'after':
-                    last_ind = np.argmax(mcum > mcluster) + 1
-            masses = masses[:last_ind]
+        '''
+        if sampling == 'optimal':
+        # this is probably not _quite_ right, but it's a first step...
+            p = np.linspace(0, 1, int(mcluster/expected_mass))
+            return mfc.distr.ppf(p)
+        elif sampling != 'random':
+            raise ValueError("Only random sampling and optimal sampling are supported")
+        '''
+
+        mtot = 0
+        masses = []
+
+        while mtot < mcluster + tolerance:
+            # at least 1 sample, but potentially many more
+            nsamp = int(np.ceil((mcluster + tolerance - mtot) / expected_mass))
+            assert nsamp > 0
+            newmasses = mfc.distr.rvs(nsamp)
+            masses = np.concatenate([masses, newmasses])
             mtot = masses.sum()
             if verbose:
-                print(
-                    "Selected the first %i out of %i masses to get %g total" %
-                    (last_ind, len(mcum), mtot))
-            # force the break, because some stopping criteria can push mtot < mcluster
-            break
+                print("Sampled %i new stars.  Total is now %g" %
+                      (int(nsamp), mtot))
 
-    if not silent:
-        print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
+            if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
+                mcum = masses.cumsum()
+                if stop_criterion == 'sorted':
+                    masses = np.sort(masses)
+                    if np.abs(masses[:-1].sum() - mcluster) < np.abs(masses.sum() -
+                                                                     mcluster):
+                        # if the most massive star makes the cluster a worse fit, reject it
+                        # (this follows Krumholz+ 2015 appendix A1)
+                        last_ind = len(masses) - 1
+                    else:
+                        last_ind = len(masses)
+                else:
+                    if stop_criterion == 'nearest':
+                        # find the closest one, and use +1 to include it
+                        last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
+                    elif stop_criterion == 'before':
+                        last_ind = np.argmax(mcum > mcluster)
+                    elif stop_criterion == 'after':
+                        last_ind = np.argmax(mcum > mcluster) + 1
+                masses = masses[:last_ind]
+                mtot = masses.sum()
+                if verbose:
+                    print(
+                        "Selected the first %i out of %i masses to get %g total" %
+                        (last_ind, len(mcum), mtot))
+                    # force the break, because some stopping criteria can push mtot < mcluster
+                    break
+
+        if not silent:
+            print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
 
     return masses
 
