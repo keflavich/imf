@@ -48,6 +48,7 @@ Credits:
  * Adam Ginsburg (@keflavich, wrote most of this)
  * Sergey Koposov (@segasai, majorly refactored the distribution functions)
  * Tiffany Christian (@teachristian, made some small corrections)
+ * Theo Richardson (@richardson-t, refactored optimal sampling)
 
 No formal citation is available yet; please just reference the repository
 (https://github.com/keflavich/imf) if you use this.

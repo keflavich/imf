@@ -532,10 +532,20 @@ def opt_sample(M_res,massfunc,mmin=None,mmax=None):
     Returns a numpy array containing stellar masses that optimally sample an
     IMF for a cluster with mass M_res.
     """
+    #retrieve default values from provided massfunc if necessary
     if mmin == None:
         mmin = get_massfunc(massfunc).mmin
     if mmax == None:
         mmax = get_massfunc(massfunc).mmax
+
+    #assign finite values for mmin and mmax if necessary
+    if not np.isfinite(mmin):
+        mmin = 0.03
+        raise RuntimeWarning('Provided mass function does not have a finite lower limit; setting to 0.03 Msun')
+    if not np.isfinite(mmax):
+        mmax = 120
+        raise RuntimeWarning('Provided mass function does not have a finite upper limit; setting to 120 Msun')
+
     sol = root_scalar(max_star,args=(M_res,massfunc,mmin,mmax),x0=mmin,x1=mmax/2)
     k = prefactor(sol.root,massfunc,mmax)
     M_tot = sol.root; stars = [sol.root]
