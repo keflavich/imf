@@ -574,7 +574,7 @@ def make_cluster(mcluster,
         It can be zero, but this does not guarantee that the final cluster mass will be
         exactly `mcluster`
     sampling: 'random' or 'optimal'
-        Optimal sampling is implemented by solving the equations in Section 2.2
+        Optimal sampling is implemented by solving Equations 9-11 in Section 2.2
         of https://ui.adsabs.harvard.edu/abs/2013pss5.book..115K/abstract.
         Optimal sampling is only to be used in the context of a variable M_max
         that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
