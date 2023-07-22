@@ -573,15 +573,15 @@ def make_cluster(mcluster,
         tolerance is how close the cluster mass must be to the requested mass.
         It can be zero, but this does not guarantee that the final cluster mass will be
         exactly `mcluster`
-    stop_criterion : 'nearest', 'before', 'after', 'sorted'
-        The criterion to stop sampling when the total cluster mass is reached.
-        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract
     sampling: 'random' or 'optimal'
-        Optimal sampling is based on https://ui.adsabs.harvard.edu/abs/2015A%26A...582A..93S/abstract
-        (though as of April 23, 2021, it is not yet correct)
+        Optimal sampling is implemented by solving the equations in Section 2.2
+        of https://ui.adsabs.harvard.edu/abs/2013pss5.book..115K/abstract.
         Optimal sampling is only to be used in the context of a variable M_max
         that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
-
+    stop_criterion : 'nearest', 'before', 'after', 'sorted'
+        The criterion to stop sampling when the total cluster mass is reached.
+        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract.
+        Does not factor into optimal sampling.
     """
     # use most common mass to guess needed number of samples
     # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
@@ -591,6 +591,14 @@ def make_cluster(mcluster,
     # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp, mtot, mcluster)))
+    
+    #catch wrong keywords early
+    ok_samplings = ['random','optimal']
+    ok_criteria = ['nearest','before','after','sorted']
+    if not sampling in ok_samplings:
+        raise KeyError("Sampling should be either 'random' or 'optimal' (see documentation)")
+    if (sampling == 'random') and not stop_criterion in ok_criteria:
+        raise KeyError("Stop criterion for random sampling should be 'nearest', 'before', 'after', or 'sorted' (see documentation)")
 
     if sampling == 'optimal':
         masses = opt_sample(mcluster,massfunc,mmin=mmin,mmax=mmax)
@@ -617,15 +625,6 @@ def make_cluster(mcluster,
 
         if verbose:
             print("Expected mass is {0:0.3f}".format(expected_mass))
-
-        '''
-        if sampling == 'optimal':
-        # this is probably not _quite_ right, but it's a first step...
-            p = np.linspace(0, 1, int(mcluster/expected_mass))
-            return mfc.distr.ppf(p)
-        elif sampling != 'random':
-            raise ValueError("Only random sampling and optimal sampling are supported")
-        '''
 
         mtot = 0
         masses = []
