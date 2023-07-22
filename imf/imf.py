@@ -489,28 +489,28 @@ under the hood.
     else:
         raise NotImplementedError
 
-##This section contains the functions required to optimally sample a cluster##
+####This section contains the functions required to optimally sample a cluster####
 
-def prefactor(m_max,dist='kroupa',m_upper=120):
+def prefactor(max_star,dist,mmax):
     """
     Returns the multiplier required for an IMF to have at most one star above m_max.
     """
-    return 1/get_massfunc(dist).integrate(m_max,m_upper)[0]
+    return 1/get_massfunc(dist).integrate(max_star,mmax)[0]
     
-def M_cluster(m,dist='kroupa',m_lower=0.03):
+def M_cluster(m,dist,mmin,mmax):
     """
     Returns the mass of a cluster distributed according to some IMF where the 
     largest star has mass m.
     """
-    k = prefactor(m,dist)    
-    return k*get_massfunc(dist).m_integrate(m_lower,m)[0]+m
+    k = prefactor(m,dist,mmax)
+    return k*get_massfunc(dist).m_integrate(mmin,m)[0]+m
 
-def max_star(m,M_res,dist='kroupa'):
+def max_star(m,M_res,dist,mmin,mmax):
     """
     Returns the most massive star capable of forming in a cluster of mass M_res
     according to the m_max/M_cluster relation. Formatted for use with root finding.
     """
-    return M_res-M_cluster(m,dist)
+    return M_res-M_cluster(m,dist,mmin,mmax)
 
 def approx_max_star(m,M_res):
     """
@@ -520,21 +520,24 @@ def approx_max_star(m,M_res):
     """
     return 2.56*np.log10(M_res)*(3.82**9.17+np.log10(M_res)**9.17)**(-1/9.17)-0.38-np.log10(m)
 
-def get_next_m(m,last_m,k,dist='kroupa'):
+def get_next_m(m,last_m,k,dist):
     """
     Returns the next smallest star in an optimally sampled cluster given the 
     previous star and overall IMF. Formatted for use with root finding.
     """
     return k*get_massfunc(dist).m_integrate(m,last_m)[0]-m
 
-def opt_sample(M_res,massfunc,mmax):
+def opt_sample(M_res,massfunc,mmin=None,mmax=None):
     """
     Returns a numpy array containing stellar masses that optimally sample an
     IMF for a cluster with mass M_res.
     """
-    mmin = get_massfunc(massfunc).mmin
-    sol = root_scalar(max_star,args=(M_res,massfunc),x0=mmin,x1=mmax/2)
-    k = prefactor(sol.root,massfunc)
+    if mmin == None:
+        mmin = get_massfunc(massfunc).mmin
+    if mmax == None:
+        mmax = get_massfunc(massfunc).mmax
+    sol = root_scalar(max_star,args=(M_res,massfunc,mmin,mmax),x0=mmin,x1=mmax/2)
+    k = prefactor(sol.root,massfunc,mmax)
     M_tot = sol.root; stars = [sol.root]
 
     while np.abs(M_res-M_tot) > mmin:
@@ -552,10 +555,10 @@ def make_cluster(mcluster,
                  verbose=False,
                  silent=False,
                  tolerance=0.0,
-                 stop_criterion='nearest',
                  sampling='random',
-                 mmax=None,
+                 stop_criterion='nearest',
                  mmin=None,
+                 mmax=None,
                  **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
@@ -580,7 +583,6 @@ def make_cluster(mcluster,
         that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
 
     """
-
     # use most common mass to guess needed number of samples
     # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
     # masses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
@@ -591,10 +593,10 @@ def make_cluster(mcluster,
     #          (nsamp, mtot, mcluster)))
 
     if sampling == 'optimal':
-        masses = opt_sample(mcluster,massfunc,mmax)
+        masses = opt_sample(mcluster,massfunc,mmin=mmin,mmax=mmax)
         mtot = masses.sum()
         if verbose:
-            print(f'Sampled {len(masses)} new stars.')
+            print(f'Sampled {len(masses)} new stars. Total cluster mass is {np.round(mtot,3)}.')
 
     elif sampling != 'random':
         raise ValueError("Only random sampling and optimal sampling are supported")
