@@ -9,6 +9,7 @@ import scipy.integrate
 import scipy.integrate as integrate
 from scipy.integrate import quad
 from scipy.optimize import root_scalar
+from scipy.stats import norm
 from astropy import units as u
 from . import distributions
 
@@ -980,18 +981,7 @@ class KoenConvolvedPowerLaw(MassFunction):
             #       Probability that m < x for the given CDF with specified
             #       mmin, mmax, sigma, and gamma
 
-            def error(t):
-                return np.exp(-(t**2) / 2)
-
-            error_coeffecient = 1 / np.sqrt(2 * np.pi)
-
-            def error_integral(y):
-                error_integral = quad(error, -np.inf,
-                                      (y - self.mmax) / self.sigma)[0]
-                return error_integral
-
-            vector_errorintegral = np.vectorize(error_integral)
-            phi = vector_errorintegral(m) * error_coeffecient
+            phi = norm.cdf((m - self.mmax) / self.sigma)
 
             def integrand(x, y):
                 return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
