@@ -10,7 +10,7 @@ import scipy.integrate as integrate
 from scipy.integrate import quad
 from scipy.optimize import root_scalar
 from astropy import units as u
-import distributions #from . import distributions #the commented line is OG text; make sure to correct this before pulling
+from . import distributions
 from warnings import warn
 
 class MassFunction(object):
@@ -584,9 +584,7 @@ def make_cluster(mcluster,
     stop_criterion : 'nearest', 'before', 'after', 'sorted'
         The criterion to stop random sampling when the total cluster mass is reached.
         See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract.
-        Does not factor into optimal sampling.
-    approx: boolean
-        
+        Does not factor into optimal sampling.        
     """
     # use most common mass to guess needed number of samples
     # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
