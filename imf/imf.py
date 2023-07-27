@@ -10,7 +10,7 @@ import scipy.integrate as integrate
 from scipy.integrate import quad
 from scipy.optimize import root_scalar,newton
 from astropy import units as u
-import distributions #from . import distributions
+from . import distributions
 
 class MassFunction(object):
     """
