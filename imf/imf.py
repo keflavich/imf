@@ -8,7 +8,7 @@ import types
 import scipy.integrate
 import scipy.integrate as integrate
 from scipy.integrate import quad
-from scipy.optimize import root_scalar
+from scipy.optimize import root_scalar,newton
 from astropy import units as u
 from . import distributions
 
@@ -511,6 +511,15 @@ def _max_star(m,M_res,massfunc):
     """
     return M_res-_M_cluster(m,massfunc)
 
+def _max_star_prime(m,M_res,massfunc):
+    """
+    Returns the derivative of _max_star at mass m. Used for Newton's method in
+    the case of an infinite upper bound on the provided mass function.
+    """
+    term1 = _prefactor(m,massfunc)**2*massfunc(m)*massfunc.m_integrate(massfunc.mmin,m)[0]
+    term2 = m*massfunc(m)*_prefactor(m,massfunc)
+    return -term1-term2-1
+
 def _get_next_m(m,last_m,k,massfunc):
     """
     Returns the next smallest star in an optimally sampled cluster given the 
@@ -518,7 +527,7 @@ def _get_next_m(m,last_m,k,massfunc):
     """
     return k*massfunc.m_integrate(m,last_m)[0]-m
 
-def _opt_sample(M_res,massfunc):
+def _opt_sample(M_res,massfunc,tolerance):
     """
     Returns a numpy array containing stellar masses that optimally sample 
     from a provided MassFunction to make a cluster with mass M_res.
@@ -527,18 +536,21 @@ def _opt_sample(M_res,massfunc):
     mmin = massfunc.mmin; mmax = massfunc.mmax
     finMax = np.isfinite(mmax)
 
-    #catch unphysical mmin
-    if (mmin <= 0) or not np.isfinite(mmin):
-        raise ValueError('Provided mass function does not have a physical mmin.')
+    #finding all the component stars requires a cutoff--ensure there is one
+    if not np.isfinite(np.log(mmin)):
+        if not np.isfinite(np.log(tolerance)):
+            raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
 
     if finMax:
-        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.999*mmax]) #bracket is min to ALMOST max due to prefactor calculation
+        #bracket from min to ALMOST max (max gives an undefined prefactor)
+        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.999*mmax])
     else:
-        sol = root_scalar(_max_star,args=(M_res,massfunc),x0=mmin,x1=10*mmin)
+        #use Newton's method
+        sol = root_scalar(_max_star,args=(M_res,massfunc),x0=10*mmin,fprime=_max_star_prime)
     k = _prefactor(sol.root,massfunc)
     M_tot = sol.root; stars = [sol.root]
 
-    while np.abs(M_res-M_tot) > mmin:
+    while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
         try:
             sol = root_scalar(_get_next_m,args=(stars[-1],k,massfunc),bracket=[mmin,stars[-1]])
         except(ValueError):
@@ -598,13 +610,13 @@ def make_cluster(mcluster,
     ok_samplings = ['random','optimal']
     ok_criteria = ['nearest','before','after','sorted']
     if not sampling in ok_samplings:
-        raise KeyError("Sampling should be either 'random' or 'optimal' (see documentation)")
+        raise ValueError("Sampling should be either 'random' or 'optimal' (see documentation)")
     if (sampling == 'random') and not stop_criterion in ok_criteria:
-        raise KeyError("Stop criterion for random sampling should be 'nearest', 'before', 'after', or 'sorted' (see documentation)")
+        raise ValueError("Stop criterion for random sampling should be 'nearest', 'before', 'after', or 'sorted' (see documentation)")
 
     if sampling == 'optimal':
         mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-        masses,mtot = _opt_sample(mcluster,mfc)
+        masses,mtot = _opt_sample(mcluster,mfc,tolerance=tolerance)
         if verbose:
             print(f'Sampled {len(masses)} new stars.')
         if not silent:
