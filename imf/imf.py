@@ -11,7 +11,7 @@ from scipy.integrate import quad
 from scipy.optimize import root_scalar
 from scipy.stats import norm
 from astropy import units as u
-import distributions #from . import distributions
+from . import distributions
 
 
 class MassFunction(object):
