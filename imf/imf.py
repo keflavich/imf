@@ -11,7 +11,7 @@ from scipy.integrate import quad
 from scipy.optimize import root_scalar
 from scipy.stats import norm
 from astropy import units as u
-from . import distributions
+import distributions #from . import distributions
 
 
 class MassFunction(object):
@@ -965,58 +965,81 @@ class KoenConvolvedPowerLaw(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma):
-        super().__init__(mmin, mmax)
-        self.sigma = sigma
-        self.gamma = gamma
-
-    def __call__(self, m, integral_form=False):
-        m = np.asarray(m)
-        if self.mmax < self.mmin:
+    def __init__(self, mmin, mmax, gamma, sigma, npts=100):
+        if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
-
-        if integral_form:
-            #       Returns
-            #       -------
-            #       Probability that m < x for the given CDF with specified
-            #       mmin, mmax, sigma, and gamma
-
-            phi = norm.cdf((m - self.mmax) / self.sigma)
-
-            def integrand(x, y):
-                return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
-                    (-1 / 2) * ((y - x) / self.sigma)**2))
-
-            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) *
-                         (self.mmin**-self.gamma - self.mmax**-self.gamma)))
-
-            def eval_integral(y):
-                integral = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return integral
-
-            vector_integral = np.vectorize(eval_integral)
-            probability = phi + coef * vector_integral(m)
-            return probability
-
+        
+        super().__init__(mmin, mmax)
+        self._sigma = sigma
+        self._gamma = gamma
+        self._points = self._make_points(npts)
+        self._pdf = self._pre_integrate(False)
+        self._cdf = self._pre_integrate(True)
+    
+    @property
+    def gamma(self):
+        return self._gamma
+    
+    @property
+    def sigma(self):
+        return self._sigma
+    
+    @property
+    def points(self):
+        return self._points
+    
+    @property
+    def pdf(self):
+        return self._pdf
+    
+    @property
+    def cdf(self):
+        return self._cdf
+    
+    def _make_points(self,n_pts):
+        infMax = ~np.isfinite(self.mmax)
+        if infMax:
+            points = np.geomspace(self.mmin,1000,n_pts-1)
+            points = np.append(points,np.inf)
         else:
-            # Returns
-            # ------
-            # Probability of getting x given the PDF with specified mmin, mmax, sigma, and gamma
-            def integrand(x, y):
-                return (x**-(self.gamma + 1)) * np.exp(-.5 * (
-                    (y - x) / self.sigma)**2)
-
-            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
-                                  ((self.mmin**-self.gamma) -
-                                   (self.mmax**-self.gamma))))
-
-            def Integral(y):
-                I = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return I
-
-            vector_I = np.vectorize(Integral)
-            return coef * vector_I(m)
-
+            points = np.geomspace(self.mmin,self.mmax,n_pts)
+        return points
+    
+    def _integrand(self,x,y,integral_form):
+        if integral_form:
+            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
+                self.mmin**-self.gamma - self.mmax**-self.gamma)))
+            ret = ((self.mmin**-gamma - x**-gamma) * np.exp(
+                (-1 / 2) * ((y - x) / self.sigma)**2))
+            return coef*ret
+        else:
+            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
+                                  ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))))
+            ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
+            return coef*ret
+    
+    def _pre_integrate(self,integral_form):
+        x = self._make_points(300)
+        results = []
+        for pt in self.points:
+            chunks = []
+            for i in range(len(x)-1):
+                l,u = x[i],x[i+1]
+                area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
+                chunks.append(area)
+            if integral_form:
+                results.append(np.sum(chunks)+norm.cdf((pt - U) / self.sigma))
+            else:
+                results.append(np.sum(chunks))
+        results = np.array(results)
+        return results
+        
+    def __call__(self, m, integral_form=False):
+        m = np.atleast_1d(m)
+        if integral_form:
+            return np.interp(m,self.points,self.cdf)
+        else:
+            return np.interp(m,self.points,self.pdf)
 
 class KoenTruePowerLaw(MassFunction):
     """
