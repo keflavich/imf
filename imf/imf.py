@@ -11,7 +11,7 @@ from scipy.integrate import quad
 from scipy.optimize import root_scalar
 from scipy.stats import norm
 from astropy import units as u
-from . import distributions
+import distributions #from . import distributions
 
 
 class MassFunction(object):
@@ -533,21 +533,22 @@ def opt_sample(M_res,massfunc,mmin=None,mmax=None):
     Returns a numpy array containing stellar masses that optimally sample an
     IMF for a cluster with mass M_res.
     """
-    if mmin == None:
+    if mmin is None:
         mmin = get_massfunc(massfunc).mmin
-    if mmax == None:
+    if mmax is None:
         mmax = get_massfunc(massfunc).mmax
     sol = root_scalar(max_star,args=(M_res,massfunc,mmin,mmax),x0=mmin,x1=mmax/2)
     k = prefactor(sol.root,massfunc,mmax)
-    M_tot = sol.root; stars = [sol.root]
+    M_tot = sol.root
+    star_masses = [sol.root]
 
     while np.abs(M_res-M_tot) > mmin:
-        sol = root_scalar(get_next_m,args=(stars[-1],k,massfunc),bracket=[mmin,stars[-1]])
+        sol = root_scalar(get_next_m,args=(star_masses[-1],k,massfunc),bracket=[mmin,star_masses[-1]])
         m = sol.root    
-        stars.append(m)
+        star_masses.append(m)
         M_tot += m
     
-    return np.array(stars)
+    return np.array(star_masses)
 
 ##############################################################################
 
@@ -1006,13 +1007,16 @@ class KoenConvolvedPowerLaw(MassFunction):
         return points
     
     def _integrand(self,x,y,integral_form):
-        if integral_form:
+        '''
+        Implements equations (3) and (5) from KK09.
+        '''
+        if integral_form: #equation 5
             coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
                 self.mmin**-self.gamma - self.mmax**-self.gamma)))
-            ret = ((self.mmin**-gamma - x**-gamma) * np.exp(
+            ret = ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
                 (-1 / 2) * ((y - x) / self.sigma)**2))
             return coef*ret
-        else:
+        else: #equation 3
             coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
                                   ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))))
             ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
@@ -1028,18 +1032,21 @@ class KoenConvolvedPowerLaw(MassFunction):
                 area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
                 chunks.append(area)
             if integral_form:
-                results.append(np.sum(chunks)+norm.cdf((pt - U) / self.sigma))
+                results.append(np.sum(chunks)+norm.cdf((pt - self.mmax) / self.sigma))
             else:
                 results.append(np.sum(chunks))
         results = np.array(results)
         return results
         
-    def __call__(self, m, integral_form=False):
-        m = np.atleast_1d(m)
+    def _evaluate(self,m,integral_form=False):
         if integral_form:
             return np.interp(m,self.points,self.cdf)
         else:
             return np.interp(m,self.points,self.pdf)
+
+    def __call__(self, m, integral_form=False):
+        m = np.atleast_1d(m)
+        return self._evaluate(m,integral_form=integral_form)
 
 class KoenTruePowerLaw(MassFunction):
     """
