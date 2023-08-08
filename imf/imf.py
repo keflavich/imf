@@ -11,7 +11,7 @@ from scipy.integrate import quad
 from scipy.optimize import root_scalar
 from scipy.stats import norm
 from astropy import units as u
-import distributions #from . import distributions
+from . import distributions
 
 
 class MassFunction(object):
@@ -543,11 +543,14 @@ def opt_sample(M_res,massfunc,mmin=None,mmax=None):
     star_masses = [sol.root]
 
     while np.abs(M_res-M_tot) > mmin:
-        sol = root_scalar(get_next_m,args=(star_masses[-1],k,massfunc),bracket=[mmin,star_masses[-1]])
-        m = sol.root    
-        star_masses.append(m)
-        M_tot += m
-    
+        try:
+            sol = root_scalar(get_next_m,args=(star_masses[-1],k,massfunc),bracket=[mmin,star_masses[-1]])
+            m = sol.root
+            star_masses.append(m)
+            M_tot += m
+        except(ValueError):
+            print(f'Broke at M_tot = {M_tot}')
+            break
     return np.array(star_masses)
 
 ##############################################################################
@@ -1022,13 +1025,24 @@ class KoenConvolvedPowerLaw(MassFunction):
             ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
             return coef*ret
     
+    def _mirror_steps(self):
+        x = np.geomspace(self.mmin,self.mmax,200)
+        mir_x = self.mmax-(x[::-1]-self.mmin)
+        dx = x[1:]-x[:-1]
+        break1 = np.searchsorted(dx,self.sigma)
+        break2 = np.searchsorted(-dx[::-1],-self.sigma)       
+        x = np.append(x[:break1],np.linspace(x[break1],mir_x[break2],
+                                             int((mir_x[break2]-x[break1])/self.sigma)))
+        x = np.append(x,mir_x[break2:])
+        return x
+
     def _pre_integrate(self,integral_form):
-        x = self._make_points(300)
+        steps = self._mirror_steps()
         results = []
         for pt in self.points:
             chunks = []
-            for i in range(len(x)-1):
-                l,u = x[i],x[i+1]
+            for i in range(len(steps)-1):
+                l,u = steps[i],steps[i+1]
                 area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
                 chunks.append(area)
             if integral_form:
