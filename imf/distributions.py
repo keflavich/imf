@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-
+from scipy.integrate import quad
 
 class Distribution:
     """ The main class describing the distributions, to be inherited"""
@@ -244,6 +244,116 @@ class BrokenPowerLaw:
         if any(isnan):
             ret[isnan] = np.nan
         return ret.reshape(x.shape)
+
+
+class KoenConvolvedPowerLaw(Distribution):
+    """Error-convolved power law.
+
+    A power law over the mass range (m1,m2) with slope -(gamma-1) convolved with
+    a normal distribution of width sigma, as described in Koen & Kondlo 2009.
+
+    Arguments:
+    m1: float
+    m2: float
+    gamma: float
+    sigma: float
+    npts: float
+    """
+    def __init__(self,m1,m2,gamma,sigma,npts):
+        self.m1 = m1
+        self.m2 = m2
+        self.gamma = gamma
+        self.sigma = sigma
+        self.points = self._make_points(npts)
+        self._pdf = self._pre_integrate(False)
+        self._cdf = self._pre_integrate(True)
+
+    def _make_points(self,n_pts):
+        #points to interpolate between when calling the distribution
+        infMax = ~np.isfinite(self.m2)
+        if infMax:
+            points = np.geomspace(self.m1,1000,n_pts-1)
+            points = np.append(points,np.inf)
+        else:
+            points = np.geomspace(self.m1,self.m2,n_pts)
+        return points
+
+    def _mirror_steps(self):
+        #Sub-intervals for the integration to capture small changes at both ends
+        x = np.geomspace(self.m1,self.m2,100)
+        mir_x = self.m2-(x[::-1]-self.m1)
+        dx = x[1:]-x[:-1]
+        break1 = np.searchsorted(dx,self.sigma)
+        break2 = np.searchsorted(-dx[::-1],-self.sigma)
+        xpt = x[break1]
+        mirxpt = mir_x[break2]
+        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
+        x = np.append(x[x < x1],np.linspace(x1,x2,
+                                            int((x2-x1)/self.sigma)))
+        x = np.append(x,mir_x[mir_x > x2])
+        return x
+
+    def _integrand(self,x,y,integral_form):
+        '''
+        Implements equations (3) and (5) from KK09.
+        '''
+        if integral_form:
+            #equation 5
+            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
+                self.m1**-self.gamma - self.m2**-self.gamma)))
+            ret = ((self.m1**-self.gamma - x**-self.gamma) * np.exp(
+            (-1 / 2) * ((y - x) / self.sigma)**2))
+            return coef*ret
+        else:
+            #equation 3
+            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
+                                  ((self.m1**-self.gamma) - (self.m2**-self.gamma))))
+            ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
+            return coef*ret
+
+    def _pre_integrate(self,integral_form):
+        steps = self._mirror_steps()
+        results = []
+        for pt in self.points:
+            chunks = []
+            for i in range(len(steps)-1):
+                l,u = steps[i],steps[i+1]
+                area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
+                chunks.append(area)
+            if integral_form:
+                results.append(np.sum(chunks)+
+                               scipy.stats.norm.cdf((pt - self.m2) / self.sigma))
+            else:
+                results.append(np.sum(chunks))
+        results = np.array(results)
+        return results
+
+    def pdf(self,x):
+        x1 = np.atleast_1d(x)
+        check = (x1 >= self.m1) * (x1 <= self.m2)
+        ret = np.interp(x * check,self.points,self._pdf)
+        if len(x1) == 1:
+            return ret[0]
+        else:
+            return ret
+
+    def cdf(self,x):
+        x1 = np.atleast_1d(x)
+        check = (x1 >= self.m1) * (x1 <= self.m2)
+        ret = np.interp(x * check,self.points,self._cdf)
+        if len(x1) == 1:
+            return ret[0]
+        else:
+            return ret
+        
+    def rvs(self,N):
+        samp = np.random.uniform(min(self._cdf),max(self._cdf),size=N)
+        return self.ppf(samp)
+
+    def ppf(self,x):
+        x1 = np.atleast_1d(x)
+        check = (x1 >= min(self._cdf)) * (x1 <= max(self._cdf))
+        return np.interp(x1 * check,self._cdf,self.points)
 
 
 class CompositeDistribution(Distribution):
