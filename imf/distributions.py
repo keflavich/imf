@@ -251,13 +251,21 @@ class KoenConvolvedPowerLaw(Distribution):
 
     A power law over the mass range (m1,m2) with slope -(gamma-1) convolved with
     a normal distribution of width sigma, as described in Koen & Kondlo 2009.
+    This implementation calculates the PDF and CDF of the distribution at npts
+    evenly log-spaced points and interpolates between the results.
 
     Arguments:
     m1: float
+        Lower mass bound of the power law.
     m2: float
+        Upper mass bound of the power law.
     gamma: float
+        Determines the slope of the power law in log space. Should be != 0.
     sigma: float
+        Width of the Gaussian convolved with the power law. Should be > 0.
     npts: float
+        Number of evenly log-spaced points at which the distribution 
+        will be evaluated.
     """
     def __init__(self,m1,m2,gamma,sigma,npts):
         self.m1 = m1
@@ -272,7 +280,7 @@ class KoenConvolvedPowerLaw(Distribution):
         #points to interpolate between when calling the distribution
         infMax = ~np.isfinite(self.m2)
         if infMax:
-            points = np.geomspace(self.m1,1000,n_pts-1)
+            points = np.geomspace(self.m1,1000*self.m1,n_pts-1)
             points = np.append(points,np.inf)
         else:
             points = np.geomspace(self.m1,self.m2,n_pts)
@@ -329,31 +337,23 @@ class KoenConvolvedPowerLaw(Distribution):
         return results
 
     def pdf(self,x):
-        x1 = np.atleast_1d(x)
-        check = (x1 >= self.m1) * (x1 <= self.m2)
-        ret = np.interp(x * check,self.points,self._pdf)
-        if len(x1) == 1:
-            return ret[0]
-        else:
-            return ret
+        check = (x >= self.m1) * (x <= self.m2)
+        ret = np.interp(x,self.points,self._pdf) * check
+        return ret
 
     def cdf(self,x):
-        x1 = np.atleast_1d(x)
-        check = (x1 >= self.m1) * (x1 <= self.m2)
-        ret = np.interp(x * check,self.points,self._cdf)
-        if len(x1) == 1:
-            return ret[0]
-        else:
-            return ret
+        check = (x >= self.m1) * (x <= self.m2)
+        ret = np.interp(x,self.points,self._cdf) * check
+        return ret
         
     def rvs(self,N):
         samp = np.random.uniform(min(self._cdf),max(self._cdf),size=N)
         return self.ppf(samp)
 
     def ppf(self,x):
-        x1 = np.atleast_1d(x)
-        check = (x1 >= min(self._cdf)) * (x1 <= max(self._cdf))
-        return np.interp(x1 * check,self._cdf,self.points)
+        check = (x >= min(self._cdf)) * (x <= max(self._cdf))
+        ret = np.interp(x,self._cdf,self.points) * check
+        return ret
 
 
 class CompositeDistribution(Distribution):
