@@ -544,7 +544,7 @@ def _opt_sample(M_res,massfunc,tolerance):
 
     if finMax:
         #bracket from min to ALMOST max (max gives an undefined prefactor)
-        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.999*mmax])
+        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.9999*mmax])
     else:
         #use Newton's method
         sol = root_scalar(_max_star,args=(M_res,massfunc),x0=10*mmin,fprime=_max_star_prime)
@@ -557,7 +557,7 @@ def _opt_sample(M_res,massfunc,tolerance):
             sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
                               bracket=[mmin,star_masses[-1]])
         except(ValueError):
-            print(f'Broke at M_cl = {M_tot}')
+            print(f'Reached provided lower mass bound; stopping')
             break
         m = sol.root    
         star_masses.append(m)
@@ -990,6 +990,7 @@ class KoenConvolvedPowerLaw(MassFunction):
         self._points = self._make_points(npts)
         self._pdf = self._pre_integrate(False)
         self._cdf = self._pre_integrate(True)
+        self._normfactor = 1./self.cdf[-1]
     
     @property
     def gamma(self):
@@ -1010,6 +1011,10 @@ class KoenConvolvedPowerLaw(MassFunction):
     @property
     def cdf(self):
         return self._cdf
+    
+    @property
+    def normfactor(self):
+        return self._normfactor
     
     def _make_points(self,n_pts):
         infMax = ~np.isfinite(self.mmax)
@@ -1037,14 +1042,17 @@ class KoenConvolvedPowerLaw(MassFunction):
             return coef*ret
     
     def _mirror_steps(self):
-        x = np.geomspace(self.mmin,self.mmax,200)
+        x = np.geomspace(self.mmin,self.mmax,100)
         mir_x = self.mmax-(x[::-1]-self.mmin)
         dx = x[1:]-x[:-1]
         break1 = np.searchsorted(dx,self.sigma)
-        break2 = np.searchsorted(-dx[::-1],-self.sigma)       
-        x = np.append(x[:break1],np.linspace(x[break1],mir_x[break2],
-                                             int((mir_x[break2]-x[break1])/self.sigma)))
-        x = np.append(x,mir_x[break2:])
+        break2 = np.searchsorted(-dx[::-1],-self.sigma)
+        xpt = x[break1]
+        mirxpt = mir_x[break2]
+        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
+        x = np.append(x[x < x1],np.linspace(x1,x2,
+                                            int((x2-x1)/self.sigma)))
+        x = np.append(x,mir_x[mir_x > x2])
         return x
 
     def _pre_integrate(self,integral_form):
@@ -1065,9 +1073,9 @@ class KoenConvolvedPowerLaw(MassFunction):
         
     def _evaluate(self,m,integral_form=False):
         if integral_form:
-            return np.interp(m,self.points,self.cdf)
+            return self.normfactor*np.interp(m,self.points,self.cdf)
         else:
-            return np.interp(m,self.points,self.pdf)
+            return self.normfactor*np.interp(m,self.points,self.pdf)
 
     def __call__(self, m, integral_form=False):
         m = np.atleast_1d(m)
