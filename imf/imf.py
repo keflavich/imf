@@ -8,7 +8,8 @@ import types
 import scipy.integrate
 import scipy.integrate as integrate
 from scipy.integrate import quad
-from scipy.optimize import root_scalar,newton
+from scipy.optimize import root_scalar
+from scipy.stats import norm
 from astropy import units as u
 from . import distributions
 
@@ -543,24 +544,26 @@ def _opt_sample(M_res,massfunc,tolerance):
 
     if finMax:
         #bracket from min to ALMOST max (max gives an undefined prefactor)
-        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.999*mmax])
+        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.9999*mmax])
     else:
         #use Newton's method
         sol = root_scalar(_max_star,args=(M_res,massfunc),x0=10*mmin,fprime=_max_star_prime)
     k = _prefactor(sol.root,massfunc)
-    M_tot = sol.root; stars = [sol.root]
+    M_tot = sol.root
+    star_masses = [sol.root]
 
     while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
         try:
-            sol = root_scalar(_get_next_m,args=(stars[-1],k,massfunc),bracket=[mmin,stars[-1]])
+            sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
+                              bracket=[mmin,star_masses[-1]])
         except(ValueError):
-            print(f'Broke at M_cl = {M_tot}')
+            print(f'Reached provided lower mass bound; stopping')
             break
         m = sol.root    
-        stars.append(m)
+        star_masses.append(m)
         M_tot += m
     
-    return np.array(stars),M_tot
+    return np.array(star_masses),M_tot
 
 ##############################################################################
 
@@ -977,69 +980,106 @@ class KoenConvolvedPowerLaw(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma):
+    def __init__(self, mmin, mmax, gamma, sigma, npts=100):
+        if mmax < mmin:
+            raise ValueError("mmax must be greater than mmin")
+        
         super().__init__(mmin, mmax)
-        self.sigma = sigma
-        self.gamma = gamma
+        self._sigma = sigma
+        self._gamma = gamma
+        self._points = self._make_points(npts)
+        self._pdf = self._pre_integrate(False)
+        self._cdf = self._pre_integrate(True)
+        self._normfactor = 1./self.cdf[-1]
+    
+    @property
+    def gamma(self):
+        return self._gamma
+    
+    @property
+    def sigma(self):
+        return self._sigma
+    
+    @property
+    def points(self):
+        return self._points
+    
+    @property
+    def pdf(self):
+        return self._pdf
+    
+    @property
+    def cdf(self):
+        return self._cdf
+    
+    @property
+    def normfactor(self):
+        return self._normfactor
+    
+    def _make_points(self,n_pts):
+        infMax = ~np.isfinite(self.mmax)
+        if infMax:
+            points = np.geomspace(self.mmin,1000,n_pts-1)
+            points = np.append(points,np.inf)
+        else:
+            points = np.geomspace(self.mmin,self.mmax,n_pts)
+        return points
+    
+    def _integrand(self,x,y,integral_form):
+        '''
+        Implements equations (3) and (5) from KK09.
+        '''
+        if integral_form: #equation 5
+            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
+                self.mmin**-self.gamma - self.mmax**-self.gamma)))
+            ret = ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
+                (-1 / 2) * ((y - x) / self.sigma)**2))
+            return coef*ret
+        else: #equation 3
+            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
+                                  ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))))
+            ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
+            return coef*ret
+    
+    def _mirror_steps(self):
+        x = np.geomspace(self.mmin,self.mmax,100)
+        mir_x = self.mmax-(x[::-1]-self.mmin)
+        dx = x[1:]-x[:-1]
+        break1 = np.searchsorted(dx,self.sigma)
+        break2 = np.searchsorted(-dx[::-1],-self.sigma)
+        xpt = x[break1]
+        mirxpt = mir_x[break2]
+        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
+        x = np.append(x[x < x1],np.linspace(x1,x2,
+                                            int((x2-x1)/self.sigma)))
+        x = np.append(x,mir_x[mir_x > x2])
+        return x
+
+    def _pre_integrate(self,integral_form):
+        steps = self._mirror_steps()
+        results = []
+        for pt in self.points:
+            chunks = []
+            for i in range(len(steps)-1):
+                l,u = steps[i],steps[i+1]
+                area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
+                chunks.append(area)
+            if integral_form:
+                results.append(np.sum(chunks)+norm.cdf((pt - self.mmax) / self.sigma))
+            else:
+                results.append(np.sum(chunks))
+        results = np.array(results)
+        return results
+        
+    def _evaluate(self,m,integral_form=False):
+        if integral_form:
+            return self.normfactor*np.interp(m,self.points,self.cdf)
+        else:
+            return self.normfactor*np.interp(m,self.points,self.pdf)
 
     def __call__(self, m, integral_form=False):
-        m = np.asarray(m)
-        if self.mmax < self.mmin:
-            raise ValueError("mmax must be greater than mmin")
-
-        if integral_form:
-            #       Returns
-            #       -------
-            #       Probability that m < x for the given CDF with specified
-            #       mmin, mmax, sigma, and gamma
-
-            def error(t):
-                return np.exp(-(t**2) / 2)
-
-            error_coeffecient = 1 / np.sqrt(2 * np.pi)
-
-            def error_integral(y):
-                error_integral = quad(error, -np.inf,
-                                      (y - self.mmax) / self.sigma)[0]
-                return error_integral
-
-            vector_errorintegral = np.vectorize(error_integral)
-            phi = vector_errorintegral(m) * error_coeffecient
-
-            def integrand(x, y):
-                return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
-                    (-1 / 2) * ((y - x) / self.sigma)**2))
-
-            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) *
-                         (self.mmin**-self.gamma - self.mmax**-self.gamma)))
-
-            def eval_integral(y):
-                integral = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return integral
-
-            vector_integral = np.vectorize(eval_integral)
-            probability = phi + coef * vector_integral(m)
-            return probability
-
-        else:
-            # Returns
-            # ------
-            # Probability of getting x given the PDF with specified mmin, mmax, sigma, and gamma
-            def integrand(x, y):
-                return (x**-(self.gamma + 1)) * np.exp(-.5 * (
-                    (y - x) / self.sigma)**2)
-
-            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
-                                  ((self.mmin**-self.gamma) -
-                                   (self.mmax**-self.gamma))))
-
-            def Integral(y):
-                I = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return I
-
-            vector_I = np.vectorize(Integral)
-            return coef * vector_I(m)
-
+        m = np.atleast_1d(m)
+        return self._evaluate(m,integral_form=integral_form)
 
 class KoenTruePowerLaw(MassFunction):
     """
