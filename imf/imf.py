@@ -12,7 +12,6 @@ from scipy.optimize import root_scalar
 from scipy.stats import norm
 from astropy import units as u
 from . import distributions
-#import distributions
 
 class MassFunction(object):
     """
@@ -994,9 +993,9 @@ class KoenConvolvedPowerLaw(MassFunction):
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self.normfactor*self.distr.cdf(m)
+            return self._normfactor*self.distr.cdf(m)
         else:
-            return self.normfactor*self.distr.pdf(m)
+            return self._normfactor*self.distr.pdf(m)
     
     @property
     def gamma(self):
@@ -1005,10 +1004,6 @@ class KoenConvolvedPowerLaw(MassFunction):
     @property
     def sigma(self):
         return self._sigma
-    
-    @property
-    def normfactor(self):
-        return self._normfactor
 
 class KoenTruePowerLaw(MassFunction):
     """
