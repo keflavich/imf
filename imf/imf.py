@@ -968,25 +968,30 @@ class KoenConvolvedPowerLaw(MassFunction):
 
     Parameters
     ----------
-    m: float
-        The mass at which to evaluate the function
     mmin, mmax: floats
-        The upper and lower bounds for the power law distribution
-    gamma: floats
-        The specified gamma for the distribution, slope = -gamma - 1
-    sigma: float or None
-        specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
+        The upper and lower bounds for the power law distribution.
+    gamma: float
+        The specified gamma for the distribution. Slope = -gamma - 1.
+    sigma: float
+        Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
+    npts: int
+        Number of evenly log-spaced points at which to evaluate the function
+        (function calls interpolate between these). Defaults to 200.
+    limit: int
+        Limit of the number of subdivisions allowed for scipy.integrate.quad,
+        which handles integration. Defaults to 100.
     """
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma, npts=200):
+    def __init__(self, mmin, mmax, gamma, sigma, npts=200, limit=100):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
         
         super().__init__(mmin, mmax)
         self._gamma = gamma
         self._sigma = sigma
+        self._limit = limit
         self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
                                                          self.gamma,self.sigma,npts)
         self._normfactor = 1. / self.distr.cdf(self.mmax)
@@ -997,6 +1002,28 @@ class KoenConvolvedPowerLaw(MassFunction):
         else:
             return self._normfactor*self.distr.pdf(m)
     
+    def integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass function over some range
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self, mlow, mhigh, 
+                                        limit=self._limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+
+    def m_integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass-weighted mass function over some range (this 
+        tells you the fraction of mass in the specified range)
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, 
+                                        limit=self._limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self.mass_weighted, 
+                                        mlow, mhigh, **kwargs)
+
     @property
     def gamma(self):
         return self._gamma
@@ -1004,6 +1031,18 @@ class KoenConvolvedPowerLaw(MassFunction):
     @property
     def sigma(self):
         return self._sigma
+    
+    @property
+    def limit(self):
+        return self._limit
+    
+    @limit.setter
+    def limit(self,x):
+        self._limit = x
+
+    @property
+    def normfactor(self):
+        return self._normfactor
 
 class KoenTruePowerLaw(MassFunction):
     """

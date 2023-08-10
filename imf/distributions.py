@@ -291,13 +291,14 @@ class KoenConvolvedPowerLaw(Distribution):
         x = np.geomspace(self.m1,self.m2,100)
         mir_x = self.m2-(x[::-1]-self.m1)
         dx = x[1:]-x[:-1]
-        break1 = np.searchsorted(dx,self.sigma)
-        break2 = np.searchsorted(-dx[::-1],-self.sigma)
+        cutoff = min(self.sigma,1) #set a ceiling dx of 1
+        break1 = np.searchsorted(dx,cutoff)
+        break2 = np.searchsorted(-dx[::-1],-cutoff)
         xpt = x[break1]
         mirxpt = mir_x[break2]
         x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
         x = np.append(x[x < x1],np.linspace(x1,x2,
-                                            int((x2-x1)/self.sigma)))
+                                            int((x2-x1)/cutoff)))
         x = np.append(x,mir_x[mir_x > x2])
         return x
 
