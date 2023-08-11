@@ -962,9 +962,12 @@ def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
 
 class KoenConvolvedPowerLaw(MassFunction):
     """
-    Implementaton of convolved errror power-law described in 2009 Koen, Kondlo
-    paper, Fitting power-law distributions to data with measurement errors.
-    Equations (3) and (5)
+    Implementaton of error-convolved power-law described in the 2009 Koen/Kondlo
+    paper, "Fitting power-law distributions to data with measurement errors."
+    When instantiated, the error convolutions (equations (3) and (5) from KK09)
+    are performed for a fixed set of points, and calls to the function interpolate
+    between these values. This implementation is preferred for those looking to work 
+    extensively with a single mass function, including using it to create clusters.
 
     Parameters
     ----------
@@ -977,21 +980,21 @@ class KoenConvolvedPowerLaw(MassFunction):
     npts: int
         Number of evenly log-spaced points at which to evaluate the function
         (function calls interpolate between these). Defaults to 200.
-    limit: int
+    quad_sub_limit: int
         Limit of the number of subdivisions allowed for scipy.integrate.quad,
-        which handles integration. Defaults to 100.
+        which handles integration. Defaults to 100, up from scipy's default of 50.
     """
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma, npts=200, limit=100):
+    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=100):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
         
         super().__init__(mmin, mmax)
         self._gamma = gamma
         self._sigma = sigma
-        self._limit = limit
+        self._quad_sub_limit = quad_sub_limit
         self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
                                                          self.gamma,self.sigma,npts)
         self._normfactor = 1. / self.distr.cdf(self.mmax)
@@ -1008,7 +1011,7 @@ class KoenConvolvedPowerLaw(MassFunction):
         """
         if 'limit' not in kwargs.keys():
             return scipy.integrate.quad(self, mlow, mhigh, 
-                                        limit=self._limit, **kwargs)
+                                        limit=self._quad_sub_limit, **kwargs)
         else:
             return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
 
@@ -1019,7 +1022,7 @@ class KoenConvolvedPowerLaw(MassFunction):
         """
         if 'limit' not in kwargs.keys():
             return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, 
-                                        limit=self._limit, **kwargs)
+                                        limit=self._quad_sub_limit, **kwargs)
         else:
             return scipy.integrate.quad(self.mass_weighted, 
                                         mlow, mhigh, **kwargs)
@@ -1033,12 +1036,12 @@ class KoenConvolvedPowerLaw(MassFunction):
         return self._sigma
     
     @property
-    def limit(self):
-        return self._limit
+    def quad_sub_limit(self):
+        return self._quad_sub_limit
     
-    @limit.setter
-    def limit(self,x):
-        self._limit = x
+    @quad_sub_limit.setter
+    def quad_sub_limit(self,x):
+        self._quad_sub_limit = x
 
     @property
     def normfactor(self):
