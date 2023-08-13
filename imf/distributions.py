@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.stats
 from scipy.integrate import quad
+from scipy.interpolate import PchipInterpolator
 
 class Distribution:
     """ The main class describing the distributions, to be inherited"""
@@ -274,7 +275,10 @@ class KoenConvolvedPowerLaw(Distribution):
         self.sigma = sigma
         self.points = self._make_points(npts)
         self._pdf = self._pre_integrate(False)
+        self._pdf_interpolator = PchipInterpolator(self.points,self._pdf)
         self._cdf = self._pre_integrate(True)
+        self._cdf_interpolator = PchipInterpolator(self.points,self._cdf)
+        self._ppf_interpolator = PchipInterpolator(self._cdf,self.points)
 
     def _make_points(self,n_pts):
         #points to interpolate between when calling the distribution
@@ -283,7 +287,10 @@ class KoenConvolvedPowerLaw(Distribution):
             points = np.geomspace(self.m1,1000*self.m1,n_pts-1)
             points = np.append(points,np.inf)
         else:
-            points = np.geomspace(self.m1,self.m2,n_pts)
+            points = np.geomspace(self.m1,self.m2,n_pts)[:-1]
+            extras = np.linspace(self.m2-3*self.sigma,self.m2,8)
+            ext_inds = np.searchsorted(points,extras,side='left')
+            points = np.append(points,extras[ext_inds == len(points)])
         return points
 
     def _mirror_steps(self):
@@ -338,13 +345,11 @@ class KoenConvolvedPowerLaw(Distribution):
         return results
 
     def pdf(self,x):
-        check = (x >= self.m1) * (x <= self.m2)
-        ret = np.interp(x,self.points,self._pdf) * check
+        ret = self._pdf_interpolator(x,extrapolate=False)
         return ret
 
     def cdf(self,x):
-        check = (x >= self.m1) * (x <= self.m2)
-        ret = np.interp(x,self.points,self._cdf) * check
+        ret = self._cdf_interpolator(x,extrapolate=False)
         return ret
         
     def rvs(self,N):
@@ -352,8 +357,7 @@ class KoenConvolvedPowerLaw(Distribution):
         return self.ppf(samp)
 
     def ppf(self,x):
-        check = (x >= min(self._cdf)) * (x <= max(self._cdf))
-        ret = np.interp(x,self._cdf,self.points) * check
+        ret = self._ppf_interpolator(x,extrapolate=False)
         return ret
 
 
