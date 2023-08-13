@@ -982,14 +982,16 @@ class KoenConvolvedPowerLaw(MassFunction):
         (function calls interpolate between these). Defaults to 200.
     quad_sub_limit: int
         Limit of the number of subdivisions allowed for scipy.integrate.quad,
-        which handles integration. Defaults to 100, up from scipy's default of 50.
+        which handles integration. Defaults to scipy's default of 50.
     """
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=100):
+    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=50):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
         
         super().__init__(mmin, mmax)
         self._gamma = gamma
@@ -1046,6 +1048,80 @@ class KoenConvolvedPowerLaw(MassFunction):
     @property
     def normfactor(self):
         return self._normfactor
+
+class SpotKoenConvolvedPowerLaw(MassFunction):
+    """
+    Implementation of Koen/Kondlo 2009 error-convolved powerlaw,
+    but evaluation is done on the spot in contrast to KoenConvolvedPowerLaw,
+    which evaluates at a series of points beforehand and then interpolates 
+    when called. This implementation is good for those looking for 
+    improved accuracy or wanting to work with multiple mass functions.
+    """
+    default_mmin = 0
+    default_mmax = np.inf
+
+    def __init__(self, mmin, mmax, gamma, sigma):
+        if mmax < mmin:
+            raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
+
+        super().__init__(mmin, mmax)
+        self.sigma = sigma
+        self.gamma = gamma
+        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
+
+    def _coef(self, integral_form):
+        if integral_form:
+            return (1 / (self.sigma * np.sqrt(2 * np.pi) * 
+                         (self.mmin**-self.gamma - self.mmax**-self.gamma)))
+        else:
+            return (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
+                                  ((self.mmin**-self.gamma) - 
+                                   (self.mmax**-self.gamma))))
+    
+    def _integrand(self, x, y, integral_form):
+        if integral_form:
+            return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
+                (-1 / 2) * ((y - x) / self.sigma)**2))
+        else:
+            return (x**-(self.gamma + 1)) * np.exp(-.5 * (
+                (y - x) / self.sigma)**2)
+        
+    def _mirror_steps(self):
+        #Sub-intervals for the integration to capture small changes at both ends
+        x = np.geomspace(self.mmin,self.mmax,100)
+        mir_x = self.mmax-(x[::-1]-self.mmin)
+        dx = x[1:]-x[:-1]
+        cutoff = min(self.sigma,1)
+        break1 = np.searchsorted(dx,cutoff)
+        break2 = np.searchsorted(-dx[::-1],-cutoff)
+        xpt = x[break1]
+        mirxpt = mir_x[break2]
+        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
+        x = np.append(x[x < x1],np.linspace(x1,x2,
+                                            int((x2-x1)/cutoff)))
+        x = np.append(x,mir_x[mir_x > x2])
+        return x
+
+    def _integrate(self, y, integral_form):
+        steps = self._mirror_steps()
+        chunks = []
+        for i in range(len(steps)-1):
+            l,u = steps[i],steps[i+1]
+            area = quad(self._integrand,l,u,args=(y,integral_form))[0]
+            chunks.append(area)
+        if integral_form:
+            ret = self._coef(integral_form) * np.sum(chunks) + norm.cdf(
+                (y - self.mmax) / self.sigma)
+        else:
+            ret = self._coef(integral_form)*np.sum(chunks)
+        return ret
+    
+    def __call__(self, m, integral_form=False):
+        vector_int = np.vectorize(self._integrate)
+        m = np.asarray(m)
+        return self.normfactor * vector_int(m, integral_form)
 
 class KoenTruePowerLaw(MassFunction):
     """
