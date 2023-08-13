@@ -962,36 +962,73 @@ def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
 
 class KoenConvolvedPowerLaw(MassFunction):
     """
-    Implementaton of convolved errror power-law described in 2009 Koen, Kondlo
-    paper, Fitting power-law distributions to data with measurement errors.
-    Equations (3) and (5)
+    Implementaton of error-convolved power-law described in the 2009 Koen/Kondlo
+    paper, "Fitting power-law distributions to data with measurement errors."
+    When instantiated, the error convolutions (equations (3) and (5) from KK09)
+    are performed for a fixed set of points, and calls to the function interpolate
+    between these values. This implementation is preferred for those looking to work 
+    extensively with a single mass function, including using it to create clusters.
 
     Parameters
     ----------
-    m: float
-        The mass at which to evaluate the function
     mmin, mmax: floats
-        The upper and lower bounds for the power law distribution
-    gamma: floats
-        The specified gamma for the distribution, slope = -gamma - 1
-    sigma: float or None
-        specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
+        The upper and lower bounds for the power law distribution.
+    gamma: float
+        The specified gamma for the distribution. Slope = -gamma - 1.
+    sigma: float
+        Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
+    npts: int
+        Number of evenly log-spaced points at which to evaluate the function
+        (function calls interpolate between these). Defaults to 200.
+    quad_sub_limit: int
+        Limit of the number of subdivisions allowed for scipy.integrate.quad,
+        which handles integration. Defaults to scipy's default of 50.
     """
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma, npts=100):
+    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=50):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
         
         super().__init__(mmin, mmax)
-        self._sigma = sigma
         self._gamma = gamma
-        self._points = self._make_points(npts)
-        self._pdf = self._pre_integrate(False)
-        self._cdf = self._pre_integrate(True)
-        self._normfactor = 1./self.cdf[-1]
+        self._sigma = sigma
+        self._quad_sub_limit = quad_sub_limit
+        self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
+                                                         self.gamma,self.sigma,npts)
+        self._normfactor = 1. / self.distr.cdf(self.mmax)
+
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self._normfactor*self.distr.cdf(m)
+        else:
+            return self._normfactor*self.distr.pdf(m)
     
+    def integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass function over some range
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self, mlow, mhigh, 
+                                        limit=self._quad_sub_limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+
+    def m_integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass-weighted mass function over some range (this 
+        tells you the fraction of mass in the specified range)
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, 
+                                        limit=self._quad_sub_limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self.mass_weighted, 
+                                        mlow, mhigh, **kwargs)
+
     @property
     def gamma(self):
         return self._gamma
@@ -1001,85 +1038,90 @@ class KoenConvolvedPowerLaw(MassFunction):
         return self._sigma
     
     @property
-    def points(self):
-        return self._points
+    def quad_sub_limit(self):
+        return self._quad_sub_limit
     
-    @property
-    def pdf(self):
-        return self._pdf
-    
-    @property
-    def cdf(self):
-        return self._cdf
-    
+    @quad_sub_limit.setter
+    def quad_sub_limit(self,x):
+        self._quad_sub_limit = x
+
     @property
     def normfactor(self):
         return self._normfactor
-    
-    def _make_points(self,n_pts):
-        infMax = ~np.isfinite(self.mmax)
-        if infMax:
-            points = np.geomspace(self.mmin,1000,n_pts-1)
-            points = np.append(points,np.inf)
+
+class SpotKoenConvolvedPowerLaw(MassFunction):
+    """
+    Implementation of Koen/Kondlo 2009 error-convolved powerlaw,
+    but evaluation is done on the spot in contrast to KoenConvolvedPowerLaw,
+    which evaluates at a series of points beforehand and then interpolates 
+    when called. This implementation is good for those looking for 
+    improved accuracy or wanting to work with multiple mass functions.
+    """
+    default_mmin = 0
+    default_mmax = np.inf
+
+    def __init__(self, mmin, mmax, gamma, sigma):
+        if mmax < mmin:
+            raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
+
+        super().__init__(mmin, mmax)
+        self.sigma = sigma
+        self.gamma = gamma
+        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
+
+    def _coef(self, integral_form):
+        if integral_form:
+            return (1 / (self.sigma * np.sqrt(2 * np.pi) * 
+                         (self.mmin**-self.gamma - self.mmax**-self.gamma)))
         else:
-            points = np.geomspace(self.mmin,self.mmax,n_pts)
-        return points
+            return (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
+                                  ((self.mmin**-self.gamma) - 
+                                   (self.mmax**-self.gamma))))
     
-    def _integrand(self,x,y,integral_form):
-        '''
-        Implements equations (3) and (5) from KK09.
-        '''
-        if integral_form: #equation 5
-            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
-                self.mmin**-self.gamma - self.mmax**-self.gamma)))
-            ret = ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
+    def _integrand(self, x, y, integral_form):
+        if integral_form:
+            return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
                 (-1 / 2) * ((y - x) / self.sigma)**2))
-            return coef*ret
-        else: #equation 3
-            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
-                                  ((self.mmin**-self.gamma) - (self.mmax**-self.gamma))))
-            ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
-            return coef*ret
-    
+        else:
+            return (x**-(self.gamma + 1)) * np.exp(-.5 * (
+                (y - x) / self.sigma)**2)
+        
     def _mirror_steps(self):
+        #Sub-intervals for the integration to capture small changes at both ends
         x = np.geomspace(self.mmin,self.mmax,100)
         mir_x = self.mmax-(x[::-1]-self.mmin)
         dx = x[1:]-x[:-1]
-        break1 = np.searchsorted(dx,self.sigma)
-        break2 = np.searchsorted(-dx[::-1],-self.sigma)
+        cutoff = min(self.sigma,1)
+        break1 = np.searchsorted(dx,cutoff)
+        break2 = np.searchsorted(-dx[::-1],-cutoff)
         xpt = x[break1]
         mirxpt = mir_x[break2]
         x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
         x = np.append(x[x < x1],np.linspace(x1,x2,
-                                            int((x2-x1)/self.sigma)))
+                                            int((x2-x1)/cutoff)))
         x = np.append(x,mir_x[mir_x > x2])
         return x
 
-    def _pre_integrate(self,integral_form):
+    def _integrate(self, y, integral_form):
         steps = self._mirror_steps()
-        results = []
-        for pt in self.points:
-            chunks = []
-            for i in range(len(steps)-1):
-                l,u = steps[i],steps[i+1]
-                area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
-                chunks.append(area)
-            if integral_form:
-                results.append(np.sum(chunks)+norm.cdf((pt - self.mmax) / self.sigma))
-            else:
-                results.append(np.sum(chunks))
-        results = np.array(results)
-        return results
-        
-    def _evaluate(self,m,integral_form=False):
+        chunks = []
+        for i in range(len(steps)-1):
+            l,u = steps[i],steps[i+1]
+            area = quad(self._integrand,l,u,args=(y,integral_form))[0]
+            chunks.append(area)
         if integral_form:
-            return self.normfactor*np.interp(m,self.points,self.cdf)
+            ret = self._coef(integral_form) * np.sum(chunks) + norm.cdf(
+                (y - self.mmax) / self.sigma)
         else:
-            return self.normfactor*np.interp(m,self.points,self.pdf)
-
+            ret = self._coef(integral_form)*np.sum(chunks)
+        return ret
+    
     def __call__(self, m, integral_form=False):
-        m = np.atleast_1d(m)
-        return self._evaluate(m,integral_form=integral_form)
+        vector_int = np.vectorize(self._integrate)
+        m = np.asarray(m)
+        return self.normfactor * vector_int(m, integral_form)
 
 class KoenTruePowerLaw(MassFunction):
     """
