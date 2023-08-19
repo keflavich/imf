@@ -8,9 +8,10 @@ import types
 import scipy.integrate
 import scipy.integrate as integrate
 from scipy.integrate import quad
+from scipy.optimize import root_scalar
+from scipy.stats import norm
 from astropy import units as u
 from . import distributions
-
 
 class MassFunction(object):
     """
@@ -160,8 +161,8 @@ class Kroupa(MassFunction):
         """
         Integrate the mass function over some range
         """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
+        if mhigh < mlow:
+            raise ValueError("Must have mlow <= mhigh in integral")
         if numerical:
             return super(Kroupa, self).integrate(mlow, mhigh)
 
@@ -172,8 +173,8 @@ class Kroupa(MassFunction):
         """
         Integrate the mass function over some range
         """
-        if mhigh <= mlow:
-            raise ValueError("Must have mlow < mhigh in integral")
+        if mhigh < mlow:
+            raise ValueError("Must have mlow <= mhigh in integral")
 
         if numerical:
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
@@ -331,7 +332,7 @@ class Schechter(MassFunction):
             beta -= 1
         return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
 
-class ModifiedSchecter(Schechter):
+class ModifiedSchechter(Schechter):
     default_mmin = 0
     default_mmax = np.inf
 
@@ -488,15 +489,94 @@ under the hood.
     else:
         raise NotImplementedError
 
+####This section contains the functions required to optimally sample a cluster####
+
+def _prefactor(max_star,massfunc):
+    """
+    Returns the multiplier required for an IMF to have at most one star above m_max.
+    """
+    return 1/massfunc.integrate(max_star,massfunc.mmax)[0]
+
+def _M_cluster(m,massfunc):
+    """
+    Returns the mass of a cluster distributed according to some IMF where the 
+    largest star has mass m.
+    """
+    k = _prefactor(m,massfunc)
+    return k*massfunc.m_integrate(massfunc.mmin,m)[0]+m
+
+def _max_star(m,M_res,massfunc):
+    """
+    Returns the most massive star capable of forming in a cluster of mass M_res
+    according to the m_max/M_cluster relation. Formatted for use with root finding.
+    """
+    return M_res-_M_cluster(m,massfunc)
+
+def _max_star_prime(m,M_res,massfunc):
+    """
+    Returns the derivative of _max_star at mass m. Used for Newton's method in
+    the case of an infinite upper bound on the provided mass function.
+    """
+    term1 = _prefactor(m,massfunc)**2*massfunc(m)*massfunc.m_integrate(massfunc.mmin,m)[0]
+    term2 = m*massfunc(m)*_prefactor(m,massfunc)
+    return -term1-term2-1
+
+def _get_next_m(m,last_m,k,massfunc):
+    """
+    Returns the next smallest star in an optimally sampled cluster given the 
+    previous star and overall IMF. Formatted for use with root finding.
+    """
+    return k*massfunc.m_integrate(m,last_m)[0]-m
+
+def _opt_sample(M_res,massfunc,tolerance):
+    """
+    Returns a numpy array containing stellar masses that optimally sample 
+    from a provided MassFunction to make a cluster with mass M_res.
+    """
+    #retrieve mass bounds from provided massfunc
+    mmin = massfunc.mmin
+    mmax = massfunc.mmax
+    finMax = np.isfinite(mmax)
+
+    #finding all the component stars requires a cutoff--ensure there is one
+    if not np.isfinite(np.log(mmin)):
+        if not np.isfinite(np.log(tolerance)):
+            raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
+
+    if finMax:
+        #bracket from min to ALMOST max (max gives an undefined prefactor)
+        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.9999*mmax])
+    else:
+        #use Newton's method
+        sol = root_scalar(_max_star,args=(M_res,massfunc),x0=10*mmin,fprime=_max_star_prime)
+    k = _prefactor(sol.root,massfunc)
+    M_tot = sol.root
+    star_masses = [sol.root]
+
+    while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
+        try:
+            sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
+                              bracket=[mmin,star_masses[-1]])
+        except(ValueError):
+            print(f'Reached provided lower mass bound; stopping')
+            break
+        m = sol.root    
+        star_masses.append(m)
+        M_tot += m
+    
+    return np.array(star_masses),M_tot
+
+##############################################################################
+
 def make_cluster(mcluster,
                  massfunc='kroupa',
+                 tolerance=0.0,
+                 sampling='random',
+                 stop_criterion='nearest',
+                 mmin=None,
+                 mmax=None,
                  verbose=False,
                  silent=False,
-                 tolerance=0.0,
-                 stop_criterion='nearest',
-                 sampling='random',
-                 mmax=None,
-                 mmin=None,
                  **kwargs):
     """
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
@@ -511,17 +591,16 @@ def make_cluster(mcluster,
         tolerance is how close the cluster mass must be to the requested mass.
         It can be zero, but this does not guarantee that the final cluster mass will be
         exactly `mcluster`
-    stop_criterion : 'nearest', 'before', 'after', 'sorted'
-        The criterion to stop sampling when the total cluster mass is reached.
-        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract
     sampling: 'random' or 'optimal'
-        Optimal sampling is based on https://ui.adsabs.harvard.edu/abs/2015A%26A...582A..93S/abstract
-        (though as of April 23, 2021, it is not yet correct)
+        Optimal sampling is implemented by solving Equations 9-11 in Section 2.2
+        of https://ui.adsabs.harvard.edu/abs/2013pss5.book..115K/abstract.
         Optimal sampling is only to be used in the context of a variable M_max
         that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
-
+    stop_criterion : 'nearest', 'before', 'after', 'sorted'
+        The criterion to stop random sampling when the total cluster mass is reached.
+        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract.
+        Does not factor into optimal sampling.        
     """
-
     # use most common mass to guess needed number of samples
     # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
     # masses = inverse_imf(np.random.random(int(nsamp)), massfunc=massfunc, **kwargs)
@@ -530,74 +609,84 @@ def make_cluster(mcluster,
     # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp, mtot, mcluster)))
-
-    mcluster = u.Quantity(mcluster, u.M_sun).value
-
-    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-
-
-    if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
-        expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
-        assert expected_mass > 0
-    else:
-        expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
-        assert expected_mass > 0
-        expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
-
-    if verbose:
-        print("Expected mass is {0:0.3f}".format(expected_mass))
+    
+    #catch wrong keywords early
+    ok_samplings = ['random','optimal']
+    ok_criteria = ['nearest','before','after','sorted']
+    if not sampling in ok_samplings:
+        raise ValueError("Sampling should be either 'random' or 'optimal' (see documentation)")
+    if (sampling == 'random') and not stop_criterion in ok_criteria:
+        raise ValueError("Stop criterion for random sampling should be 'nearest', 'before', 'after', or 'sorted' (see documentation)")
 
     if sampling == 'optimal':
-        # this is probably not _quite_ right, but it's a first step...
-        p = np.linspace(0, 1, int(mcluster/expected_mass))
-        return mfc.distr.ppf(p)
-    elif sampling != 'random':
-        raise ValueError("Only random sampling and optimal sampling are supported")
-
-    mtot = 0
-    masses = []
-
-    while mtot < mcluster + tolerance:
-        # at least 1 sample, but potentially many more
-        nsamp = int(np.ceil((mcluster + tolerance - mtot) / expected_mass))
-        assert nsamp > 0
-        newmasses = mfc.distr.rvs(nsamp)
-        masses = np.concatenate([masses, newmasses])
-        mtot = masses.sum()
+        mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
+        masses,mtot = _opt_sample(mcluster,mfc,tolerance=tolerance)
         if verbose:
-            print("Sampled %i new stars.  Total is now %g" %
-                  (int(nsamp), mtot))
+            print(f'Sampled {len(masses)} new stars.')
+        if not silent:
+            print(f'Total cluster mass is {np.round(mtot,3)} (limit was {int(mcluster)})')
 
-        if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
-            mcum = masses.cumsum()
-            if stop_criterion == 'sorted':
-                masses = np.sort(masses)
-                if np.abs(masses[:-1].sum() - mcluster) < np.abs(masses.sum() -
-                                                                 mcluster):
-                    # if the most massive star makes the cluster a worse fit, reject it
-                    # (this follows Krumholz+ 2015 appendix A1)
-                    last_ind = len(masses) - 1
-                else:
-                    last_ind = len(masses)
-            else:
-                if stop_criterion == 'nearest':
-                    # find the closest one, and use +1 to include it
-                    last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
-                elif stop_criterion == 'before':
-                    last_ind = np.argmax(mcum > mcluster)
-                elif stop_criterion == 'after':
-                    last_ind = np.argmax(mcum > mcluster) + 1
-            masses = masses[:last_ind]
+    else:
+        mcluster = u.Quantity(mcluster, u.M_sun).value
+
+        mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
+
+
+        if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
+            expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
+            assert expected_mass > 0
+        else:
+            expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
+            assert expected_mass > 0
+            expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
+
+        if verbose:
+            print("Expected mass is {0:0.3f}".format(expected_mass))
+
+        mtot = 0
+        masses = []
+
+        while mtot < mcluster + tolerance:
+            # at least 1 sample, but potentially many more
+            nsamp = int(np.ceil((mcluster + tolerance - mtot) / expected_mass))
+            assert nsamp > 0
+            newmasses = mfc.distr.rvs(nsamp)
+            masses = np.concatenate([masses, newmasses])
             mtot = masses.sum()
             if verbose:
-                print(
-                    "Selected the first %i out of %i masses to get %g total" %
-                    (last_ind, len(mcum), mtot))
-            # force the break, because some stopping criteria can push mtot < mcluster
-            break
+                print("Sampled %i new stars.  Total is now %g" %
+                      (int(nsamp), mtot))
 
-    if not silent:
-        print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
+            if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
+                mcum = masses.cumsum()
+                if stop_criterion == 'sorted':
+                    masses = np.sort(masses)
+                    if np.abs(masses[:-1].sum() - mcluster) < np.abs(masses.sum() -
+                                                                     mcluster):
+                        # if the most massive star makes the cluster a worse fit, reject it
+                        # (this follows Krumholz+ 2015 appendix A1)
+                        last_ind = len(masses) - 1
+                    else:
+                        last_ind = len(masses)
+                else:
+                    if stop_criterion == 'nearest':
+                        # find the closest one, and use +1 to include it
+                        last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
+                    elif stop_criterion == 'before':
+                        last_ind = np.argmax(mcum > mcluster)
+                    elif stop_criterion == 'after':
+                        last_ind = np.argmax(mcum > mcluster) + 1
+                masses = masses[:last_ind]
+                mtot = masses.sum()
+                if verbose:
+                    print(
+                        "Selected the first %i out of %i masses to get %g total" %
+                        (last_ind, len(mcum), mtot))
+                # force the break, because some stopping criteria can push mtot < mcluster
+                break
+
+        if not silent:
+            print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
 
     return masses
 
@@ -874,87 +963,166 @@ def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
 
 class KoenConvolvedPowerLaw(MassFunction):
     """
-    Implementaton of convolved errror power-law described in 2009 Koen, Kondlo
-    paper, Fitting power-law distributions to data with measurement errors.
-    Equations (3) and (5)
+    Implementaton of error-convolved power-law described in the 2009 Koen/Kondlo
+    paper, "Fitting power-law distributions to data with measurement errors."
+    When instantiated, the error convolutions (equations (3) and (5) from KK09)
+    are performed for a fixed set of points, and calls to the function interpolate
+    between these values. This implementation is preferred for those looking to work 
+    extensively with a single mass function, including using it to create clusters.
 
     Parameters
     ----------
-    m: float
-        The mass at which to evaluate the function
     mmin, mmax: floats
-        The upper and lower bounds for the power law distribution
-    gamma: floats
-        The specified gamma for the distribution, slope = -gamma - 1
-    sigma: float or None
-        specified spread of error, assumes Normal distribution with mean 0 and variance sigma.
+        The upper and lower bounds for the power law distribution.
+    gamma: float
+        The specified gamma for the distribution. Slope = -gamma - 1.
+    sigma: float
+        Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
+    npts: int
+        Number of evenly log-spaced points at which to evaluate the function
+        (function calls interpolate between these). Defaults to 200.
+    quad_sub_limit: int
+        Limit of the number of subdivisions allowed for scipy.integrate.quad,
+        which handles integration. Defaults to scipy's default of 50.
+    """
+    default_mmin = 0
+    default_mmax = np.inf
+
+    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=50):
+        if mmax < mmin:
+            raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
+        
+        super().__init__(mmin, mmax)
+        self._gamma = gamma
+        self._sigma = sigma
+        self._quad_sub_limit = quad_sub_limit
+        self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
+                                                         self.gamma,self.sigma,npts)
+        self._normfactor = 1. / self.distr.cdf(self.mmax)
+
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self._normfactor*self.distr.cdf(m)
+        else:
+            return self._normfactor*self.distr.pdf(m)
+    
+    def integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass function over some range
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self, mlow, mhigh, 
+                                        limit=self._quad_sub_limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+
+    def m_integrate(self, mlow, mhigh, **kwargs):
+        """
+        Integrate the mass-weighted mass function over some range (this 
+        tells you the fraction of mass in the specified range)
+        """
+        if 'limit' not in kwargs.keys():
+            return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, 
+                                        limit=self._quad_sub_limit, **kwargs)
+        else:
+            return scipy.integrate.quad(self.mass_weighted, 
+                                        mlow, mhigh, **kwargs)
+
+    @property
+    def gamma(self):
+        return self._gamma
+    
+    @property
+    def sigma(self):
+        return self._sigma
+    
+    @property
+    def quad_sub_limit(self):
+        return self._quad_sub_limit
+    
+    @quad_sub_limit.setter
+    def quad_sub_limit(self,x):
+        self._quad_sub_limit = x
+
+    @property
+    def normfactor(self):
+        return self._normfactor
+
+class SpotKoenConvolvedPowerLaw(MassFunction):
+    """
+    Implementation of Koen/Kondlo 2009 error-convolved powerlaw,
+    but evaluation is done on the spot in contrast to KoenConvolvedPowerLaw,
+    which evaluates at a series of points beforehand and then interpolates 
+    when called. This implementation is good for those looking for 
+    improved accuracy or wanting to work with multiple mass functions.
     """
     default_mmin = 0
     default_mmax = np.inf
 
     def __init__(self, mmin, mmax, gamma, sigma):
+        if mmax < mmin:
+            raise ValueError("mmax must be greater than mmin")
+        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+            raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
+
         super().__init__(mmin, mmax)
         self.sigma = sigma
         self.gamma = gamma
+        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
 
-    def __call__(self, m, integral_form=False):
-        m = np.asarray(m)
-        if self.mmax < self.mmin:
-            raise ValueError("mmax must be greater than mmin")
-
+    def _coef(self, integral_form):
         if integral_form:
-            #       Returns
-            #       -------
-            #       Probability that m < x for the given CDF with specified
-            #       mmin, mmax, sigma, and gamma
-
-            def error(t):
-                return np.exp(-(t**2) / 2)
-
-            error_coeffecient = 1 / np.sqrt(2 * np.pi)
-
-            def error_integral(y):
-                error_integral = quad(error, -np.inf,
-                                      (y - self.mmax) / self.sigma)[0]
-                return error_integral
-
-            vector_errorintegral = np.vectorize(error_integral)
-            phi = vector_errorintegral(m) * error_coeffecient
-
-            def integrand(x, y):
-                return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
-                    (-1 / 2) * ((y - x) / self.sigma)**2))
-
-            coef = (1 / (self.sigma * np.sqrt(2 * np.pi) *
+            return (1 / (self.sigma * np.sqrt(2 * np.pi) * 
                          (self.mmin**-self.gamma - self.mmax**-self.gamma)))
-
-            def eval_integral(y):
-                integral = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return integral
-
-            vector_integral = np.vectorize(eval_integral)
-            probability = phi + coef * vector_integral(m)
-            return probability
-
         else:
-            # Returns
-            # ------
-            # Probability of getting x given the PDF with specified mmin, mmax, sigma, and gamma
-            def integrand(x, y):
-                return (x**-(self.gamma + 1)) * np.exp(-.5 * (
-                    (y - x) / self.sigma)**2)
-
-            coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
-                                  ((self.mmin**-self.gamma) -
+            return (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
+                                  ((self.mmin**-self.gamma) - 
                                    (self.mmax**-self.gamma))))
+    
+    def _integrand(self, x, y, integral_form):
+        if integral_form:
+            return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
+                (-1 / 2) * ((y - x) / self.sigma)**2))
+        else:
+            return (x**-(self.gamma + 1)) * np.exp(-.5 * (
+                (y - x) / self.sigma)**2)
+        
+    def _mirror_steps(self):
+        #Sub-intervals for the integration to capture small changes at both ends
+        x = np.geomspace(self.mmin,self.mmax,100)
+        mir_x = self.mmax-(x[::-1]-self.mmin)
+        dx = x[1:]-x[:-1]
+        cutoff = min(self.sigma,1)
+        break1 = np.searchsorted(dx,cutoff)
+        break2 = np.searchsorted(-dx[::-1],-cutoff)
+        xpt = x[break1]
+        mirxpt = mir_x[break2]
+        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
+        x = np.append(x[x < x1],np.linspace(x1,x2,
+                                            int((x2-x1)/cutoff)))
+        x = np.append(x,mir_x[mir_x > x2])
+        return x
 
-            def Integral(y):
-                I = quad(integrand, self.mmin, self.mmax, args=(y))[0]
-                return I
-
-            vector_I = np.vectorize(Integral)
-            return coef * vector_I(m)
-
+    def _integrate(self, y, integral_form):
+        steps = self._mirror_steps()
+        chunks = []
+        for i in range(len(steps)-1):
+            l,u = steps[i],steps[i+1]
+            area = quad(self._integrand,l,u,args=(y,integral_form))[0]
+            chunks.append(area)
+        if integral_form:
+            ret = self._coef(integral_form) * np.sum(chunks) + norm.cdf(
+                (y - self.mmax) / self.sigma)
+        else:
+            ret = self._coef(integral_form)*np.sum(chunks)
+        return ret
+    
+    def __call__(self, m, integral_form=False):
+        vector_int = np.vectorize(self._integrate)
+        m = np.asarray(m)
+        return self.normfactor * vector_int(m, integral_form)
 
 class KoenTruePowerLaw(MassFunction):
     """
