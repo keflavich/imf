@@ -534,7 +534,8 @@ def _opt_sample(M_res,massfunc,tolerance):
     from a provided MassFunction to make a cluster with mass M_res.
     """
     #retrieve mass bounds from provided massfunc
-    mmin = massfunc.mmin; mmax = massfunc.mmax
+    mmin = massfunc.mmin
+    mmax = massfunc.mmax
     finMax = np.isfinite(mmax)
 
     #finding all the component stars requires a cutoff--ensure there is one
