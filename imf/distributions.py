@@ -255,7 +255,8 @@ class KoenConvolvedPowerLaw(Distribution):
     This implementation calculates the PDF and CDF of the distribution at npts
     evenly log-spaced points and interpolates between the results.
 
-    Arguments:
+    Parameters
+    ----------
     m1: float
         Lower mass bound of the power law.
     m2: float
