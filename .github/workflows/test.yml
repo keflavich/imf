@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8]
-        TOXENV: ['py38-test-cov', 'codestyle']
+        python-version: [3.12]
+        TOXENV: ['py312-test-cov', 'codestyle']
     steps:
       - name: Checkout 
         uses: actions/checkout@v2
