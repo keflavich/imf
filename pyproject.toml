@@ -14,6 +14,8 @@ dependencies = [
     "numpy",
     "scipy",
 ]
+version = "placeholder"  # Placeholder (ignored, replaced by setuptools-scm)
+
 
 [tool.setuptools.packages]
 find = {}
