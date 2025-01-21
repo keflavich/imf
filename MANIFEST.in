@@ -1,0 +1,17 @@
+include README.md
+include CHANGES.rst
+include setup.cfg
+include LICENSE.rst
+include pyproject.toml
+include examples/plots/imf.png
+
+recursive-include imf *.pyx *.c *.pxd
+recursive-include docs *
+recursive-include licenses *
+recursive-include scripts *
+
+prune build
+prune docs/_build
+prune docs/api
+
+global-exclude *.pyc *.o
