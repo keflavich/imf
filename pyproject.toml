@@ -14,7 +14,8 @@ dependencies = [
     "numpy",
     "scipy",
 ]
-version = "placeholder"  # Placeholder (ignored, replaced by setuptools-scm)
+dynamic = ["optional-dependencies", 'authors', 'license', 'requires-python', 'readme', 'version']
+
 
 
 [tool.setuptools.packages]
