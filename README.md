@@ -1,5 +1,24 @@
 # IMF
 
+## Installation
+
+Either use the dev version:
+
+```
+pip install https://github.com/keflavich/imf/archive/refs/heads/master.zip
+```
+
+or use pypi:
+```
+pip install initial_mass_function
+```
+
+Note that the project name (`initial_mass_function`) is different from the
+packagename you import (`imf`) because the latter was taken.
+
+
+## Usage
+
 Simple tools to work with the Initial Mass Function
 
 Some basic examples below.
@@ -10,7 +29,7 @@ Some basic examples below.
     cluster = imf.make_cluster(1000)
     ```
 
-   or from a Salpeter IMF::
+   or from a Salpeter IMF:
 
     ```
     cluster = imf.make_cluster(1000, massfunc='salpeter')
@@ -23,12 +42,12 @@ Some basic examples below.
 
     ```python
    from imf import imf
-   from astropy.utils.console import ProgressBar
+   from tqdm.auto import tqdm
    cluster_masses = [100, 1000, 10000]
    nclusters_per_bin = 30
    clusters = np.array([[imf.make_cluster(mass*(np.random.randn()/20.+1.), silent=True)
                          for ii in range(nclusters_per_bin)]
-                         for mass in ProgressBar(cluster_masses)])
+                         for mass in tqdm(cluster_masses)])
    ```
 
 3. Calculate the mass fraction represented by M>8 Msun stars in a Kroupa IMF when
@@ -46,7 +65,7 @@ Some basic examples below.
 
 4. This figure was made with examples/imf_figure.py
 
-    ![imf.png](examples/plots/imf.png)
+    ![IMF example figure](examples/plots/imf.png)
 
 
 
