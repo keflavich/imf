@@ -5,3 +5,16 @@ requires = ["setuptools",
             "wheel"]
 
 build-backend = 'setuptools.build_meta'
+
+[project]
+name = "initial_mass_function"  # This will be the name on PyPI
+description = "Tools for sampling from and working with functional forms of the initial mass fuctino"
+dependencies = [
+    "astropy",
+    "numpy",
+    "scipy",
+]
+
+[tool.setuptools.packages]
+find = {}
+
