@@ -244,7 +244,7 @@ class Kirkpatrick2024(BrokenPowerLaw):
                  mmin=default_mmin,
                  mmax=default_mmax,
                  powers=[0.6, 0.25, 1.3, 2.3],
-                 breaks=[0.05, 0.22, 0.55, 100],
+                 breaks=[0.05, 0.22, 0.55],
                  ):
         super().__init__(mmin=mmin, mmax=mmax, powers=powers, breaks=breaks)
 
