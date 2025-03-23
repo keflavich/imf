@@ -109,7 +109,7 @@ class Salpeter(MassFunction):
             return self.distr.cdf(m) * self.normfactor
 
 
-class Kroupa(MassFunction):
+class BrokenPowerLaw(MassFunction):
     # kroupa = BrokenPowerLaw(breaks={0.08: -0.3, 0.5: 1.3, 'last': 2.3}, mmin=0.03, mmax=120)
     default_mmin = 0.03
     default_mmax = 120
@@ -117,30 +117,22 @@ class Kroupa(MassFunction):
     def __init__(self,
                  mmin=default_mmin,
                  mmax=default_mmax,
-                 p1=0.3,
-                 p2=1.3,
-                 p3=2.3,
-                 break1=0.08,
-                 break2=0.5):
+                 powers=[0.3, 1.3, 2.3],
+                 breaks=[0.08, 0.5],
+    ):
         """
-        The Kroupa IMF with two power-law breaks, p1 and p2. See __call__ for
-        details.
+        Powers should be positive values for decreasing slopes
         """
         super().__init__(mmin=mmin, mmax=mmax)
 
-        self.p1 = p1
-        self.p2 = p2
-        self.p3 = p3
-        self.break1 = break1
-        self.break2 = break2
-        self.distr = distributions.BrokenPowerLaw([-p1, -p2, -p3],
-                                                  [self.mmin, break1, break2, self.mmax])
+        self.powers = list(powers)
+        self.breaks = list(breaks)
+        self.distr = distributions.BrokenPowerLaw([-x for x in self.powers],
+                                                  [self.mmin, *self.breaks, self.mmax])
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
         """
-        Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005,
-        http://adsabs.harvard.edu/abs/2001MNRAS.322..231K) eqn 2
 
         Parameters
         ----------
@@ -164,7 +156,7 @@ class Kroupa(MassFunction):
         if mhigh < mlow:
             raise ValueError("Must have mlow <= mhigh in integral")
         if numerical:
-            return super(Kroupa, self).integrate(mlow, mhigh)
+            return super().integrate(mlow, mhigh)
 
         return (self.distr.cdf(mhigh) -
                 self.distr.cdf(mlow)) * self.normfactor, 0
@@ -180,11 +172,65 @@ class Kroupa(MassFunction):
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
         else:
             distr1 = distributions.BrokenPowerLaw(
-                [-self.p1 + 1, -self.p2 + 1, -self.p3 + 1],
-                [self.mmin, self.break1, self.break2, self.mmax])
+                [-x + 1 for x in self.powers],
+                [self.mmin, *self.breaks, self.mmax])
             ratio = distr1.pdf(self.break1) / self.distr.pdf(
                 self.break1) / self.break1
             return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
+
+class Kroupa(BrokenPowerLaw):
+    # kroupa = BrokenPowerLaw(breaks={0.08: -0.3, 0.5: 1.3, 'last': 2.3}, mmin=0.03, mmax=120)
+    default_mmin = 0.03
+    default_mmax = 120
+
+    def __init__(self,
+                 mmin=default_mmin,
+                 mmax=default_mmax,
+                 p1=0.3,
+                 p2=1.3,
+                 p3=2.3,
+                 break1=0.08,
+                 break2=0.5,
+                 powers=None,
+                 breaks=None
+                 ):
+        """
+        The Kroupa IMF with two power-law breaks, p1 and p2. See __call__ for
+        details.
+        """
+
+        if powers is not None:
+            p1, p2, p3 = powers
+        else:
+            powers = [p1, p2, p3]
+        if breaks is not None:
+            break1, break2 = breaks
+        else:
+            breaks = [break1, break2]
+
+        super().__init__(mmin=mmin, mmax=mmax, powers=powers, breaks=breaks)
+
+        self.p1 = p1
+        self.p2 = p2
+        self.p3 = p3
+        self.break1 = break1
+        self.break2 = break2
+
+    def __call__(self, m, integral_form=False):
+        """
+        Kroupa 2001 IMF (http://arxiv.org/abs/astro-ph/0009005,
+        http://adsabs.harvard.edu/abs/2001MNRAS.322..231K) eqn 2
+
+        Parameters
+        ----------
+        m: float array
+            The mass at which to evaluate the function (Msun)
+        p1, p2, p3: floats
+            The power-law slopes of the different segments of the IMF
+        break1, break2: floats
+            The mass breakpoints at which to use the different power laws
+        """
+        return super().__call__(m, integral_form)
 
 
 class ChabrierLogNormal(MassFunction):
