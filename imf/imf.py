@@ -233,6 +233,22 @@ class Kroupa(BrokenPowerLaw):
         return super().__call__(m, integral_form)
 
 
+class Kirkpatrick2024(BrokenPowerLaw):
+    """
+    https://ui.adsabs.harvard.edu/abs/2024ApJS..271...55K/abstract
+    """
+    default_mmin = 0.03
+    default_mmax = 120
+
+    def __init__(self,
+                 mmin=default_mmin,
+                 mmax=default_mmax,
+                 powers=[0.6, 0.25, 1.3, 2.3],
+                 breaks=[0.05, 0.22, 0.55, 100],
+                 ):
+        super().__init__(mmin=mmin, mmax=mmax, powers=powers, breaks=breaks)
+
+
 class ChabrierLogNormal(MassFunction):
     """
     Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
