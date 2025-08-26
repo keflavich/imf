@@ -1,4 +1,5 @@
-from imf import color_of_cluster,make_cluster,lum_of_cluster
+from imf.imf import make_cluster,lum_of_cluster
+from imf.visualization import color_of_cluster
 import numpy as np
 
 if __name__ == "__main__":

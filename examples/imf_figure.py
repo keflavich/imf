@@ -4,7 +4,8 @@ under the curve with an appropriate number of stars colored by their
 "true"(ish) color and sized by their mass.
 """
 import imf
-from imf import coolplot,kroupa,make_cluster
+from imf import kroupa,make_cluster
+from imf.visualization import plotinfo
 from astropy.table import Table
 import numpy as np
 
@@ -26,7 +27,7 @@ if __name__ == "__main__":
 
         pl.figure(1, figsize=(10,8))
         pl.clf()
-        cluster,yax,colors = coolplot(1000, massfunc=massfunc)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
@@ -44,7 +45,7 @@ if __name__ == "__main__":
 
         pl.figure(2, figsize=(20,16))
         pl.clf()
-        cluster,yax,colors = coolplot(1000, massfunc=massfunc, log=False)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc, log=False)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     name='KroupaTopHeavy'
     pl.figure(1, figsize=(10,8))
     pl.clf()
-    cluster,yax,colors = coolplot(1000, massfunc=massfunc)
+    cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
     pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
     pl.gca().set_xscale('log')
@@ -110,7 +111,7 @@ if __name__ == "__main__":
                            (imf.Salpeter(alpha=3), 'Alpha3p0')]:
         pl.figure(1, figsize=(10,8))
         pl.clf()
-        cluster,yax,colors = coolplot(1000, massfunc=massfunc)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                    linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         pl.gca().set_xscale('log')
