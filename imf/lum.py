@@ -51,8 +51,8 @@ def mass_luminosity_interpolator(name):
         ])
 
         mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQe
-
-	return mass_luminosity_interpolator_cache[name]
+        
+        return mass_luminosity_interpolator_cache[name]
 
     elif name == 'Ekstrom':
         from astroquery.vizier import Vizier
