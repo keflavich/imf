@@ -17,7 +17,7 @@ def mass_luminosity_interpolator(name):
             6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695, 5.631,
             5.566, 5.499, 5.431, 5.360, 5.287, 5.211
         ]
-	vgslogQ = [
+        vgslogQ = [
             49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34, 48.16,
             47.92, 47.63, 47.25, 46.77, 46.23, 45.69
         ]
@@ -123,12 +123,14 @@ def lyc_of_star(mass, grid='VGS'):
 
 def lyc_of_cluster(masses, grid='VGS'):
     r"""
-    Determines the log of the integrated Lyman continuum luminosity of a cluster
+    Determines the log of the integrated Lyman continuum luminosity of a cluster.
     Only stars over 8 $M_\odot$ contribute.
 
-    masses is a list or array of masses.                                                                """     
+    masses is a list or array of masses.
+    """
     if max(masses) < 8:
         return 0
+
     logq = lyc_of_star(masses[masses >= 8], grid=grid)
     logqtot = np.log10((10**logq).sum())
     return logqtot
