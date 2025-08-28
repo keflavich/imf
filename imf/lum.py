@@ -90,7 +90,7 @@ def lum_of_star(mass, grid='Ekstrom'):
     Two grids:
     (1) 'Ekstrom'
     Values come from the stellar models of Ekstrom et al. (2012).
-    **WARNING** Extrapolates for mass outside of [0.8, 120] $M_\odot$.
+    **WARNING** Extrapolates for mass outside of [0.8, 64] $M_\odot$.
 
     (2) 'VGS':
     Values come from Vacca, Garmany & Shull (1996) Table 5.
