@@ -13,7 +13,7 @@ chabrierpowerlaw = ChabrierPowerLaw()
 class McKeeOffner_PMF(MassFunction):
     default_mmin = 0.033
     default_mmax = 3.0
-
+    
     def __init__(self, j=1, n=1, jf=3/4., mmin=default_mmin, mmax=default_mmax,
                  imf=chabrierpowerlaw, **kwargs):
         """
@@ -24,9 +24,7 @@ class McKeeOffner_PMF(MassFunction):
         self.n = n
         self.imf = imf
 
-        def den_func(x):
-            return self.imf(x)*x**(-self.jf)
-        self.denominator = scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
+        self.denominator = scipy.integrate.quad(self.den_func, self.mmin, self.mmax, **kwargs)[0]
 
         self.normfactor = 1
 
@@ -35,8 +33,8 @@ class McKeeOffner_PMF(MassFunction):
         if taper:
 
             def num_func(x, mass_):
-                tf = (1-(mass_/x)**(1-self.j))**0.5
-                return self.imf(x)*x**(self.j-self.jf-1) * tf
+                tf = (1 - (mass_ / x)**(1 - self.j))**0.5
+                return self.imf(x) * x**(self.j - self.jf - 1) * tf
 
             def integrate(lolim, mass_):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, args=(mass_,), **kwargs)[0]
@@ -46,7 +44,7 @@ class McKeeOffner_PMF(MassFunction):
 
         else:
             def num_func(x):
-                return self.imf(x)*x**(self.j-self.jf-1)
+                return self.imf(x) * x**(self.j - self.jf - 1)
 
             def integrate(lolim):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
@@ -54,7 +52,7 @@ class McKeeOffner_PMF(MassFunction):
 
             numerator = np.vectorize(integrate)(np.where(self.mmin < mass, mass, self.mmin))
 
-        result = (1-self.j) * mass**(1-self.j) * numerator / self.denominator
+        result = (1 - self.j) * mass**(1 - self.j) * numerator / self.denominator
         if integral_form:
             warnings.warn("The 'integral form' of the Chabrier PMF is not correctly normalized; "
                           "it is just PMF(m) * m")
@@ -62,6 +60,27 @@ class McKeeOffner_PMF(MassFunction):
             raise ValueError("Integral version not yet computed")
         else:
             return result * self.normfactor
+
+    def den_func(self,x):
+        return self.imf(x) * x**(-self.jf)        
+
+    @property
+    def mmin(self):
+        return self._mmin
+    
+    @mmin.setter
+    def mmin(self,mass,**kwargs):
+        self._mmin = mass
+        self.denominator = scipy.integrate.quad(self.den_func, self.mmin, self.mmax, **kwargs)[0]
+
+    @property
+    def mmax(self):
+        return self._mmax
+        
+    @mmax.setter
+    def mmax(self,mass,**kwargs):
+        self._mmax = mass
+        self.denominator = scipy.integrate.quad(self.den_func, self.mmin, self.mmax, **kwargs)[0]
 
 class McKeeOffner_2CTC(MassFunction):
     """ 2-component Turbulent Core variant """
@@ -78,9 +97,7 @@ class McKeeOffner_2CTC(MassFunction):
         self.Rmdot = Rmdot
         self.imf = imf
 
-        def den_func(x):
-            return self.imf(x) * (2/((1+Rmdot**2*x**1.5)**0.5+1))
-        self.denominator = scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
+        self.denominator = scipy.integrate.quad(self.den_func, self.mmin, self.mmax, **kwargs)[0]
 
         self.normfactor = 1
 
@@ -116,6 +133,10 @@ class McKeeOffner_2CTC(MassFunction):
             raise ValueError("Integral version not yet computed")
         else:
             return result * self.normfactor
+
+    def den_func(self,x):
+        return self.imf(x) * (2 / ((1 + self.Rmdot**2 * x**1.5)**0.5 + 1))
+
 
 ChabrierPMF_IS = McKeeOffner_PMF(j=0, jf=0, )
 ChabrierPMF_TC = McKeeOffner_PMF(j=0.5, jf=0.75, )
