@@ -29,6 +29,7 @@ class ProtoMassFunction:
                  j=None,jf=None,scale_value=None,
                  n=1,mmin=None,mmax=None):
         self.imf = imf
+        self.imf.normalize()
 
         self.history = history
         
@@ -44,9 +45,11 @@ class ProtoMassFunction:
         self.mmax = self.imf.mmax if mmax is None else mmax
 
     def __call__(self,mass,
-                 taper=False,integral_form=False,
-                 **kwargs):
+                 taper=False,**kwargs):
         avg_time = self.weight_average(self.tf,taper)
+
+        def m_dot(mf,mass_):
+            return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
 
         def integrand(mf,mass_):
             if taper:
@@ -61,18 +64,29 @@ class ProtoMassFunction:
                 def taper_factor(mf,mass_):
                     sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
                     return 1 - (sol.root / tf)**self.n
+                factor = taper_factor(mf,mass_)
                 
-                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value / taper_factor(mf,mass_)
-
             else:
-                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value
+                factor = 1
+                
+            return self.imf(mf) * mass_ / m_dot(mf,mass_) / factor
 
         def integral(lolim,mass_,**kwargs):
             return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
         
         ret = np.vectorize(integral)(np.where(self.mmin < mass, mass, self.mmin),mass)
-        return ret / avg_time
+        return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
         
+    def tf(self,mf,taper=False):
+        """
+        Returns the expected formation time of a star with 
+        final mass mf following the accretion history
+        underlying the PMF.
+        """
+        factor = (self.n + 1) / self.n if taper else 1
+	tf1 = factor / (1 - self.j) / self.scale_value
+        return tf1 * mf**(1 - self.jf)
+
     def weight_average(self,func,*args):
         """
         Integrates a function of stellar mass f(m) over the
@@ -83,11 +97,6 @@ class ProtoMassFunction:
         
         num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
         return num * self.imf.normfactor
-
-    def tf(self,x,taper=False):
-        factor = (self.n + 1) / self.n if taper else 1
-        tf1 = factor / (1 - self.j) / self.scale_value
-        return tf1 * x**(1 - self.jf)
 
     @property
     def imf(self):
@@ -162,20 +171,22 @@ class ProtoMassFunction:
         return self._mmin
 
     @mmin.setter
-    def mmin(self,x):
+    def mmin(self,x,set_imf=False):
         self._mmin = x
-        self.imf._mmin = x
-        self.imf.normalize()
+        if set_imf:
+            self.imf._mmin = x
+            self.imf.normalize()
 
     @property
     def mmax(self):
         return self._mmax
 
     @mmax.setter
-    def mmax(self,x):
+    def mmax(self,x,set_imf=False):
         self._mmax = x
-        self.imf._mmax = x
-        self.imf.normalize()
+        if set_imf:
+            self.imf._mmax = x
+            self.imf.normalize()
 
 #class PMF_2C(ProtoMassFunction):
 #    """
