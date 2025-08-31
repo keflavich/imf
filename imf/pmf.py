@@ -10,6 +10,170 @@ from .imf import MassFunction, ChabrierPowerLaw, Kroupa
 
 chabrierpowerlaw = ChabrierPowerLaw()
 
+###this is new###
+
+hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5),
+               'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75),
+               'ca' : (2/3, 1., 6.9e-6, 1e4, 0.5)}
+
+def scaling(history,value=None):
+    params = hist_values[history]
+    if value is None:
+        value = params[3]
+    return params[2] * (value / params[3])**params[4]
+
+class ProtoMassFunction:
+    def __init__(self,imf,
+                 history=None,
+                 j=None,jf=None,scale_value=None,
+                 n=1,mmin=None,mmax=None):
+        self.imf = imf
+
+        self.history = history
+        
+        if self.history is None:
+            self.j = j
+            self.jf = jf
+
+        self.scale_value = scale_value
+
+        self.n = n
+
+        self.mmin = self.imf.mmin if mmin is None else mmin
+        self.mmax = self.imf.mmax if mmax is None else mmax
+
+    def __call__(self,mass,
+                 taper=False,accelerating=False,
+                 integral_form=False,**kwargs):
+        avg_time = 1 / self.weight_average(self.tf,taper=taper)
+
+        def integrand(mf,mass_,taper=False):
+            if taper:
+                t = mass_ #t is some function of m/mf...
+                tf = self.tf(mf,taper=taper)
+                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value
+            else:
+                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value
+
+        def integral(lolim,mass_,**kwargs):
+            return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
+        
+        ret = np.vectorize(integral)(np.where(self.mmin < mass, mass, self.mmin),mass)
+        return ret * avg_time
+        
+    def weight_average(self,func,**kwargs):
+        """
+        Integrates a function of stellar mass f(m) over the
+        base IMF of a PMF.
+        """
+        def weighted_func(x):
+            return self.imf(x) * func(x)
+        
+        num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
+        return num * self.imf.normfactor
+
+    def tf(self,x,taper=False):
+        factor = (self.n +1) / self.n if taper else 1
+        tf1 = factor / (1 - self.j) / self.scale_value
+        return tf1 * x**(1 - self.jf)
+
+    @property
+    def imf(self):
+        return self._imf
+
+    @imf.setter
+    def imf(self,val):
+        self._imf = val
+
+    @property
+    def history(self):
+        return self._history
+
+    @history.setter
+    def history(self,x):
+        if x is None:
+            self._history = x
+        else:
+            if not x in hist_values.keys():
+                raise ValueError("history must be one of 'is'/'tc'/'ca'")
+        
+            self._history = x
+            self._j = hist_values[x][0]
+            self._jf = hist_values[x][1]
+            self._scale_value = hist_values[x][2]
+
+    @property
+    def j(self):
+        return self._j
+
+    @j.setter
+    def j(self,x):
+        if self.history in hist_values.keys():
+            raise ValueError('j cannot take on alternate values for a defined history')
+        else:
+            self._j = x
+
+    @property
+    def jf(self):
+        return self._jf
+
+    @jf.setter
+    def jf(self,x):
+        if self.history	in hist_values.keys():
+            raise ValueError('jf cannot take on alternate values for a defined history')
+        else:
+            self._jf = x
+
+    @property
+    def scale_value(self):
+        return self._scale_value
+
+    @scale_value.setter
+    def scale_value(self,x):
+        if self.history in hist_values.keys():
+            self._scale_value = scaling(self.history,x)
+        else:
+            self._scale_value = x
+        
+    @property
+    def n(self):
+        return self._n
+
+    @n.setter
+    def n(self,x):
+        if x <= 0:
+            raise ValueError('n must be > 0')
+        self._n = x
+
+    @property
+    def mmin(self):
+        return self._mmin
+
+    @mmin.setter
+    def mmin(self,x):
+        self._mmin = x
+        self.imf._mmin = x
+        self.imf.normalize()
+
+    @property
+    def mmax(self):
+        return self._mmax
+
+    @mmax.setter
+    def mmax(self,x):
+        self._mmax = x
+        self.imf._mmax = x
+        self.imf.normalize()
+
+#class PMF_2C(ProtoMassFunction):
+#    """
+#    description
+#    """
+#    def __init__(self,etc.):
+#        return 0
+        
+###end new###
+        
 class McKeeOffner_PMF(MassFunction):
     default_mmin = 0.033
     default_mmax = 3.0
@@ -29,7 +193,7 @@ class McKeeOffner_PMF(MassFunction):
         self.normfactor = 1
 
     def __call__(self, mass, taper=False, integral_form=False, **kwargs):
-        """ Unclear if integral_form is right..."""
+        """ Unclear if integral_form is right..."""       
         if taper:
 
             def num_func(x, mass_):
@@ -60,10 +224,10 @@ class McKeeOffner_PMF(MassFunction):
             raise ValueError("Integral version not yet computed")
         else:
             return result * self.normfactor
-
+    
     def den_func(self,x):
-        return self.imf(x) * x**(-self.jf)        
-
+        return self.imf(x) * x**(-self.jf)
+    
     @property
     def mmin(self):
         return self._mmin
