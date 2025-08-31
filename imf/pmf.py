@@ -46,7 +46,7 @@ class ProtoMassFunction:
     def __call__(self,mass,
                  taper=False,integral_form=False,
                  **kwargs):
-        avg_time = self.weight_average(self.tf,args=(True))
+        avg_time = self.weight_average(self.tf,taper)
 
         def integrand(mf,mass_):
             if taper:
@@ -54,10 +54,12 @@ class ProtoMassFunction:
                 def root_t(t,mf,mass_):
                     term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
                     term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
-                    return term1 - term2
+                    prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
+                    prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
+                    return term1 - term2, prime_term1 - prime_term2
                     
                 def taper_factor(mf,mass_):
-                    sol = root_scalar(root_t,args=(mf,mass_),bracket=[0,tf*1.01])
+                    sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
                     return 1 - (sol.root / tf)**self.n
                 
                 return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value / taper_factor(mf,mass_)
