@@ -4,6 +4,7 @@ Protostellar mass functions as described by McKee and Offner, 2010
 
 import numpy as np
 import scipy.integrate
+from scipy.optimize import root_scalar
 import warnings
 
 from .imf import MassFunction, ChabrierPowerLaw, Kroupa
@@ -43,15 +44,24 @@ class ProtoMassFunction:
         self.mmax = self.imf.mmax if mmax is None else mmax
 
     def __call__(self,mass,
-                 taper=False,accelerating=False,
-                 integral_form=False,**kwargs):
-        avg_time = 1 / self.weight_average(self.tf,taper=taper)
+                 taper=False,integral_form=False,
+                 **kwargs):
+        avg_time = self.weight_average(self.tf,args=(True))
 
-        def integrand(mf,mass_,taper=False):
+        def integrand(mf,mass_):
             if taper:
-                t = mass_ #t is some function of m/mf...
                 tf = self.tf(mf,taper=taper)
-                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value
+                def root_t(t,mf,mass_):
+                    term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                    term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                    return term1 - term2
+                    
+                def taper_factor(mf,mass_):
+                    sol = root_scalar(root_t,args=(mf,mass_),bracket=[0,tf*1.01])
+                    return 1 - (sol.root / tf)**self.n
+                
+                return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value / taper_factor(mf,mass_)
+
             else:
                 return self.imf(mf) * mass_**(1 - self.j) * mf**(self.j - self.jf) / self.scale_value
 
@@ -59,21 +69,21 @@ class ProtoMassFunction:
             return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
         
         ret = np.vectorize(integral)(np.where(self.mmin < mass, mass, self.mmin),mass)
-        return ret * avg_time
+        return ret / avg_time
         
-    def weight_average(self,func,**kwargs):
+    def weight_average(self,func,*args):
         """
         Integrates a function of stellar mass f(m) over the
         base IMF of a PMF.
         """
         def weighted_func(x):
-            return self.imf(x) * func(x)
+            return self.imf(x) * func(x,*args)
         
         num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
         return num * self.imf.normfactor
 
     def tf(self,x,taper=False):
-        factor = (self.n +1) / self.n if taper else 1
+        factor = (self.n + 1) / self.n if taper else 1
         tf1 = factor / (1 - self.j) / self.scale_value
         return tf1 * x**(1 - self.jf)
 
