@@ -9,6 +9,10 @@ from imf.visualization import plotinfo
 from astropy.table import Table
 import numpy as np
 
+plot_dir = 'plots/imf_figure'
+from os import system
+system(f'mkdir -p {plot_dir}')
+
 
 if __name__ == "__main__":
     import pylab as pl
@@ -40,8 +44,7 @@ if __name__ == "__main__":
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
-        pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
 
         pl.figure(2, figsize=(20,16))
         pl.clf()
@@ -58,7 +61,7 @@ if __name__ == "__main__":
         pl.xlabel("Stellar Mass")
         pl.ylabel("dN(M)/dM")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_loglinear.png".format(name),bbox_inches='tight')
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_loglinear.pdf",bbox_inches='tight')
 
         pl.rc('font',size=20)
         pl.figure(3, figsize=(20,16))
@@ -80,7 +83,7 @@ if __name__ == "__main__":
         ax2.axis([1,5,min(yax)-0.2,max(yax[cluster>1])+0.5])
         ax3.axis([5,max(cluster)*1.1,min(yax)-0.2,max(yax[cluster>5])+0.5])
         pl.tight_layout()
-        pl.savefig("{0}_imf_figure_linearlinear.png".format(name),
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_linearlinear.pdf",
                    bbox_inches='tight')
 
         pl.rc('font',size=30)
@@ -101,8 +104,7 @@ if __name__ == "__main__":
     pl.xlabel("Stellar Mass")
     pl.ylabel("log(dN(M)/dM)")
     pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-    pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
-    pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')
+    pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
 
     # make two more plots, now showing a bottom- and a top-heavy  IMF
     for massfunc, name in [(imf.Salpeter(alpha=1.5), 'Alpha1p5'),
@@ -122,5 +124,4 @@ if __name__ == "__main__":
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_log.png".format(name),bbox_inches='tight', dpi=150)
-        pl.savefig("{0}_imf_figure_log.pdf".format(name),bbox_inches='tight')
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.png",bbox_inches='tight')

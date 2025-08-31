@@ -122,7 +122,7 @@ def plotinfo(masses=None,
         A list of color tuples associated with each star
     """
     if masses is None:
-        cluster = make_cluster(clustermass,
+        cluster = make_cluster(mtot,
                                massfunc=massfunc,
                                mmin=massfunc.mmin,
                                mmax=massfunc.mmax,
