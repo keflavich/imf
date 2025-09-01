@@ -77,6 +77,15 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
+    def weight_average(self, func, *args):
+        """
+        Integrate a function of stellar mass f(m) over the IMF
+        """
+        def weighted_func(x):
+            return self(x) * func(x,*args)
+
+        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
+
     @property
     def mmin(self):
         return self._mmin
@@ -278,7 +287,7 @@ class ChabrierLogNormal(MassFunction):
 
         self.multiplier = leading_constant
         self.lognormal_width = lognormal_width
-
+        self.normfactor = 1
         self.distr = distributions.TruncatedLogNormal(mu=lognormal_center,
                                                       sig=self.lognormal_width,
                                                       m1=self.mmin,
@@ -286,9 +295,9 @@ class ChabrierLogNormal(MassFunction):
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(mass) * self.multiplier
+            return self.distr.cdf(mass) * self.multiplier * self.normfactor
         else:
-            return self.distr.pdf(mass) * self.multiplier
+            return self.distr.pdf(mass) * self.multiplier * self.normfactor
 
 
 class ChabrierPowerLaw(MassFunction):
@@ -340,6 +349,7 @@ class ChabrierPowerLaw(MassFunction):
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
+        self.normfactor = 1
         self.distr = distributions.CompositeDistribution([
             distributions.TruncatedLogNormal(self._lognormal_center,
                                              self._lognormal_width,
@@ -350,9 +360,9 @@ class ChabrierPowerLaw(MassFunction):
 
     def __call__(self, x, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(x)
+            return self.distr.cdf(x) * self.normfactor
         else:
-            return self.distr.pdf(x)
+            return self.distr.pdf(x) * self.normfactor
 
 
 

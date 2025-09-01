@@ -13,9 +13,9 @@ chabrierpowerlaw = ChabrierPowerLaw()
 
 ###this is new###
 
-hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5),
-               'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75),
-               'ca' : (2/3, 1., 6.9e-6, 1e4, 0.5)}
+hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5, 0),
+               'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75, 3.6),
+               'ca' : (2/3, 1., 6.9e-6, 1e4, 0.5, 3.2)}
 
 def scaling(history,value=None):
     params = hist_values[history]
@@ -45,8 +45,15 @@ class ProtoMassFunction:
         self.mmax = self.imf.mmax if mmax is None else mmax
 
     def __call__(self,mass,
-                 taper=False,**kwargs):
-        avg_time = self.weight_average(self.tf,taper)
+                 taper=False,
+                 accelerating=False,
+                 **kwargs):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau))
+            avg_time = self.imf.weight_average(accel_weight,taper)
+        else:
+            avg_time = self.imf.weight_average(self.tf,taper)
 
         def m_dot(mf,mass_):
             return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
@@ -84,7 +91,7 @@ class ProtoMassFunction:
         underlying the PMF.
         """
         factor = (self.n + 1) / self.n if taper else 1
-	tf1 = factor / (1 - self.j) / self.scale_value
+        tf1 = factor / (1 - self.j) / self.scale_value
         return tf1 * mf**(1 - self.jf)
 
     def weight_average(self,func,*args):
@@ -221,7 +228,7 @@ class McKeeOffner_PMF(MassFunction):
 
             def num_func(x, mass_):
                 tf = (1 - (mass_ / x)**(1 - self.j))**0.5
-                return self.imf(x) * x**(self.j - self.jf - 1) * tf
+                return self.imf(x) * x**(self.j - self.jf) / tf * self.n / (self.n + 1)
 
             def integrate(lolim, mass_):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, args=(mass_,), **kwargs)[0]
@@ -231,7 +238,7 @@ class McKeeOffner_PMF(MassFunction):
 
         else:
             def num_func(x):
-                return self.imf(x) * x**(self.j - self.jf - 1)
+                return self.imf(x) * x**(self.j - self.jf)
 
             def integrate(lolim):
                 integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
@@ -249,7 +256,7 @@ class McKeeOffner_PMF(MassFunction):
             return result * self.normfactor
     
     def den_func(self,x):
-        return self.imf(x) * x**(-self.jf)
+        return self.imf(x) * x**(1 - self.jf)
     
     @property
     def mmin(self):
