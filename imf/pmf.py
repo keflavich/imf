@@ -23,13 +23,17 @@ def scaling(history,value=None):
         value = params[3]
     return params[2] * (value / params[3])**params[4]
 
-class ProtoMassFunction:
+class PMF:
     def __init__(self,imf,
+                 mmin=None,mmax=None,
                  history=None,
                  j=None,jf=None,scale_value=None,
-                 n=1,mmin=None,mmax=None):
+                 n=1,tau=1):
         self.imf = imf
         self.imf.normalize()
+
+        self.mmin = self.imf.mmin if mmin is None else mmin
+        self.mmax = self.imf.mmax if mmax is None else mmax
 
         self.history = history
         
@@ -41,8 +45,7 @@ class ProtoMassFunction:
 
         self.n = n
 
-        self.mmin = self.imf.mmin if mmin is None else mmin
-        self.mmax = self.imf.mmax if mmax is None else mmax
+        self.tau = tau
 
     def __call__(self,mass,
                  taper=False,
@@ -50,7 +53,7 @@ class ProtoMassFunction:
                  **kwargs):
         if accelerating:
             def accel_weight(mf,taper=False):
-                return self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau))
+                return 1e6 * self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau / 1e6))
             avg_time = self.imf.weight_average(accel_weight,taper)
         else:
             avg_time = self.imf.weight_average(self.tf,taper)
@@ -71,12 +74,18 @@ class ProtoMassFunction:
                 def taper_factor(mf,mass_):
                     sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
                     return 1 - (sol.root / tf)**self.n
-                factor = taper_factor(mf,mass_)
-                
+
+                t_factor = taper_factor(mf,mass_)
+                if accelerating:
+                    tm = (1 - t_factor)**(1 / self.n) * tf
             else:
-                factor = 1
-                
-            return self.imf(mf) * mass_ / m_dot(mf,mass_) / factor
+                t_factor = 1
+                if accelerating:
+                    tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+
+            a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
+
+            return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
 
         def integral(lolim,mass_,**kwargs):
             return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
@@ -112,6 +121,28 @@ class ProtoMassFunction:
     @imf.setter
     def imf(self,val):
         self._imf = val
+
+    @property
+    def mmin(self):
+        return self._mmin
+
+    @mmin.setter
+    def mmin(self,x,set_imf=False):
+        self._mmin = x
+        if set_imf:
+            self.imf._mmin = x
+            self.imf.normalize()
+
+    @property
+    def mmax(self):
+        return self._mmax
+
+    @mmax.setter
+    def mmax(self,x,set_imf=False):
+        self._mmax = x
+        if set_imf:
+            self.imf._mmax = x
+            self.imf.normalize()
 
     @property
     def history(self):
@@ -174,28 +205,14 @@ class ProtoMassFunction:
         self._n = x
 
     @property
-    def mmin(self):
-        return self._mmin
+    def tau(self):
+        return self._tau
 
-    @mmin.setter
-    def mmin(self,x,set_imf=False):
-        self._mmin = x
-        if set_imf:
-            self.imf._mmin = x
-            self.imf.normalize()
+    @tau.setter
+    def tau(self,x):
+        self._tau = x
 
-    @property
-    def mmax(self):
-        return self._mmax
-
-    @mmax.setter
-    def mmax(self,x,set_imf=False):
-        self._mmax = x
-        if set_imf:
-            self.imf._mmax = x
-            self.imf.normalize()
-
-#class PMF_2C(ProtoMassFunction):
+#class PMF_2C(PMF):
 #    """
 #    description
 #    """
