@@ -1076,9 +1076,9 @@ class KoenConvolvedPowerLaw(MassFunction):
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self._normfactor*self.distr.cdf(m)
+            return self.distr.cdf(m) * self.normfactor
         else:
-            return self._normfactor*self.distr.pdf(m)
+            return self.distr.pdf(m) * self.normfactor
     
     def integrate(self, mlow, mhigh, **kwargs):
         """
