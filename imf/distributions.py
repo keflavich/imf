@@ -251,11 +251,11 @@ class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
     A power law over the mass range (m1,m2) with slope -(gamma-1) convolved with
-    a normal distribution of width sigma, as described in Koen & Kondlo 2009.
+    a normal distribution of width sigma, as described in Koen & Kondlo (2009).
     This implementation calculates the PDF and CDF of the distribution at npts
     evenly log-spaced points and interpolates between the results.
 
-    Parameters
+    Arguments:
     ----------
     m1: float
         Lower mass bound of the power law.
@@ -361,7 +361,34 @@ class KoenConvolvedPowerLaw(Distribution):
         ret = self._ppf_interpolator(x,extrapolate=False)
         return ret
 
+class PMF(Distribution):
+    """Protostellar Mass Function.
 
+    Creates a distribution for the Protostellar Mass Function (PMF) 
+    corresponding to a supplied IMF and accretion history using the 
+    formalism of McKee & Offner (2010).
+
+    Arguments:
+    ----------
+    """
+    def __init__(self,*args):
+        return 0
+
+class PMF_2C(PMF):
+    """
+    Two-component Protostellar Mass Function.                                              
+
+    Creates a distribution for the Protostellar Mass Function (PMF) 
+    corresponding to a supplied IMF and two-component accretion history
+    using the formalism of McKee & Offner (2010).
+
+    Arguments:
+    ----------                                                                  
+    """
+    def __init__(self,*args):
+        return 0
+
+    
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
         """ A Composite distribution that consists of several distributions
