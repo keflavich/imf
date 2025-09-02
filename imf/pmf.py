@@ -251,16 +251,18 @@ class PMF_2C:
                                        )
 
         def integrand(mf,mass_):
+            def base_tm(mf,mass_):
+                return mass_ / self.m_is * hyp2f1(0.5,0.5/self.j,1+0.5/self.j,
+                                                  -(self.R_mdot * mf**(self.jf-self.j) * mass_**self.j)**2)
+
             if taper:
                 tf = self.tf(mf,taper=taper)
-                #this needs to change
                 def root_t(t,mf,mass_):
-                    term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
-                    term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                    t_term = t * (1 - (t / tf)**self.n / (self.n + 1))
                     prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
                     prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
-                    return term1 - term2, prime_term1 - prime_term2
-                    
+                    return t_term - base_tm(mf,mass_), prime_term1 - prime_term2
+
                 def taper_factor(mf,mass_):
                     sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
                     return 1 - (sol.root / tf)**self.n
@@ -271,7 +273,7 @@ class PMF_2C:
             else:
                 t_factor = 1
                 if accelerating:
-                    tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                    tm = base_tm(mf,mass_)
 
             a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
 
@@ -292,7 +294,7 @@ class PMF_2C:
         factor = (self.n + 1) / self.n if taper else 1
         body = mf / self.m_is * hyp2f1(0.5,0.5/self.j,
                                        1+0.5/self.j,
-                                       -(self.R_mdot * mf**(self.jf))**2)
+                                       -(self.R_mdot * mf**self.jf)**2)
         return factor * body
     
     def average_time(self,taper=False,accelerating=False):
@@ -302,7 +304,7 @@ class PMF_2C:
             ret = self.imf.weight_average(accel_weight,taper)
         else:
             ret = self.imf.weight_average(self.tf,taper)
-	return ret
+        return ret
 
     @property
     def imf(self):
