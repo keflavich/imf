@@ -5,6 +5,7 @@ Protostellar mass functions as described by McKee and Offner, 2010
 import numpy as np
 import scipy.integrate
 from scipy.optimize import root_scalar
+from scipy.special import hyp2f1
 import warnings
 
 from .imf import MassFunction, ChabrierPowerLaw, Kroupa
@@ -13,9 +14,9 @@ chabrierpowerlaw = ChabrierPowerLaw()
 
 ###this is new###
 
-hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5, 0),
-               'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75, 3.6),
-               'ca' : (2/3, 1., 6.9e-6, 1e4, 0.5, 3.2)}
+hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5),
+               'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75),
+               'ca' : (2/3, 1., 6.9e-6, 1e4, 0.5)}
 
 def scaling(history,value=None):
     params = hist_values[history]
@@ -24,6 +25,8 @@ def scaling(history,value=None):
     return params[2] * (value / params[3])**params[4]
 
 class PMF:
+    """
+    """
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history=None,
@@ -51,12 +54,8 @@ class PMF:
                  taper=False,
                  accelerating=False,
                  **kwargs):
-        if accelerating:
-            def accel_weight(mf,taper=False):
-                return 1e6 * self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau / 1e6))
-            avg_time = self.imf.weight_average(accel_weight,taper)
-        else:
-            avg_time = self.imf.weight_average(self.tf,taper)
+        avg_time = self.average_time(taper=taper,
+                                     accelerating=accelerating)
 
         def m_dot(mf,mass_):
             return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
@@ -103,24 +102,22 @@ class PMF:
         tf1 = factor / (1 - self.j) / self.scale_value
         return tf1 * mf**(1 - self.jf)
 
-    def weight_average(self,func,*args):
-        """
-        Integrates a function of stellar mass f(m) over the
-        base IMF of a PMF.
-        """
-        def weighted_func(x):
-            return self.imf(x) * func(x,*args)
-        
-        num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
-        return num * self.imf.normfactor
+    def average_time(self,taper=False,accelerating=False):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return 1e6 * self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau / 1e6))
+            ret = self.imf.weight_average(accel_weight,taper)
+        else:
+            ret = self.imf.weight_average(self.tf,taper)
+        return ret
 
     @property
     def imf(self):
         return self._imf
 
     @imf.setter
-    def imf(self,val):
-        self._imf = val
+    def imf(self,x):
+        self._imf = x
 
     @property
     def mmin(self):
@@ -212,13 +209,196 @@ class PMF:
     def tau(self,x):
         self._tau = x
 
-#class PMF_2C(PMF):
-#    """
-#    description
-#    """
-#    def __init__(self,etc.):
-#        return 0
+hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
+                  'ca' : (2/3, 1., 3.2)}
+
+class PMF_2C:
+    def __init__(self,imf,
+                 mmin=None,mmax=None,
+                 history=None,
+                 j=None,jf=None,R_mdot=None,
+                 n=1,tau=1,T=10):
+        self.imf = imf
+        self.imf.normalize()
+
+        self.mmin = self.imf.mmin if mmin is None else mmin
+        self.mmax = self.imf.mmax if mmax is None else mmax
+
+        self.history = history
         
+        if self.history is None:
+            self.j = j
+            self.jf = jf
+            self.R_mdot = R_mdot
+
+        self.n = n
+
+        self.tau = tau
+
+        self.m_is = scaling('is',T)
+
+    def __call__(self,mass,
+                 taper=False,
+                 accelerating=False,
+                 **kwargs):
+        avg_time = self.average_time(taper=taper,
+                                     accelerating=accelerating)
+
+        def m_dot(mf,mass_):
+            return self.m_is * np.sqrt(1 + self.R_mdot**2  *
+                                       (mass_ / mf)**(2 * self.j) *
+                                       mf**(2 * self.jf)
+                                       )
+
+        def integrand(mf,mass_):
+            if taper:
+                tf = self.tf(mf,taper=taper)
+                #this needs to change
+                def root_t(t,mf,mass_):
+                    term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                    term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                    prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
+                    prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
+                    return term1 - term2, prime_term1 - prime_term2
+                    
+                def taper_factor(mf,mass_):
+                    sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
+                    return 1 - (sol.root / tf)**self.n
+
+                t_factor = taper_factor(mf,mass_)
+                if accelerating:
+                    tm = (1 - t_factor)**(1 / self.n) * tf
+            else:
+                t_factor = 1
+                if accelerating:
+                    tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+
+            a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
+
+            return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
+
+        def integral(lolim,mass_,**kwargs):
+            return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
+        
+        ret = np.vectorize(integral)(np.where(self.mmin < mass, mass, self.mmin),mass)
+        return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
+
+    def tf(self,mf,taper=False):
+        """
+        Returns the expected formation time of a star with 
+        final mass mf following the accretion history
+        underlying the PMF.
+        """
+        factor = (self.n + 1) / self.n if taper else 1
+        body = mf / self.m_is * hyp2f1(0.5,0.5/self.j,
+                                       1+0.5/self.j,
+                                       -(self.R_mdot * mf**(self.jf))**2)
+        return factor * body
+    
+    def average_time(self,taper=False,accelerating=False):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return 1e6 * self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau / 1e6))
+            ret = self.imf.weight_average(accel_weight,taper)
+        else:
+            ret = self.imf.weight_average(self.tf,taper)
+	return ret
+
+    @property
+    def imf(self):
+        return self._imf
+
+    @imf.setter
+    def imf(self,x):
+        self._imf = x
+
+    @property
+    def mmin(self):
+        return self._mmin
+
+    @mmin.setter
+    def mmin(self,x,set_imf=False):
+        self._mmin = x
+        if set_imf:
+            self.imf._mmin = x
+            self.imf.normalize()
+
+    @property
+    def mmax(self):
+        return self._mmax
+
+    @mmax.setter
+    def mmax(self,x,set_imf=False):
+        self._mmax = x
+        if set_imf:
+            self.imf._mmax = x
+            self.imf.normalize()
+
+    @property
+    def history(self):
+        return self._history
+
+    @history.setter
+    def history(self,x):
+        if x is None:
+            self._history = x
+        else:
+            if not x in hist_values_2C.keys():
+                raise ValueError("history must be one of 'tc'/'ca'")
+        
+            self._history = x
+            self._j = hist_values_2C[x][0]
+            self._jf = hist_values_2C[x][1]
+            self._R_mdot = hist_values_2C[x][2]
+
+    @property
+    def j(self):
+        return self._j
+
+    @j.setter
+    def j(self,x):
+        if self.history in hist_values_2C.keys():
+            raise ValueError('j cannot take on alternate values for a defined history')
+        else:
+            self._j = x
+
+    @property
+    def jf(self):
+        return self._jf
+
+    @jf.setter
+    def jf(self,x):
+        if self.history	in hist_values_2C.keys():
+            raise ValueError('jf cannot take on alternate values for a defined history')
+        else:
+            self._jf = x
+
+    @property
+    def R_mdot(self):
+        return self._R_mdot
+
+    @R_mdot.setter
+    def R_mdot(self,x):
+        self._R_mdot = x
+        
+    @property
+    def n(self):
+        return self._n
+
+    @n.setter
+    def n(self,x):
+        if x <= 0:
+            raise ValueError('n must be > 0')
+        self._n = x
+
+    @property
+    def tau(self):
+        return self._tau
+
+    @tau.setter
+    def tau(self,x):
+        self._tau = x
+       
 ###end new###
         
 class McKeeOffner_PMF(MassFunction):
