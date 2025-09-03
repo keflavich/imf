@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats
 from scipy.integrate import quad
 from scipy.interpolate import PchipInterpolator
+from scipy.optimize import root_scalar
 
 class Distribution:
     """ The main class describing the distributions, to be inherited"""
@@ -371,9 +372,158 @@ class PMF(Distribution):
     Arguments:
     ----------
     """
-    def __init__(self,*args):
-        return 0
+    def __init__(self,imf,m1,m2,
+                 j,jf,scale_value,
+                 n,tau):
+        self.imf = imf
+        self.m1 = m1
+        self.m2 = m2
+        self.j = j
+        self.jf = jf
+        self.scale_value = scale_value
+        self.n = n
+        self.tau = tau
+        
+        self._points = np.geomspace(min(self.m1,1e-3),self.m2,200)
+        self._func_dict = None
+        self._calculate('all')
+        self._taper = False
+        self._accelerating = False
+        self._update_functions()
 
+    def _make_interps(self,taper,accelerating):
+        def pmf(mass,taper,accelerating):
+            avg_time = self._average_time(taper,accelerating)
+
+            def m_dot(mf,mass_):
+                return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
+
+            def integrand(mf,mass_):
+                if taper:
+                    tf = self._tf(mf,taper)
+                    def root_t(t,mf,mass_):
+                        term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                        term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                        prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
+                        prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
+                        return term1 - term2, prime_term1 - prime_term2
+
+                    def taper_factor(mf,mass_):
+                        sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
+                        return 1 - (sol.root / tf)**self.n
+
+                    t_factor = taper_factor(mf,mass_)
+                    if accelerating:
+                        tm = (1 - t_factor)**(1 / self.n) * tf
+                        
+                else:
+                    t_factor = 1
+                    if accelerating:
+                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
+                
+                return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
+
+            def integral(lolim,mass_,**kwargs):
+                return scipy.integrate.quad(integrand,lolim,self.m2,args=(mass_),**kwargs)[0]
+
+            ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1),mass)
+            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
+
+        base = pmf(self._points,taper,accelerating)
+        pdf = base / self._points
+        cdf = np.cumsum(pdf)
+        cdf /= np.max(cdf)
+        zero_arg = np.argmin(np.diff(cdf))
+        return (PchipInterpolator(self._points,pdf),
+                PchipInterpolator(self._points,cdf),
+                PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
+
+    def _calculate(self,mode):
+        not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
+        if not_ok:
+            raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, scale_value)')
+        else:
+            pass
+
+        keys = ['pdf','cdf','ppf']
+        if mode == 'all':
+            func_dict = {key: [] for key in keys}
+            modes = [(0,0),(1,0),(0,1),(1,1)]
+            for m in modes:
+                interps = self._make_interps(*m)
+                for i,key in enumerate(keys):
+                    func_dict[key].append(interps[i])
+            self._func_dict = func_dict
+                
+        elif mode == 'taper':
+            modes = [(1,0),(1,1)]
+            for i,m in enumerate(modes):
+                interps = self._make_interps(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][2*i+1] = interps[j]
+
+        elif mode == 'accelerating':
+            modes = [(0,1),(1,1)]
+            for i,m in enumerate(modes):
+                interps = self._make_interps(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][i+2] = interps[j]
+        
+    def _pick_function(self,functype,taper,accelerating):
+        return self._func_dict[functype][int(taper+2*accelerating)]
+
+    def _update_functions(self):
+        self._pdf = self._pick_function('pdf',self.taper,self.accelerating)
+        self._cdf = self._pick_function('cdf',self.taper,self.accelerating)
+        self._ppf = self._pick_function('ppf',self.taper,self.accelerating)
+
+    def _tf(self,mf,taper):
+        factor = (self.n + 1) / self.n if taper else 1
+        tf1 = factor / (1 - self.j) / self.scale_value
+        return tf1 * mf**(1 - self.jf)
+
+    def _average_time(self,taper,accelerating):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return 1e6 * self.tau * (1 - np.exp(-self._tf(mf,taper=taper) / self.tau / 1e6))
+            ret = self.imf.weight_average(accel_weight,taper)
+        else:
+            ret = self.imf.weight_average(self._tf,taper)
+        return ret
+
+    def pdf(self,x):
+        return self._pdf(x,extrapolate=False)
+
+    def cdf(self,x):
+        return self._cdf(x,extrapolate=False)
+
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
+
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
+    
+    @property
+    def taper(self):
+        return self._taper
+
+    @taper.setter
+    def taper(self,x):
+        self._taper = x
+        self._update_functions()
+
+    @property
+    def accelerating(self):
+        return self._accelerating
+
+    @accelerating.setter
+    def accelerating(self,x):
+        self._accelerating = x
+        self._update_functions()
+
+        
 class PMF_2C(PMF):
     """
     Two-component Protostellar Mass Function.
@@ -387,6 +537,22 @@ class PMF_2C(PMF):
     """
     def __init__(self,*args):
         return 0
+
+    def pdf(self,x):
+        ret = self._pdf_interpolator(x,extrapolate=False)
+        return ret
+
+    def cdf(self,x):
+        ret = self._cdf_interpolator(x,extrapolate=False)
+        return ret
+
+    def rvs(self,N):
+        samp = np.random.uniform(min(self._cdf),max(self._cdf),size=N)
+        return self.ppf(samp)
+
+    def ppf(self,x):
+        ret = self._ppf_interpolator(x,extrapolate=False)
+        return ret
 
     
 class CompositeDistribution(Distribution):

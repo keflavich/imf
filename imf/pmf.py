@@ -9,7 +9,7 @@ from scipy.special import hyp2f1
 import warnings
 
 from .imf import MassFunction, ChabrierPowerLaw, Kroupa
-#from .distributions import PMF, PMF_2C
+from . import distributions
 
 chabrierpowerlaw = ChabrierPowerLaw()
 
@@ -25,32 +25,71 @@ def scaling(history,value=None):
         value = params[3]
     return params[2] * (value / params[3])**params[4]
 
-class PMF:
+class PMF(MassFunction):
     """
     """
     def __init__(self,imf,
                  mmin=None,mmax=None,
-                 history=None,
+                 history='is',
                  j=None,jf=None,scale_value=None,
                  n=1,tau=1):
-        self.imf = imf
+        self.distr = None
+        
+        self._imf = imf
         self.imf.normalize()
 
-        self.mmin = self.imf.mmin if mmin is None else mmin
-        self.mmax = self.imf.mmax if mmax is None else mmax
+        self._mmin = self.imf.mmin if mmin is None else mmin
+        self._mmax = self.imf.mmax if mmax is None else mmax
 
         self.history = history
-        
-        if self.history is None:
-            self.j = j
-            self.jf = jf
 
+        if self.history is None:
+            self._j = j
+            self._jf = jf
+        
         self.scale_value = scale_value
 
-        self.n = n
+        self._n = n
 
-        self.tau = tau
+        self._tau = tau
+        
+        self.distr = distributions.PMF(self.imf,self.mmin,self.mmax,
+                                       self.j,self.jf,self.scale_value,
+                                       self.n,self.tau)
+        self.normfactor = 1
 
+    def __call__(self,mass,
+                 integral_form=False,
+                 taper=False,
+                 accelerating=False,
+                 **kwargs):
+
+        self.distr.taper = taper
+        self.distr.accelerating = accelerating
+        
+        if integral_form:
+            return self.distr.cdf(mass) * self.normfactor
+        else:
+            return self.distr.pdf(mass) * self.normfactor
+
+    def tf(self,mf,taper=False):
+        """
+        Returns the expected formation time of a star with
+        final mass mf following the accretion history
+        underlying the PMF.
+        """
+        return self.distr._tf(mf,taper)
+        pass
+
+    def average_time(self,taper=False,accelerating=False):
+        """
+        Returns the IMF-averaged star formation time of the
+        PMF.
+        """
+        return self.distr._average_time(taper,accelerating)
+        pass
+    
+    """
     def __call__(self,mass,
                  taper=False,
                  accelerating=False,
@@ -94,11 +133,11 @@ class PMF:
         return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
         
     def tf(self,mf,taper=False):
-        """
+        ""
         Returns the expected formation time of a star with 
         final mass mf following the accretion history
         underlying the PMF.
-        """
+        ""
         factor = (self.n + 1) / self.n if taper else 1
         tf1 = factor / (1 - self.j) / self.scale_value
         return tf1 * mf**(1 - self.jf)
@@ -111,7 +150,8 @@ class PMF:
         else:
             ret = self.imf.weight_average(self.tf,taper)
         return ret
-
+    """
+    
     @property
     def imf(self):
         return self._imf
@@ -119,28 +159,29 @@ class PMF:
     @imf.setter
     def imf(self,x):
         self._imf = x
+        self._imf.normalize()
+        self.distr.imf = self._imf
+        self.distr.calculate('all')
 
     @property
     def mmin(self):
         return self._mmin
 
     @mmin.setter
-    def mmin(self,x,set_imf=False):
+    def mmin(self,x):
         self._mmin = x
-        if set_imf:
-            self.imf._mmin = x
-            self.imf.normalize()
-
+        self.distr.mmin = x
+        self.distr._calculate('all')
+            
     @property
     def mmax(self):
         return self._mmax
 
     @mmax.setter
-    def mmax(self,x,set_imf=False):
+    def mmax(self,x):
         self._mmax = x
-        if set_imf:
-            self.imf._mmax = x
-            self.imf.normalize()
+        self.distr.mmax = x
+        self.distr._calculate('all')
 
     @property
     def history(self):
@@ -159,6 +200,12 @@ class PMF:
             self._jf = hist_values[x][1]
             self._scale_value = hist_values[x][2]
 
+            if self.distr is not None:
+                self.distr.j = self.j
+                self.distr.jf = self.jf
+                self.distr.scale_value = self.scale_value
+                self.distr._calculate('all')
+            
     @property
     def j(self):
         return self._j
@@ -169,6 +216,8 @@ class PMF:
             raise ValueError('j cannot take on alternate values for a defined history')
         else:
             self._j = x
+            self.distr.j = x
+            self.distr._calculate('all')
 
     @property
     def jf(self):
@@ -180,6 +229,8 @@ class PMF:
             raise ValueError('jf cannot take on alternate values for a defined history')
         else:
             self._jf = x
+            self.distr.jf = x
+            self.distr._calculate('all')
 
     @property
     def scale_value(self):
@@ -191,6 +242,10 @@ class PMF:
             self._scale_value = scaling(self.history,x)
         else:
             self._scale_value = x
+
+        if self.distr is not None:
+            self.distr.scale_value = self._scale_value
+            self.distr._calculate('all')
         
     @property
     def n(self):
@@ -201,6 +256,8 @@ class PMF:
         if x <= 0:
             raise ValueError('n must be > 0')
         self._n = x
+        self.distr.n = x
+        self.distr._calculate('taper')
 
     @property
     def tau(self):
@@ -209,6 +266,8 @@ class PMF:
     @tau.setter
     def tau(self,x):
         self._tau = x
+        self.distr.tau = x
+        self.distr._calculate('accelerating')
 
 hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
                   'ca' : (2/3, 1., 3.2)}
