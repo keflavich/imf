@@ -9,6 +9,7 @@ from scipy.special import hyp2f1
 import warnings
 
 from .imf import MassFunction, ChabrierPowerLaw, Kroupa
+#from .distributions import PMF, PMF_2C
 
 chabrierpowerlaw = ChabrierPowerLaw()
 
@@ -101,7 +102,7 @@ class PMF:
         factor = (self.n + 1) / self.n if taper else 1
         tf1 = factor / (1 - self.j) / self.scale_value
         return tf1 * mf**(1 - self.jf)
-
+            
     def average_time(self,taper=False,accelerating=False):
         if accelerating:
             def accel_weight(mf,taper=False):
@@ -245,7 +246,7 @@ class PMF_2C:
                                      accelerating=accelerating)
 
         def m_dot(mf,mass_):
-            return self.m_is * np.sqrt(1 + self.R_mdot**2  *
+            return self.m_is * np.sqrt(1 + self.R_mdot**2 *
                                        (mass_ / mf)**(2 * self.j) *
                                        mf**(2 * self.jf)
                                        )
@@ -253,15 +254,16 @@ class PMF_2C:
         def integrand(mf,mass_):
             def base_tm(mf,mass_):
                 return mass_ / self.m_is * hyp2f1(0.5,0.5/self.j,1+0.5/self.j,
-                                                  -(self.R_mdot * mf**(self.jf-self.j) * mass_**self.j)**2)
-
+                                                  -(self.R_mdot*(mass_/mf)**self.j*mf**self.jf)**2)
+            
             if taper:
                 tf = self.tf(mf,taper=taper)
                 def root_t(t,mf,mass_):
-                    t_term = t * (1 - (t / tf)**self.n / (self.n + 1))
+                    term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                    term2 = base_tm(mf,mass_)
                     prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
                     prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
-                    return t_term - base_tm(mf,mass_), prime_term1 - prime_term2
+                    return term1 - term2, prime_term1 - prime_term2
 
                 def taper_factor(mf,mass_):
                     sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
@@ -400,6 +402,15 @@ class PMF_2C:
     @tau.setter
     def tau(self,x):
         self._tau = x
+
+    @property
+    def T(self):
+        return self._T
+
+    @T.setter
+    def T(self,x):
+        self._T = x
+        self.m_is = scaling('is',self._T)
        
 ###end new###
         

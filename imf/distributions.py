@@ -376,7 +376,7 @@ class PMF(Distribution):
 
 class PMF_2C(PMF):
     """
-    Two-component Protostellar Mass Function.                                              
+    Two-component Protostellar Mass Function.
 
     Creates a distribution for the Protostellar Mass Function (PMF) 
     corresponding to a supplied IMF and two-component accretion history
