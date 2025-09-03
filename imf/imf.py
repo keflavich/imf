@@ -489,7 +489,7 @@ def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
         if mmin is not None and massfunc.mmin != mmin:
             raise ValueError("mmin was specified, but a massfunction instance"
                              " was specified with a different mmin")
-        return massfunc(**kwargs)
+        return massfunc
     elif massfunc in massfunctions.values():
         # if the massfunction is a known MassFunc class
         return massfunc(mmin=mmin, mmax=mmax, **kwargs)

@@ -72,6 +72,11 @@ class PMF(MassFunction):
         else:
             return self.distr.pdf(mass) * self.normfactor
 
+    def mass_weighted(self,x,
+                      taper=False,
+                      accelerating=False):
+        return self(x,taper=taper,accelerating=accelerating) * x
+
     def tf(self,mf,taper=False):
         """
         Returns the expected formation time of a star with
@@ -79,7 +84,6 @@ class PMF(MassFunction):
         underlying the PMF.
         """
         return self.distr._tf(mf,taper)
-        pass
 
     def average_time(self,taper=False,accelerating=False):
         """
@@ -87,71 +91,7 @@ class PMF(MassFunction):
         PMF.
         """
         return self.distr._average_time(taper,accelerating)
-        pass
-    
-    """
-    def __call__(self,mass,
-                 taper=False,
-                 accelerating=False,
-                 **kwargs):
-        avg_time = self.average_time(taper=taper,
-                                     accelerating=accelerating)
-
-        def m_dot(mf,mass_):
-            return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
-
-        def integrand(mf,mass_):
-            if taper:
-                tf = self.tf(mf,taper=taper)
-                def root_t(t,mf,mass_):
-                    term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
-                    term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
-                    prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
-                    prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
-                    return term1 - term2, prime_term1 - prime_term2
-                    
-                def taper_factor(mf,mass_):
-                    sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
-                    return 1 - (sol.root / tf)**self.n
-
-                t_factor = taper_factor(mf,mass_)
-                if accelerating:
-                    tm = (1 - t_factor)**(1 / self.n) * tf
-            else:
-                t_factor = 1
-                if accelerating:
-                    tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
-
-            a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
-
-            return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
-
-        def integral(lolim,mass_,**kwargs):
-            return scipy.integrate.quad(integrand,lolim,self.mmax,args=(mass_),**kwargs)[0]
         
-        ret = np.vectorize(integral)(np.where(self.mmin < mass, mass, self.mmin),mass)
-        return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
-        
-    def tf(self,mf,taper=False):
-        ""
-        Returns the expected formation time of a star with 
-        final mass mf following the accretion history
-        underlying the PMF.
-        ""
-        factor = (self.n + 1) / self.n if taper else 1
-        tf1 = factor / (1 - self.j) / self.scale_value
-        return tf1 * mf**(1 - self.jf)
-            
-    def average_time(self,taper=False,accelerating=False):
-        if accelerating:
-            def accel_weight(mf,taper=False):
-                return 1e6 * self.tau * (1 - np.exp(-self.tf(mf,taper=taper) / self.tau / 1e6))
-            ret = self.imf.weight_average(accel_weight,taper)
-        else:
-            ret = self.imf.weight_average(self.tf,taper)
-        return ret
-    """
-    
     @property
     def imf(self):
         return self._imf
@@ -268,6 +208,7 @@ class PMF(MassFunction):
         self._tau = x
         self.distr.tau = x
         self.distr._calculate('accelerating')
+
 
 hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
                   'ca' : (2/3, 1., 3.2)}
