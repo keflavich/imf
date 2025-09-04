@@ -1,8 +1,9 @@
 import numpy as np
 import scipy.stats
-from scipy.integrate import quad
+from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import root_scalar
+from scipy.special import hyp2f1
 
 class Distribution:
     """ The main class describing the distributions, to be inherited"""
@@ -362,6 +363,7 @@ class KoenConvolvedPowerLaw(Distribution):
         ret = self._ppf_interpolator(x,extrapolate=False)
         return ret
 
+
 class PMF(Distribution):
     """Protostellar Mass Function.
 
@@ -428,16 +430,17 @@ class PMF(Distribution):
                 return scipy.integrate.quad(integrand,lolim,self.m2,args=(mass_),**kwargs)[0]
 
             ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1),mass)
-            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
+            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always >= 0
 
         base = pmf(self._points,taper,accelerating)
         pdf = base / self._points
-        cdf = np.cumsum(pdf)
-        cdf /= np.max(cdf)
+        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],(self._points[1:]+self._points[:-1])/2,[self.m2]))
         zero_arg = np.argmin(np.diff(cdf))
         return (PchipInterpolator(self._points,pdf),
-                PchipInterpolator(self._points,cdf),
-                PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
+                PchipInterpolator(cdf_points,cdf),
+                PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
 
     def _calculate(self,mode):
         not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
@@ -533,7 +536,7 @@ class PMF_2C(PMF):
     using the formalism of McKee & Offner (2010).
 
     Arguments:
-    ----------                                                                  
+    ---------- 
     """
     def __init__(self,imf,m1,m2,
                  j,jf,
@@ -589,7 +592,7 @@ class PMF_2C(PMF):
                 else:
                     t_factor = 1
                     if accelerating:
-                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                        tm = base_tm(mf,mass_)
                 a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
 
                 return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
@@ -598,16 +601,17 @@ class PMF_2C(PMF):
                 return scipy.integrate.quad(integrand,lolim,self.m2,args=(mass_),**kwargs)[0]
 
             ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1),mass)
-            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
+            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always >= 0
 
         base = pmf(self._points,taper,accelerating)
         pdf = base / self._points
-        cdf = np.cumsum(pdf)
-        cdf /= np.max(cdf)
+        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],(self._points[1:]+self._points[:-1])/2,[self.m2]))
         zero_arg = np.argmin(np.diff(cdf))
         return (PchipInterpolator(self._points,pdf),
-                PchipInterpolator(self._points,cdf),
-                PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
+                PchipInterpolator(cdf_points,cdf),
+                PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
 
     def _calculate(self,mode):
         not_ok = (self.j is None) | (self.jf is None) | (self.R_mdot is None)
@@ -640,16 +644,6 @@ class PMF_2C(PMF):
                 for j,key in enumerate(keys):
                     self._func_dict[key][i+2] = interps[j]
 
-    """
-    def _pick_function(self,functype,taper,accelerating):
-        return self._func_dict[functype][int(taper+2*accelerating)]
-
-    def _update_functions(self):
-        self._pdf = self._pick_function('pdf',self.taper,self.accelerating)
-        self._cdf = self._pick_function('cdf',self.taper,self.accelerating)
-        self._ppf = self._pick_function('ppf',self.taper,self.accelerating)
-    """
-
     def _tf(self,mf,taper):
         factor = (self.n + 1) / self.n if taper else 1
         body = mf / self.m_is * hyp2f1(0.5,0.5/self.j,
@@ -657,48 +651,7 @@ class PMF_2C(PMF):
                                        -(self.R_mdot * mf**self.jf)**2)
         return factor * body
 
-    """
-    def _average_time(self,taper,accelerating):
-        if accelerating:
-            def accel_weight(mf,taper=False):
-                return 1e6 * self.tau * (1 - np.exp(-self._tf(mf,taper=taper) / self.tau / 1e6))
-            ret = self.imf.weight_average(accel_weight,taper)
-        else:
-            ret = self.imf.weight_average(self._tf,taper)
-        return ret
 
-    def pdf(self,x):
-        return self._pdf(x,extrapolate=False)
-
-    def cdf(self,x):
-        return self._cdf(x,extrapolate=False)
-
-    def ppf(self,x):
-        return self._ppf(x,extrapolate=False)
-
-    def rvs(self,N):
-        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
-        return self.ppf(samp)
-
-    @property
-    def taper(self):
-        return self._taper
-
-    @taper.setter
-    def taper(self,x):
-        self._taper = x
-        self._update_functions()
-
-    @property
-    def accelerating(self):
-        return self._accelerating
-
-    @accelerating.setter
-    def accelerating(self,x):
-        self._accelerating = x
-        self._update_functions()
-    """
-    
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
         """ A Composite distribution that consists of several distributions
