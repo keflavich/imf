@@ -27,6 +27,7 @@ def scaling(history,value=None):
 
 class PMF(MassFunction):
     """
+    documentation
     """
     def __init__(self,imf,
                  mmin=None,mmax=None,
@@ -50,7 +51,6 @@ class PMF(MassFunction):
         self.scale_value = scale_value
 
         self._n = n
-
         self._tau = tau
         
         self.distr = distributions.PMF(self.imf,self.mmin,self.mmax,
@@ -214,6 +214,200 @@ hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
                   'ca' : (2/3, 1., 3.2)}
 
 class PMF_2C:
+    """
+    documentation
+    """
+    def __init__(self,imf,
+                 mmin=None,mmax=None,
+                 history='is',
+                 j=None,jf=None,
+                 R_mdot=None,T=10,
+                 n=1,tau=1):
+        self.distr = None
+        
+        self._imf = imf
+        self.imf.normalize()
+
+        self._mmin = self.imf.mmin if mmin is None else mmin
+        self._mmax = self.imf.mmax if mmax is None else mmax
+
+        self.history = history
+
+        if self.history is None:
+            self._j = j
+            self._jf = jf
+            self._R_mdot = R_mdot
+
+        self._n = n
+        self._tau = tau
+
+        self._T = T
+        self.m_is = scaling('is',self.T)
+        
+        self.distr = distributions.PMF_2C(self.imf,self.mmin,self.mmax,
+                                          self.j,self.jf,
+                                          self.R_mdot,self.m_is,
+                                          self.n,self.tau)
+        self.normfactor = 1
+
+    def __call__(self,mass,
+                 integral_form=False,
+                 taper=False,
+                 accelerating=False,
+                 **kwargs):
+
+        self.distr.taper = taper
+        self.distr.accelerating = accelerating
+        
+        if integral_form:
+            return self.distr.cdf(mass) * self.normfactor
+        else:
+            return self.distr.pdf(mass) * self.normfactor
+
+    def mass_weighted(self,x,
+                      taper=False,
+                      accelerating=False):
+        return self(x,taper=taper,accelerating=accelerating) * x
+
+    def tf(self,mf,taper=False):
+        """
+        Returns the expected formation time of a star with
+        final mass mf following the accretion history
+        underlying the PMF.
+        """
+        return self.distr._tf(mf,taper)
+
+    def average_time(self,taper=False,accelerating=False):
+        """
+        Returns the IMF-averaged star formation time of the
+        PMF.
+        """
+        return self.distr._average_time(taper,accelerating)
+        
+    @property
+    def imf(self):
+        return self._imf
+
+    @imf.setter
+    def imf(self,x):
+        self._imf = x
+        self._imf.normalize()
+        self.distr.imf = self._imf
+        self.distr.calculate('all')
+
+    @property
+    def mmin(self):
+        return self._mmin
+
+    @mmin.setter
+    def mmin(self,x):
+        self._mmin = x
+        self.distr.mmin = x
+        self.distr._calculate('all')
+            
+    @property
+    def mmax(self):
+        return self._mmax
+
+    @mmax.setter
+    def mmax(self,x):
+        self._mmax = x
+        self.distr.mmax = x
+        self.distr._calculate('all')
+
+    @property
+    def history(self):
+        return self._history
+
+    @history.setter
+    def history(self,x):
+        if x is None:
+            self._history = x
+        else:
+            if not x in hist_values_2C.keys():
+                raise ValueError("history must be one of 'tc'/'ca'")
+        
+            self._history = x
+            self._j = hist_values_2C[x][0]
+            self._jf = hist_values_2C[x][1]
+            self._R_mdot = hist_values_2C[x][2]
+
+            if self.distr is not None:
+                self.distr.j = self.j
+                self.distr.jf = self.jf
+                self.distr.R_mdot = self.R_mdot
+                self.distr._calculate('all')
+            
+    @property
+    def j(self):
+        return self._j
+
+    @j.setter
+    def j(self,x):
+        if self.history in hist_values_2C.keys():
+            raise ValueError('j cannot take on alternate values for a defined history')
+        else:
+            self._j = x
+            self.distr.j = x
+            self.distr._calculate('all')
+
+    @property
+    def jf(self):
+        return self._jf
+
+    @jf.setter
+    def jf(self,x):
+        if self.history	in hist_values_2C.keys():
+            raise ValueError('jf cannot take on alternate values for a defined history')
+        else:
+            self._jf = x
+            self.distr.jf = x
+            self.distr._calculate('all')
+
+    @property
+    def R_mdot(self):
+        return self._R_mdot
+
+    @R_mdot.setter
+    def R_mdot(self,x):
+        self._R_mdot = x
+        self.distr.R_mdot = x
+        self.distr._calculate('all')
+
+    @property
+    def T(self):
+        return self._T
+
+    @T.setter
+    def T(self,x):
+        self._T = x
+        self.m_is = scaling('is',x)
+
+        self.distr.m_is = self.m_is
+        self.distr._calculate('all')
+        
+    @property
+    def n(self):
+        return self._n
+
+    @n.setter
+    def n(self,x):
+        if x <= 0:
+            raise ValueError('n must be > 0')
+        self._n = x
+        self.distr.n = x
+        self.distr._calculate('taper')
+
+    @property
+    def tau(self):
+        return self._tau
+
+    @tau.setter
+    def tau(self,x):
+        self._tau = x
+        self.distr.tau = x
+        self.distr._calculate('accelerating')
+    """
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history=None,
@@ -288,11 +482,11 @@ class PMF_2C:
         return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always > 0 (bit hacky, can be changed)
 
     def tf(self,mf,taper=False):
-        """
+        ""
         Returns the expected formation time of a star with 
         final mass mf following the accretion history
         underlying the PMF.
-        """
+        ""
         factor = (self.n + 1) / self.n if taper else 1
         body = mf / self.m_is * hyp2f1(0.5,0.5/self.j,
                                        1+0.5/self.j,
@@ -411,6 +605,7 @@ class PMF_2C:
     def T(self,x):
         self._T = x
         self.m_is = scaling('is',self._T)
+    """
        
 ###end new###
         
