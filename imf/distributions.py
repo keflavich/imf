@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats
+from scipy.differentiate import jacobian
 from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import root_scalar
@@ -650,6 +651,193 @@ class PMF_2C(PMF):
                                        1+0.5/self.j,
                                        -(self.R_mdot * mf**self.jf)**2)
         return factor * body
+
+class PLF(Distribution):
+    """Protostellar Luminosity Function.
+
+    Creates a distribution for the Protostellar Mass Function (PMF) 
+    corresponding to a supplied IMF and accretion history using the 
+    formalism of McKee & Offner (2010).
+
+    Arguments:
+    ----------
+    """
+    def __init__(self,imf,l1,l2,
+                 j,jf,scale_value,
+                 n,tau,
+                 m_interp,l_interp):
+        self.imf = imf
+        self.l1 = l1
+        self.l2 = l2
+        self.j = j
+        self.jf = jf
+        self.scale_value = scale_value
+        self.n = n
+        self.tau = tau
+
+        self.m_interp = m_interp
+        self.l_interp = l_interp
+        
+        self._points = np.geomspace(self.l1,self.l2,200)
+        self._func_dict = None
+        self._calculate('all')
+        self._taper = False
+        self._accelerating = False
+        self._update_functions()
+
+    def _make_interps(self,taper,accelerating):
+        def plf(lum,taper,accelerating):
+            avg_time = self._average_time(taper,accelerating)
+
+            def m_dot(mf,mass_):
+                return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
+
+            def integrand(mf,mass_):
+
+                def d_logl(mf,mass_):
+                    L = self.interp_l(mf,mass_)
+                    res = jacobian(lambda xi: self.interp_l(xi[0],xi[1]),(mf,mass_))
+                    if ~np.isfinite(res.df[1]):
+                        stepdir = 1 if mass_ < 0.8 * mf else -1
+                        res = jacobian(lambda xi: self.interp_l(xi[0],xi[1]),(mf,mass_),step_direction=stepdir)
+                    return abs(res * mass_ / L)
+                
+                if taper:
+                    tf = self._tf(mf,taper)
+                    def root_t(t,mf,mass_):
+                        term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                        term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                        prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
+                        prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
+                        return term1 - term2, prime_term1 - prime_term2
+
+                    def taper_factor(mf,mass_):
+                        sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
+                        return 1 - (sol.root / tf)**self.n
+
+                    t_factor = taper_factor(mf,mass_)
+                    if accelerating:
+                        tm = (1 - t_factor)**(1 / self.n) * tf
+                        
+                else:
+                    t_factor = 1
+                    if accelerating:
+                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
+
+                l_factor = abs(d_logl(mf,mass_))
+                
+                return self.imf(mf) * mass_ / m_dot(mf,mass_) * a_factor / t_factor / l_factor
+
+            def integral(lolim,mass_,**kwargs):
+                return scipy.integrate.quad(integrand,lolim,self.imf.mmax,args=(mass_),**kwargs)[0]
+
+            def m(mf,lum_):
+                ret = self.m_interp(mf,lum_)
+                return_z = np.logical_or(ret > mf,~np.isfinite(ret))
+                if return_z:
+                    return 0
+                else:
+                    return ret
+            
+            mass = m(mf,lum_)
+            
+            ret = np.vectorize(integral)(np.where(4e-3 < mass, mass, 4e-3),mass)
+            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PLF is always >= 0
+
+        base = plf(self._points,taper,accelerating)
+        pdf = base / self._points
+        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],(self._points[1:]+self._points[:-1])/2,[self.m2]))
+        zero_arg = np.argmin(np.diff(cdf))
+        return (PchipInterpolator(self._points,pdf),
+                PchipInterpolator(cdf_points,cdf),
+                PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
+
+    def _calculate(self,mode):
+        not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
+        if not_ok:
+            raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, scale_value)')
+        else:
+            pass
+
+        keys = ['pdf','cdf','ppf']
+        if mode == 'all':
+            func_dict = {key: [] for key in keys}
+            modes = [(0,0),(1,0),(0,1),(1,1)]
+            for m in modes:
+                interps = self._make_interps(*m)
+                for i,key in enumerate(keys):
+                    func_dict[key].append(interps[i])
+            self._func_dict = func_dict
+                
+        elif mode == 'taper':
+            modes = [(1,0),(1,1)]
+            for i,m in enumerate(modes):
+                interps = self._make_interps(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][2*i+1] = interps[j]
+
+        elif mode == 'accelerating':
+            modes = [(0,1),(1,1)]
+            for i,m in enumerate(modes):
+                interps = self._make_interps(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][i+2] = interps[j]
+        
+    def _pick_function(self,functype,taper,accelerating):
+        return self._func_dict[functype][int(taper+2*accelerating)]
+
+    def _update_functions(self):
+        self._pdf = self._pick_function('pdf',self.taper,self.accelerating)
+        self._cdf = self._pick_function('cdf',self.taper,self.accelerating)
+        self._ppf = self._pick_function('ppf',self.taper,self.accelerating)
+
+    def _tf(self,mf,taper):
+        factor = (self.n + 1) / self.n if taper else 1
+        tf1 = factor / (1 - self.j) / self.scale_value
+        return tf1 * mf**(1 - self.jf)
+
+    def _average_time(self,taper,accelerating):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return 1e6 * self.tau * (1 - np.exp(-self._tf(mf,taper=taper) / self.tau / 1e6))
+            ret = self.imf.weight_average(accel_weight,taper)
+        else:
+            ret = self.imf.weight_average(self._tf,taper)
+        return ret
+
+    def pdf(self,x):
+        return self._pdf(x,extrapolate=False)
+
+    def cdf(self,x):
+        return self._cdf(x,extrapolate=False)
+
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
+
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
+    
+    @property
+    def taper(self):
+        return self._taper
+
+    @taper.setter
+    def taper(self,x):
+        self._taper = x
+        self._update_functions()
+
+    @property
+    def accelerating(self):
+        return self._accelerating
+
+    @accelerating.setter
+    def accelerating(self,x):
+        self._accelerating = x
+        self._update_functions()
 
 
 class CompositeDistribution(Distribution):
