@@ -8,7 +8,7 @@ series of stellar evolution codes?
 
 import numpy as np
 import scipy.integrate
-from scipy.interpolate import CloughTocher2DInterpolator
+from scipy.interpolate import CloughTocher2DInterpolator,RegularGridInterpolator
 from astropy.table import Table
 
 import os
@@ -31,24 +31,12 @@ def scaling(history,value=None):
         value = params[3]
     return params[2] * (value / params[3])**params[4]
 
-def get_subdir(history,n_comp=1,taper=False):
+def get_fname(history,n_comp=1,taper=False):
     prefix = 'taper_' if taper else ''
     if n_comp == 1:
         return prefix + history
     else:
         return prefix + f'2c{history}'
-
-def get_pars(fname,fmt=None):
-    if fmt is None:
-        fmt = 'ascii'
-    spl = fname.split('=')[1].split('.')
-    mf = float(spl[0] + '.' + spl[1])
-
-    tb = Table.read(fname,format=fmt)
-    m_array, unq_inds = np.unique(tb['Stellar_Mass'],return_index=True)
-    l_array = tb['Total_Luminosity'][unq_inds]
-    mf_array = mf * np.ones(len(m_array))
-    return mf_array,m_array,l_array
     
 class PLF(MassFunction):
     """
@@ -57,6 +45,7 @@ class PLF(MassFunction):
     def __init__(self,imf,
                  lmin=0.01,lmax=100,
                  history='is',
+                 f_epi=0.75,
                  n=1,tau=1,
                  proto_trackdir=f'{loc}/data/K12_protoev_tables',
                  **kwargs):
@@ -70,6 +59,8 @@ class PLF(MassFunction):
 
         self.history = history
 
+        self._f_epi = f_epi
+        
         self._n = n
         self._tau = tau
 
@@ -98,16 +89,23 @@ class PLF(MassFunction):
     def _make_interps(self,trackdir,**kwargs):
         interps = []
         for taper in (False,True):
-            fnames = glob(f'{trackdir}/{get_subdir(self.history,taper=taper)}/*')
-            for i,name in enumerate(fnames):
-                mf, m, l = get_pars(name,**kwargs)
-                if i == 0:
-                    data = np.array([mf,m,l])
-                else:
-                    data = np.concatenate((data,np.array([mf,m,l])),axis=-1)
-            data = data[:,np.argsort(data[0],stable=True)]
-            interps.extend([CloughTocher2DInterpolator(data[0::2].T,data[1]),
-                            CloughTocher2DInterpolator(data[:2].T,data[2])])
+            table = Table.read(f'{trackdir}/{get_fname(self.history,taper=taper)}_val_table.fits')
+            l_tot = table['lint'] + self.f_epi * table['lacc']
+            m_data = np.array([table['mf'],l_tot])
+            ok = np.isfinite(l_tot)
+            m_interp = CloughTocher2DInterpolator(m_data[:,ok].T,table['m'][ok])
+            mf_unq = np.unique(table['mf'])
+            m_unq = np.unique(table['m'])
+            l_data = np.copy(l_tot)
+            l_data[~ok] = 0
+
+            l_data = l_data.reshape(len(mf_unq),len(m_unq))
+            l_interp = RegularGridInterpolator((mf_unq,m_unq),l_data,method='pchip')
+
+            grad = np.gradient(l_data,m_unq,axis=1) 
+            grad_interp = RegularGridInterpolator((mf_unq,m_unq),grad,method='pchip')
+            
+            interps.extend([m_interp,l_interp,grad_interp])
         return interps
         
     def mass_weighted(self,x,
@@ -179,9 +177,19 @@ class PLF(MassFunction):
             self.distr.j = self.j
             self.distr.jf = self.jf
             self.distr.scale_value = self.scale_value
-            self.distr.interps = self._make_interps(self._trackdir,format=fmt)
+            self.distr.interps = self._make_interps(self._trackdir)
             self.distr._calculate('all')
             
+    @property
+    def f_epi(self):
+        return self._f_epi
+
+    @f_epi.setter
+    def f_epi(self,x):
+        self._f_epi = x
+        self.distr.interps = self._make_interps(self._trackdir)
+        self.distr.calculate('all')
+
     @property
     def mmin(self):
         return self.lmin

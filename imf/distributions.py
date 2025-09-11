@@ -687,6 +687,18 @@ class PLF(Distribution):
         def plf(lum,taper,accelerating):
             avg_time = self._average_time(taper,accelerating)
 
+            def get_unknowns(mf,lum_):
+                interp_l = self.interps[self.interp_idx]
+                
+                masses = np.geomspace(0.01,mf) # in-bounds mass points for a 1D interpolation
+                m_of_l = PchipInterpolator(interp_l((np.ones(len(masses)) * mf, masses)),masses)
+                ret_m = m_of_l(lum_)
+
+                interp_grad = self.interps[self.interp_idx+1]
+                ret_l = abs(ret_m * interp_grad((mf,ret_m)) / lum_)
+                
+                return ret_m, ret_l
+            
             def m(mf,lum_):
                 ret = self.interps[self.interp_idx](mf,lum_)
                 inBounds = np.logical_and(ret > 0.1,ret < mf) #ensure m is consistent with K12 output
@@ -696,22 +708,25 @@ class PLF(Distribution):
                     return ret
 
             def d_logl(mf,mass_):
+                if ~np.isfinite(mass_):
+                    return np.nan
+
+                point = np.array([mf,mass_])
+                
                 interp_l = self.interps[self.interp_idx+1]
-                L = interp_l(mf,mass_)
-                res = jacobian(lambda xi: interp_l(xi[0],xi[1]),(mf,mass_))
-                if ~res.success[1]:
-                    stepdir = 1 if mass_ < 0.5 * mf else -1
-                    res = jacobian(lambda xi: interp_l(xi[0],xi[1]),(mf,mass_),step_direction=stepdir)
-                return abs(res.df[1] * mass_ / L)
+                interp_grad = self.interps[self.interp_idx+2]
+                L = interp_l(point)[0]
+                grad = interp_grad(point)[0]
+                return abs(grad * mass_ / L)
 
             def m_dot(mf,mass_):
                 return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
 
             def integrand(mf,lum_):
 
-                mass_ = m(mf,lum_)
-                if mass_ == 0:
-                    return 0
+                masses = np.geomspace(0.01,mf)
+                
+                l_factor = d_logl(mf,mass_)
                 
                 if taper:
                     tf = self._tf(mf,taper)
@@ -735,10 +750,13 @@ class PLF(Distribution):
                     if accelerating:
                         tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
                 a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
-
-                l_factor = abs(d_logl(mf,mass_))
                 
-                return self.imf(mf) * mass_ / m_dot(mf,mass_) * a_factor / t_factor / l_factor
+                ret = self.imf(mf) * mass_ / m_dot(mf,mass_) * a_factor / t_factor / l_factor
+
+                if np.isfinite(ret):
+                    return ret
+                else:
+                    return 0
 
             def integral(lum_,mmin,mmax,**kwargs):
                 return scipy.integrate.quad(integrand,mmin,mmax,args=(lum_),limit=100,**kwargs)[0]
@@ -828,7 +846,7 @@ class PLF(Distribution):
     def taper(self,x):
         self._taper = x
         self._update_functions()
-        self.interp_idx = int(2 * self._taper)
+        self.interp_idx = int(3 * self._taper)
 
     @property
     def accelerating(self):
