@@ -675,7 +675,7 @@ class PLF(Distribution):
 
         self.interps = interps
         
-        self._points = np.geomspace(self.l1,self.l2,50)
+        self._points = np.geomspace(self.l1,self.l2,100)
         self._func_dict = None
         self._taper = False
         self._accelerating = False
@@ -698,35 +698,13 @@ class PLF(Distribution):
                 ret_l = abs(ret_m * interp_grad((mf,ret_m)) / lum_)
                 
                 return ret_m, ret_l
-            
-            def m(mf,lum_):
-                ret = self.interps[self.interp_idx](mf,lum_)
-                inBounds = np.logical_and(ret > 0.1,ret < mf) #ensure m is consistent with K12 output
-                if ~inBounds:
-                    return np.nan
-                else:
-                    return ret
-
-            def d_logl(mf,mass_):
-                if ~np.isfinite(mass_):
-                    return np.nan
-
-                point = np.array([mf,mass_])
-                
-                interp_l = self.interps[self.interp_idx+1]
-                interp_grad = self.interps[self.interp_idx+2]
-                L = interp_l(point)[0]
-                grad = interp_grad(point)[0]
-                return abs(grad * mass_ / L)
 
             def m_dot(mf,mass_):
                 return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
 
             def integrand(mf,lum_):
 
-                masses = np.geomspace(0.01,mf)
-                
-                l_factor = d_logl(mf,mass_)
+                mass_, l_factor = get_unknowns(mf,lum_)
                 
                 if taper:
                     tf = self._tf(mf,taper)
@@ -759,9 +737,9 @@ class PLF(Distribution):
                     return 0
 
             def integral(lum_,mmin,mmax,**kwargs):
-                return scipy.integrate.quad(integrand,mmin,mmax,args=(lum_),limit=100,**kwargs)[0]
+                return scipy.integrate.quad(integrand,mmin,mmax,args=(lum_),**kwargs)[0]
             
-            ret = np.vectorize(integral)(lum,0.1,self.imf.mmax)
+            ret = np.vectorize(integral)(lum,self.imf.mmin,self.imf.mmax)
             return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PLF is always >= 0
 
         base = plf(self._points,taper,accelerating)

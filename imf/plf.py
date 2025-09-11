@@ -91,10 +91,9 @@ class PLF(MassFunction):
         for taper in (False,True):
             table = Table.read(f'{trackdir}/{get_fname(self.history,taper=taper)}_val_table.fits')
             l_tot = table['lint'] + self.f_epi * table['lacc']
-            m_data = np.array([table['mf'],l_tot])
             ok = np.isfinite(l_tot)
-            m_interp = CloughTocher2DInterpolator(m_data[:,ok].T,table['m'][ok])
             mf_unq = np.unique(table['mf'])
+            mf_min, mf_max = np.min(mf_unq), np.max(mf_unq)
             m_unq = np.unique(table['m'])
             l_data = np.copy(l_tot)
             l_data[~ok] = 0
@@ -102,10 +101,15 @@ class PLF(MassFunction):
             l_data = l_data.reshape(len(mf_unq),len(m_unq))
             l_interp = RegularGridInterpolator((mf_unq,m_unq),l_data,method='pchip')
 
-            grad = np.gradient(l_data,m_unq,axis=1) 
+            grad = np.gradient(l_data,m_unq,axis=1)
+            #may need to deal with discontinuities?
             grad_interp = RegularGridInterpolator((mf_unq,m_unq),grad,method='pchip')
             
-            interps.extend([m_interp,l_interp,grad_interp])
+            interps.extend([l_interp,grad_interp])
+
+        if np.logical_or(mf_min < self.imf.mmin,mf_max > self.imf.mmax):
+            warnings.warn('IMF mmin/mmax is outside the range of values covered by evolutionary tracks; '
+                          'stars outside this range cannot contribute to the PLF')
         return interps
         
     def mass_weighted(self,x,
