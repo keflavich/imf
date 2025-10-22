@@ -20,10 +20,11 @@ class PN_CMF:
 
     Does not match their figures yet!
     """
-    def __init__(self,mmin,mmax,T0=10*u.K,
-                 T_mean=7*u.K, L0=10*u.pc, rho0=2e-21*u.g/u.cm**3, MS0=25,
-                 beta=0.4, alpham1=1.35, v0=4.9*u.km/u.s, eff=0.26,
-                 mean_mol_wt=2.33):
+    def __init__(self,mmin,mmax,
+                 T0=10*u.K, L0=10*u.pc,
+                 v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
+                 alpham1=1.35, eff=0.26, beta=0.4,
+                 T_mean=7*u.K, mean_mol_wt=2.33):
 
         self._tcross = (L0 / v0).to(u.Myr)
         m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
@@ -33,6 +34,8 @@ class PN_CMF:
         self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
                                  massfunc=self.massfunc,
                                  silent=True) * u.M_sun
+
+        MS0 = (((constants.k_B * T0 / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s) / v0).value
 
         sigma_rho = np.sqrt((1 + beta**-1) *  MS0 / 2.) #stdev of density
         s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
@@ -46,54 +49,58 @@ class PN_CMF:
         self._taccr = (tcross * sigma_rho**((4 - 4 * a) / (3 - 2 * a)) *
                  (maccr / m0)**((1 - a) / (3 - 2 * a))).to(u.Myr)
 
-        c_s = ((constants.k_B * T_mean / (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
-        mbe = (1.182 * c_s**3 / (constants.G**1.5 * rho**0.5)).to(u.M_sun)
-        tbe = (taccr * (maccr/mbe)**(-1/3.)).to(u.s)
-        tff = ((3*np.pi/(32*constants.G*rho))**0.5).to(u.s)
-        mmax = (self._maccr * ((tbe + tff) / taccr)**3).to(u.M_sun)
+        c_s = ((constants.k_B * T_mean / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)
+        self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * rho**0.5)).to(u.M_sun)
 
-        # tnow = number of crossing times
-        age = (tnow*tcross-birthday)
-        mnow = ((age/taccr)**3 * maccr).to(u.M_sun)
-        prestellar = age < tbe+tff
-        ltbe = maccr < mbe
-        stellar = (~prestellar) & (~ltbe)
-        forming = age < taccr
-        m_f = np.vstack([mmax.value, maccr.value]).min(axis=0)*u.M_sun
+    def __call__(tnow=1, #tnow is in # of crossing times
+                 visible_only=True,
+                 cores='prestellar'):
 
-        mnow[mnow > m_f] = m_f[mnow > m_f]
-        will_collapse = maccr > mbe/2.
+        #core_types = ['prestellar','stellar','all']
 
-        # We assume that cores that do not reach their BE mass are seen only during
-        # their formation time, taccr,
-        notseen = ltbe & ~forming
-    
-        core_mass = mnow[born & (~notseen) & (~stellar)].sum()
-        stellar_mass = mnow[stellar].sum()
-        print(("{0} of {1} have mass greater than final at t={2}."
-               " {3} are unborn.  {4} are stellar.  "
-               "{7} are not seen ({8:0.02f}%) because they are older than "
-               "one accretion time and have M<M_BE. "
-               "The cloud mass is {9}. "
-               "The CFE={5}"
-               " and SFE={6}".format((mnow > m_f).sum(), len(mnow), tnow*tcross,
-                                     np.sum(~born), np.sum(stellar),
-                                     (core_mass/m0).decompose().value,
-                                     (stellar_mass/m0).decompose().value,
-                                     notseen.sum(),
-                                     (notseen.sum()/float(notseen.size))*100,
-                                     m0
-                                     )))
+	tbe = (self.taccr * (self.maccr / self.mbe)**(-1/3.)).to(u.s)
+        tff = ((3 * np.pi / (32 * constants.G * self.rho))**0.5).to(u.s)
+        mmax = (self.maccr * ((tbe + tff) / self.taccr)**3).to(u.M_sun)
 
-    def __call__(tnow=1,
-                 cores='all',
-                 visible=True):
-
-        #cores = ['all','prestellar','stellar']
+        age = tnow * tcross - self.birthdays
+        isBorn = age > 0
+        isPrestellar = age < tbe + tff
+	belowBE = self.maccr < self.mbe
+        isStellar = np.logical_and(~isPrestellar,~belowBE)
+        isForming = age < self.taccr
         
-        born = self.birthdays < tnow * self.tcross
-        return (mnow[born], m_f[born], will_collapse[born], maccr[born], mbe[born],
-                mmax[born], forming[born])
+        m_f = np.vstack([mmax.value, self.maccr.value]).min(axis=0)*u.M_sun
+        mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
+        mnow[mnow > m_f] = m_f[mnow > m_f]
+
+	#We assume that cores that do not reach their BE mass are seen only during
+        #their formation time, taccr
+
+        if ~visible_only:
+            if cores == 'prestellar':
+                cut = np.logical_and(isBorn,isPrestellar)
+            elif cores == 'stellar':
+                cut = np.logical_and(isBorn,isStellar)
+            else:
+                cut = np.ones(len(mnow))
+        else:
+            cut = np.logical_and(isBorn,isForming)
+            if cores == 'prestellar':
+                cut = np.logical_and(cut,isPrestellar)
+            elif cores == 'stellar':
+                cut = np.logical_and(cut,isStellar)
+
+        core_masses = mnow[cut]
+
+        edges = 10**np.histogram_bin_edges(np.log10(core_masses))
+        hist,edges = np.histogram(core_masses,bins=edges)
+        if return_masses:
+            return hist,edges,core_masses
+        else:
+            return hist,edges
+
+    def will_collapse(self):
+        return self.maccr > self.mbe / 2
 
     @property
     def tcross(self):
@@ -114,6 +121,10 @@ class PN_CMF:
     @property
     def taccr(self):
         return self._taccr
+
+    @property
+    def mbe(self):
+        return self._mbe
 
 def test_pn11(nreal=5, nbins=50, **kwargs):
     mnow, mf, wc, maccr, mbe, mmax, forming = pn11_mf(**kwargs)
