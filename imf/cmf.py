@@ -35,24 +35,25 @@ class PN_CMF:
                                  massfunc=self.massfunc,
                                  silent=True) * u.M_sun
 
-        MS0 = (((constants.k_B * T0 / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s) / v0).value
+        MS0 = (v0 / ((constants.k_B * T0 / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)).value
 
-        sigma_rho = np.sqrt((1 + beta**-1) *  MS0 / 2.) #stdev of density
+        sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density
         s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
         pdf_func = scipy.stats.lognorm(s)
-        x = pdf_func.rvs(len(maccr))
+        x = pdf_func.rvs(len(self.maccr))
         self._rho = x * rho0 #densities around each core
 
-        self._birthdays = np.random.random(len(maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
+        self._birthdays = np.random.random(len(self.maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
 
         a = (3 - (3 / alpham1)) / 2
-        self._taccr = (tcross * sigma_rho**((4 - 4 * a) / (3 - 2 * a)) *
-                 (maccr / m0)**((1 - a) / (3 - 2 * a))).to(u.Myr)
+        self._taccr = (self.tcross * sigma_rho**((4 - 4 * a) / (3 - 2 * a)) *
+                       (self.maccr / m0)**((1 - a) / (3 - 2 * a))).to(u.Myr)
 
         c_s = ((constants.k_B * T_mean / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)
-        self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * rho**0.5)).to(u.M_sun)
+        self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * self.rho**0.5)).to(u.M_sun)
 
-    def __call__(tnow=1, #tnow is in # of crossing times
+    def __call__(self,
+                 tnow=1, #tnow is in # of crossing times
                  visible_only=True,
                  cores='prestellar',
                  return_masses=False):
@@ -63,7 +64,7 @@ class PN_CMF:
         tff = ((3 * np.pi / (32 * constants.G * self.rho))**0.5).to(u.s)
         mmax = (self.maccr * ((tbe + tff) / self.taccr)**3).to(u.M_sun)
 
-        age = tnow * tcross - self.birthdays
+        age = tnow * self.tcross - self.birthdays
         isBorn = age > 0
         isPrestellar = age < tbe + tff
         belowBE = self.maccr < self.mbe
@@ -93,7 +94,7 @@ class PN_CMF:
 
         core_masses = mnow[cut]
 
-        edges = 10**np.histogram_bin_edges(np.log10(core_masses))
+        edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
         hist,edges = np.histogram(core_masses,bins=edges)
         if return_masses:
             return hist,edges,core_masses
@@ -126,6 +127,10 @@ class PN_CMF:
     @property
     def mbe(self):
         return self._mbe
+
+    @property
+    def massfunc(self):
+        return self._massfunc
 
 def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
             V0=0.8*u.km/u.s, meandens=5000*u.cm**-3, temperature=10*u.K,
