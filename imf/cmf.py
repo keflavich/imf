@@ -173,20 +173,20 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
 
     alpha_g = 3/5. # for a uniform density fluctuation
     # eqn 9
-    phit = 2 * alpha_ct * (24/np.pi**2/alpha_g)
+    phit = 2 * alpha_ct * (24 / np.pi**2 / alpha_g)
 
     # dimensionless geometrical factor of the order of unity
     # For a sphere, becoMes:
-    aJ = np.pi**2.5/6.
+    aJ = np.pi**2.5 / 6
     # a geometrical factor, typically of the order of 4pi/3
-    Cm = 4*np.pi/3
+    Cm = 4 * np.pi / 3
 
     # eqn 13
     MJ0 = (aJ / Cm * c_s**3 * constants.G**-1.5 * rho_bar**-0.5).to(u.M_sun)
-
+    
     # eqn 14
-    lambdaJ0 = (np.pi**0.5 * c_s / Cm * (constants.G*rho_bar)**-0.5).to(u.pc)
-
+    lambdaJ0 = ((np.pi**1.5 / Cm)**(1./3) * c_s * (constants.G*rho_bar)**-0.5).to(u.pc)
+    
     # Eqn 7 of Paper I
     # delta = np.log(rho/rho_bar
     # R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
@@ -196,7 +196,7 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
     Mtwiddle = (mass / MJ0).to(u.dimensionless_unscaled)
 
     # eqn 20
-    Mstar = (3**-0.5 * V0/c_s * (lambdaJ0/(u.pc))**eta).to(u.dimensionless_unscaled)
+    Mstar = (3**-0.5 * V0 / c_s * (lambdaJ0 / u.pc)**eta).to(u.dimensionless_unscaled)
 
     # after eqn 21
     N0 = rho_bar / MJ0
@@ -205,10 +205,12 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
     # definition here is wrong.
 
     # eqn 21
-    N = (2./phit * N0 * Rtwiddle**-6 * (1 + (1-eta)*Mstar**2*Rtwiddle**(2*eta)) /
+    N = (2./phit * N0 * Rtwiddle**-6 *
+         (1 + (1 - eta) * Mstar**2 * Rtwiddle**(2*eta)) /
          (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta)) *
-         (Mtwiddle/Rtwiddle**3)**(-1-1/(2*sigma**2)*np.log(Mtwiddle/Rtwiddle**3)) *
-         np.exp(sigma**2/8.) * ((2*np.pi)**0.5 * sigma)
+         (Mtwiddle / Rtwiddle**3)**(-1 - np.log(Mtwiddle/Rtwiddle**3) / 2 / sigma**2) *
+         np.exp(-sigma**2/8.) / ((2 * np.pi)**0.5 / sigma) *
+         u.cm**3
         ).to(u.dimensionless_unscaled)
 
     return N
