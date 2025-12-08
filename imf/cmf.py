@@ -39,8 +39,11 @@ class PN_CMF:
 
         sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density
         s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
-        pdf_func = scipy.stats.lognorm(s)
-        x = pdf_func.rvs(len(self.maccr))
+        #pdf_func = scipy.stats.lognorm(s)
+        #x = pdf_func.rvs(len(self.maccr))
+        ln_rho = scipy.stats.norm.rvs(loc=-s**2/2,scale=s,
+                                      size=len(self.maccr))
+        x = np.exp(ln_rho)
         self._rho = x * rho0 #densities around each core
 
         self._birthdays = np.random.random(len(self.maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
@@ -209,8 +212,6 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
          (1 + (1 - eta) * Mstar**2 * Rtwiddle**(2*eta)) /
          (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta)) *
          (Mtwiddle / Rtwiddle**3)**(-1 - np.log(Mtwiddle/Rtwiddle**3) / 2 / sigma**2) *
-         np.exp(-sigma**2/8.) / ((2 * np.pi)**0.5 / sigma) *
-         u.cm**3
-        ).to(u.dimensionless_unscaled)
+         np.exp(-sigma**2/8.) / ((2 * np.pi)**0.5 / sigma))
 
     return N
