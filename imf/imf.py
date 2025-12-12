@@ -354,8 +354,94 @@ class ChabrierPowerLaw(MassFunction):
         else:
             return self.distr.pdf(x)
 
+        
+class PadoanTF(MassFunction):
+    """
+    Padoan & Nordlund 2002 turbulent fragmentation
+    """
+    def __init__(self,mmin=1e-2,mmax=np.inf,
+                 b=1.78,T=10,n0=1e3,
+                 sigma=None,mach=None):
 
+        if sigma is None and mach is None:
+            raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
+        init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
+        self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
+        
+        self.distr = distributions.PadoanTF(mmin,mmax,
+                                            b,T,n0,sigma)
 
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self.distr.cdf(m)
+        else:
+            return self.distr.pdf(m)
+
+    @property
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self,x):
+        self.distr.m1 = x
+        self.distr._calculate()
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self,x):
+        self.distr.m2 = x
+        self.distr._calculate()
+
+    @property
+    def b(self):
+        return self.distr.b
+
+    @b.setter
+    def b(self,x):
+        self.distr.b = x
+        self.distr._calculate()
+
+    @property
+    def T(self):
+        return self.distr.T
+
+    @T.setter
+    def T(self,x):
+        self.distr.T = x
+        self.distr._calculate()
+
+    @property
+    def n0(self):
+        return self.distr.n0
+
+    @n0.setter
+    def n0(self,x):
+        self.distr.n0 = x
+        self.distr._calculate()
+
+    @property
+    def sigma(self):
+        return self.distr.sigma
+
+    def set_sigma(self,x,update_mach=True):
+        self.distr.sigma = x
+        self.distr._calculate()
+        if update_mach:
+            self._mach = 2 * np.sqrt(np.exp(x**2) - 1)
+
+    @property
+    def mach(self):
+        return self._mach
+
+    def set_mach(self,x,update_sigma=True):
+        self._mach = x
+        if update_sigma:
+            self.sigma = np.sqrt(np.log(1 + (self._mach / 2)**2))
+            self.distr._calculate()
+        
 class Schechter(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
