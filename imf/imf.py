@@ -360,8 +360,8 @@ class PadoanTF(MassFunction):
     Padoan & Nordlund 2002 turbulent fragmentation
     """
     def __init__(self,mmin=1e-2,mmax=np.inf,
-                 b=1.78,T=10,n0=1e3,
-                 sigma=None,mach=None):
+                 b=1.8,T0=10,n0=5e2,
+                 sigma=None,mach=10):
 
         if sigma is None and mach is None:
             raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
@@ -369,7 +369,8 @@ class PadoanTF(MassFunction):
         self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
         
         self.distr = distributions.PadoanTF(mmin,mmax,
-                                            b,T,n0,sigma)
+                                            b,T,n0,init_sigma)
+        self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
         if integral_form:
@@ -405,12 +406,12 @@ class PadoanTF(MassFunction):
         self.distr._calculate()
 
     @property
-    def T(self):
-        return self.distr.T
+    def T0(self):
+        return self.distr.T0
 
-    @T.setter
-    def T(self,x):
-        self.distr.T = x
+    @T0.setter
+    def T0(self,x):
+        self.distr.T0 = x
         self.distr._calculate()
 
     @property

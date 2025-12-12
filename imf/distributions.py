@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-from scipy.integrate import quad
+from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 
 class Distribution:
@@ -253,12 +253,12 @@ class PadoanTF(Distribution):
 
     """
     def __init__(self,m1,m2,
-                 b,T,n0,sigma):
+                 b,T0,n0,sigma):
 
         self.m1 = m1
         self.m2 = m2
         self.b = b
-        self.T = T
+        self.T0 = T0
         self.n0 = n0
         self.sigma = sigma
 
@@ -267,22 +267,20 @@ class PadoanTF(Distribution):
         self._calculate()
 
     def _calculate(self):
-        av_mj = 1.2 * (self.T / 10)**(3/2) * (self.n0 / 1e3)**(-1/2)
+        av_mj = 1.2 * (self.T0 / 10)**(3/2) * (self.n0 / 1e3)**(-1/2)
         A = 2 * np.log(av_mj) + self.sigma**2 / 2
 
         #Jeans mass distribution (derived in Padoan+ 1997)
         #this is the linear form for the sake of integration
-        def p_mj(mj,sigma,T,n0):
-            A = 2 * np.log(av_mj) + self.sigma**2 / 2
-
-	    return av_mj**2 / mj**3 * scipy.stats.norm.pdf(np.log(mj),
+        def p_mj(mj):
+            return av_mj**2 / mj**3 * scipy.stats.norm.pdf(np.log(mj),
                                                            loc=A/2,
                                                            scale=self.sigma/2)
 
         def integrate(mass):
-            return quad(p_mj,0,mass,args=(self.sigma,self.T,self.n0))[0]
+            return quad(p_mj,0,mass)[0]
 
-        base = self._points**(-3 / (4 - b)) * integrate(self._points)
+        base = self._points**(-3 / (4 - self.b)) * np.vectorize(integrate)(self._points)
         pdf = base / self._points #convert to dN/dm
         pdf /= np.trapezoid(pdf,x=self._points) #normalize
         cdf = cumulative_trapezoid(pdf,self._points,initial=0)
@@ -294,7 +292,7 @@ class PadoanTF(Distribution):
 
         self._pdf = PchipInterpolator(self._points,pdf)
         self._cdf = PchipInterpolator(cdf_points,cdf)
-        self._ppf = PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
+        self._ppf = PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])
     
     def pdf(self,x):
         return self._pdf(x,extrapolate=False)
