@@ -3,6 +3,7 @@ import numpy as np
 from astropy import units as u
 from astropy import constants
 import scipy.stats
+from scipy.optimize import root_scalar
 
 from . import imf
 
@@ -29,23 +30,30 @@ class PN_CMF:
         self._tcross = (L0 / v0).to(u.Myr)
         m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
 
-        self._massfunc = imf.Salpeter(mmin=mmin,mmax=mmax,
-                                alpha=alpham1+1)
-        self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
-                                 massfunc=self.massfunc,
-                                 silent=True) * u.M_sun
-
+        # Mach number defined on largest scale (assumed)
         MS0 = (v0 / ((constants.k_B * T0 / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)).value
 
-        sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density
+        # implementing eqn 1
+        sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density [eqn 3]
         s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
-        #pdf_func = scipy.stats.lognorm(s)
-        #x = pdf_func.rvs(len(self.maccr))
-        ln_rho = scipy.stats.norm.rvs(loc=-s**2/2,scale=s,
+
+        n0 = (rho0 / constants.m_p / mean_mol_wt).to(u.cm**-3).value
+        self._massfunc = imf.PadoanTF(mmin=mmin,mmax=mmax,
+                                      T0=T0.value,n0=n0,
+                                      sigma=s)
+        self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
+                                       massfunc=self.massfunc,
+                                       silent=True) * u.M_sun
+        
+        # loc is s**2/2 instead of -s**2/2 because this is the _mass-weighted_ log-normal density PDF
+        # (this is only weakly hinted at in PN11 by the words "converted to mass fraction" just before eqn 1)
+        # see e.g. Hopkins 2013 eqn 4 for the mass-weighted definitions
+        ln_rho = scipy.stats.norm.rvs(loc=s**2/2,
+                                      scale=s,
                                       size=len(self.maccr))
         x = np.exp(ln_rho)
         self._rho = x * rho0 #densities around each core
-
+        
         self._birthdays = np.random.random(len(self.maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
 
         a = (3 - (3 / alpham1)) / 2
@@ -60,7 +68,7 @@ class PN_CMF:
                  visible_only=True,
                  cores='prestellar',
                  return_masses=False):
-
+        
         #core_types = ['prestellar','stellar','all']
 
         tbe = (self.taccr * (self.maccr / self.mbe)**(-1/3.)).to(u.s)
@@ -76,24 +84,25 @@ class PN_CMF:
 
         m_f = np.vstack([mmax.value, self.maccr.value]).min(axis=0)*u.M_sun
         mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
-        mnow[mnow > m_f] = m_f[mnow > m_f]
+        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
+        #mnow[mnow > m_f] = m_f[mnow > m_f]
 
 	#We assume that cores that do not reach their BE mass are seen only during
         #their formation time, taccr
 
-        if ~visible_only:
-            if cores == 'prestellar':
-                cut = np.logical_and(isBorn,~isStellar)
-            elif cores == 'stellar':
-                cut = np.logical_and(isBorn,isStellar)
-            else:
-                cut = np.ones(len(mnow))
-        else:
+        if visible_only:
             cut = np.logical_and(isBorn,isForming)
             if cores == 'prestellar':
                 cut = np.logical_and(cut,isPrestellar)
             elif cores == 'stellar':
                 cut = np.logical_and(cut,isStellar)
+        else:
+            if cores == 'prestellar':
+                cut = np.logical_and(isBorn,~isStellar)
+            elif cores == 'stellar':
+                cut = np.logical_and(isBorn,isStellar)
+            else:
+                cut = np.ones(len(mnow)).astype(int)
 
         core_masses = mnow[cut]
 
@@ -135,7 +144,7 @@ class PN_CMF:
     def massfunc(self):
         return self._massfunc
 
-def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
+def hc13_mf(mass, sizescale=1*u.pc, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
             V0=0.8*u.km/u.s, meandens=5000*u.cm**-3, temperature=10*u.K,
             eta=0.45, b_forcing=0.4, Mach=6):
     """ Equation 21 of Hennebelle & Chabrier 2013
@@ -179,27 +188,36 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
     phit = 2 * alpha_ct * (24 / np.pi**2 / alpha_g)
 
     # dimensionless geometrical factor of the order of unity
-    # For a sphere, becoMes:
+    # For a sphere:
     aJ = np.pi**2.5 / 6
     # a geometrical factor, typically of the order of 4pi/3
     Cm = 4 * np.pi / 3
 
-    # eqn 13
+    # Jeans mass (eqn 13)
     MJ0 = (aJ / Cm * c_s**3 * constants.G**-1.5 * rho_bar**-0.5).to(u.M_sun)
     
-    # eqn 14
+    # Jeans length (eqn 14)
     lambdaJ0 = ((np.pi**1.5 / Cm)**(1./3) * c_s * (constants.G*rho_bar)**-0.5).to(u.pc)
+
+    # relative Mach number (eqn 20)
+    Mstar = (3**-0.5 * V0 / c_s * (lambdaJ0 / u.pc)**eta).to(u.dimensionless_unscaled)
     
     # Eqn 7 of Paper I
     # delta = np.log(rho/rho_bar
     # R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
 
-    Rtwiddle = (sizescale / lambdaJ0).to(u.dimensionless_unscaled)
+    def R_side(R,M):
+        return R * (1 + Mstar**2 * R**(2 * eta)) - M
 
+    def get_root(M):
+        return root_scalar(R_side,x0=1,args=(M)).root
+
+    #Rtwiddle = (sizescale / lambdaJ0).to(u.dimensionless_unscaled)
+    Rtwiddle = np.vectorize(get_root)(mass.value)
+    
     Mtwiddle = (mass / MJ0).to(u.dimensionless_unscaled)
 
-    # eqn 20
-    Mstar = (3**-0.5 * V0 / c_s * (lambdaJ0 / u.pc)**eta).to(u.dimensionless_unscaled)
+    #sigma *= 1 - (Rtwiddle * lambdaJ0 / sizescale)**(n17 - 3)
 
     # after eqn 21
     N0 = rho_bar / MJ0
@@ -212,6 +230,6 @@ def hc13_mf(mass, sizescale, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
          (1 + (1 - eta) * Mstar**2 * Rtwiddle**(2*eta)) /
          (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta)) *
          (Mtwiddle / Rtwiddle**3)**(-1 - np.log(Mtwiddle/Rtwiddle**3) / 2 / sigma**2) *
-         np.exp(-sigma**2/8.) / ((2 * np.pi)**0.5 / sigma))
+         np.exp(-sigma**2/8.) / (2 * np.pi)**0.5 / sigma)
 
     return N
