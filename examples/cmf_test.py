@@ -32,6 +32,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     toplot = isBorn & isPrestellar & isForming
     gtmax = cmf.maccr > mmax
 
+    #figure 1
     plt.figure()
     plt.scatter(mnow[toplot & belowBE],
                 cmf.maccr[toplot & belowBE]/mnow[toplot & belowBE],
@@ -57,12 +58,13 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.savefig('plots/cmf_test/fig1.pdf',dpi=300,bbox_inches='tight')
     plt.close()
     
+    #figure 2
     plt.figure()
     edges = np.geomspace(1,60,13)
     plt.hist((cmf.maccr / mnow)[(mnow > 0.1*u.M_sun) & toplot],
              bins=edges,histtype='step',color='k',
              label=r'$m > 0.1 M_\odot$')
-    plt.hist((cmf.maccr / mnow)[mnow > (cmf.mbe / 2)],
+    plt.hist((cmf.maccr / mnow)[(mnow > (cmf.mbe / 2)) & toplot],
              bins=edges,histtype='step',linestyle='dashed',
              color='k',label=r'$m > m_{\rm BE} / 2$')
 
@@ -73,6 +75,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.savefig('plots/cmf_test/fig2.pdf',dpi=300,bbox_inches='tight')
     plt.close()
 
+    #figure 3
     plt.figure()
     plt.scatter(mnow[toplot & belowBE],
                 (mnow / cmf.mbe)[toplot & belowBE],
@@ -107,6 +110,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.savefig('plots/cmf_test/fig3.pdf',dpi=300,bbox_inches='tight')
     plt.close()
 
+    #figure 4
     plt.figure()
     edges = np.geomspace(ml,mu,nbins+1)
     plt.hist(mnow[toplot].value, bins=edges, histtype='step',
@@ -114,22 +118,22 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.hist(mnow[toplot & (mnow > cmf.mbe / 2)].value, bins=edges,
              histtype='step',color='b',
              label=r'$m > m_{\rm BE} / 2$ ($t=t_0$)')
-    plt.hist(cmf.maccr[~belowBE].value, bins=edges,
+
+    _, _, masses = cmf(tnow=2,cores='stellar',visible_only=False,return_masses=True)
+    plt.hist(masses.value, bins=edges,
              histtype='step',color='g',
-             label=r'$m_{\rm accr}$ (stellar)')
+             label=r'$N(m)$, stellar ($t=2t_0$)')
 
+    all_ms = []
     for i in range(nreal):
-        all_ms = []
         mf = PN_CMF(ml,mu)
-        N, edges, masses = mf(tnow=tnow,visible_only=False,return_masses=True)
-        all_ms.extend(masses)
+        _, _, masses_ = mf(tnow=tnow,visible_only=True,return_masses=True)
+        all_ms.extend(masses_)
 
-    counts, edges = np.histogram(all_ms,bins=np.geomspace(ml,mu,nbins * nreal+1)*u.M_sun)
+    all_ms = np.array([v.value for v in all_ms])
+    counts, edges = np.histogram(all_ms,bins=edges)
     av_edges = (edges[:-1] + edges[1:]) / 2.
-    plt.plot(av_edges,counts,'r--',label=f'{nreal} realizations')
-    #ok = np.log(counts) > 0
-    #ppars = np.polyfit(np.log(av_edges)[ok], np.log(counts)[ok], 1)
-    #pl.plot(bbins, np.exp(ppars[1]) * bbins**ppars[0], 'r')
+    plt.plot(av_edges,counts/nreal,'r--',label=f'{nreal} realizations')
 
     plt.xscale('log')
     plt.yscale('log')
@@ -146,7 +150,7 @@ def test_hc13():
     return hc13_mf(mass=masses, sizescale=sizescale)
 
 def main():
-    test_pn11()
+    test_pn11(nbins=50)
     #test_hc13()
 
 if __name__ == '__main__':

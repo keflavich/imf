@@ -369,7 +369,7 @@ class PadoanTF(MassFunction):
         self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
         
         self.distr = distributions.PadoanTF(mmin,mmax,
-                                            b,T,n0,init_sigma)
+                                            b,T0,n0,init_sigma)
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):
