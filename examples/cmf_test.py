@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
 
-from os import system
+import os
 
-from imf.cmf import *
+from imf.cmf import PN_CMF,hc13_mf
 
 def test_pn11(tnow=1,nbins=50,nreal=5):
 
-    system('mkdir -p plots/cmf_test')
+    os.mkdir('plots/cmf_test',exist_ok=True)
     
     ml = 0.01
     mu = 120
