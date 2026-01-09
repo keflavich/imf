@@ -254,39 +254,45 @@ class HC(Distribution):
 
         #this block encompasses the changes based on EOS and sources of support
         #EOS sets thermal Cs for Mj/Lj/Mstar
-        #both set functions R_M and dM/dR(M,R)
         cs_mod = 1 if eos == 'isothermal' else gamma1
         Cs = ((constants.k_B * temperature * cs_mod /
                (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
-        
+
+        #EOS/support define M(R) and dM/dR
+        mag_coef = 1 if include_B else 0
+        Va_sq = B0**2 / 24 * np.pi * meandens / Cs**2
+        rhobar = meandens * mean_mol_wt * constants.m_p
+
+        #define M(R) and D (the thermal and magnetic terms of M)
         if eos == 'barotropic':
-            if include_B:
-                pass
-            else:
-                def R_M(R,M):
-                    return 0
+            Kcrit = ((rho_crit / meandens).decompose())**(gamma1-gamma2)
+            def R_M(R_,M_):
+                term1 = ((M_ / R_**3)**((gamma1-1)*m) + Kcrit**m * (M_ / R_**3)**((gamma2-1)*m))**(1/m)
+                return term1 + Mstar**2 * R_**(2*eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1)
 
-                def dM_dR(M,R):
-                    return 0
+            def D_funcs(rho_):
+                D = ((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m) + mag_coef * Va_sq * rho_**(2*gammab-1)
+                dD = (((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m-1) *
+                      ((gamma1 - 1) * rho_**((gamma1-1)*m-1) + Kcrit**m * (gamma2 - 1) * rho_**((gamma2-1)*m-1)) +
+                      mag_coef * (2 * gammab - 1) * Va_sq * rho_**(2*gammab-2)
+                return D, dD 
             
-            pass
         else:
-            if include_B:
-                def R_M(R,M):
-                    return R * ((M / R**3)**(cs_mod-1) + Mstar**2 * R**(2 * eta)) - M
+            def R_M(R_,M_):
+                return R_ * ((M_ / R_**3)**(cs_mod-1) + Mstar**2 * R_**(2 * eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1)) - M_
 
-                def dM_dR(M,R):
-                    coef = (1 - (gamma1 - 1) * M**(gamma1-2) * R**(4-3*gamma1))**-1
-                    return coef * (4 - 3 * gamma1) * M**(gamma1-1) * R**(3-3*gamma1) + (2 * eta + 1) * Mstar**2 * R**(2*eta)
+            def D_funcs(rho_):
+                D = rho_**(cs_mod-1) + mag_coef * Va_sq * rho_**(2*gammab-1)
+                dD = (cs_mod-1) * rho_**(cs_mod-2) + mag_coef * Va_sq * (2 * gammab - 1) * rho_**(2*gammab-2)
+                return D, dD
 
-                pass
-            else:
-	        def R_M(R,M):
-                    return R * ((M / R**3)**(cs_mod-1) + Mstar**2 * R**(2 * eta)) - M
-
-                def dM_dR(M,R):
-                    coef = (1 - (cs_mod - 1) * M**(cs_mod-2) * R**(4-3*exp))**-1
-                    return coef * (4 - 3 * exp) * M**(exp-1) * R**(3-3*exp) + (2 * eta + 1) * Mstar**2 * R**(2*eta)
+        #equations 33/34 (specifying dM/dR) of HC13 hold for all relevant definitions of D
+        def dM_dR(M,R):
+            rho = M / R**3
+            D, dD = D_funcs(rho)
+            B = D - 3 * rho * dD * (2 * eta + 1) * Mstar * R**(2*eta)
+            C = 1 - R**-2 * dD
+            return B / C
 
         def get_root(M):
 	    return root_scalar(R_M,x0=1,args=(M)).root
@@ -300,10 +306,16 @@ class HC(Distribution):
         Mt = M / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
-        
-        sig_sq = np.log(1 + b_forcing**2 * Mach**2) * (1 - (Rt * Lj / sizescale)**(2*eta))
 
-        N = rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM_dR(M,R) * (3 / Rt - dM_dR(M,R) / Mt) * np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8)
+        #calculate variance and correction term (second term in HC13 equation 2)
+        sig_0 = np.log(1 + b_forcing**2 * Mach**2)
+        sig_sq = sig_0 * (1 - (Rt * Lj / sizescale)**(2*eta))
+        dsigma_dR = -(2 * np.sqrt(sig_sq))**-1 * (sig_0 - sig_sq) / Rt
+        corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
+
+        N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM_dR(Mt,Rt) *
+             ((3 / Rt - dM_dR(Mt,Rt) / Mt) + corr) *
+             np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8))
 
         if time_dep:
             alpha_ct = 3.7 # coefficient for crossing time, chosen to make phi ~ 3
@@ -312,16 +324,18 @@ class HC(Distribution):
 
             N *= np.sqrt(np.exp(delta)) / phi_t
         
-        return N
+        return N * (M > self.m1) * (M < self.m2)
 
     def pdf(self,x):
-        return 0
+        return self.calculate(x)
 
     def cdf(self,x):
-        return 0
+        return quad(self.calculate,0,x)[0] #placeholder, needs to be vectorized still
 
-    def ppf(self,x):
+    def ppf(self,x): #is there a way to do this without interpolation?
         return 0
 
     def rvs(self,N):
-        return 0
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
+
