@@ -148,14 +148,15 @@ class PN_CMF:
 
 class HC_CMF(MassFunction):
     
-    def init(self,mmin=None,mmax=None,
-             clump_size=1*u.pc,
-             n0=5000*u.cm**-3, T0=10*u.K, mu=2.33,
-             V0=0.8*u.km*u.s**-1, eta=None, n_pow=3.8,
-             b_forcing=0.4, Mach=6,
-             eos='isothermal',gamma1=0.7,
-             gamma2=1.1,rho_crit=1e-18*u.g*u.cm**-3,
-             include_B=False,B0=10*u.uG,gammab=0.1):
+    def __init__(self,mmin=None,mmax=None,
+                 clump_size=1*u.pc,
+                 n0=5000*u.cm**-3, T0=10*u.K, mu=2.33,
+                 V0=0.8*u.km*u.s**-1, eta=None, n_pow=3.8,
+                 b_forcing=0.4, Mach=6,
+                 eos='isothermal',gamma1=0.7,
+                 gamma2=1.1,rho_crit=1e-18*u.g*u.cm**-3,m=3,
+                 include_B=False,B0=10*u.uG,gammab=0.1,
+                 time_dep=True):
         """Generalized core mass function following the formalism of
         Hennebelle/Chabrier 2008/2009/2013.
         
@@ -212,6 +213,9 @@ class HC_CMF(MassFunction):
         gammab : float
             Exponent governing the relationship between magnetic field
             strength and gas density (default = 0.1)
+        time_dep : bool
+            If true, use the time-dependent CMF of HC13; otherwise, 
+            use the time-independent form of HC08/09 (default = True)
         """
         
         if eta is None:
@@ -225,9 +229,11 @@ class HC_CMF(MassFunction):
                         clump_size,n0,T0,mu,
                         V0,eta,b_forcing,Mach,
                         eos,gamma1,gamma2,rho_crit,m,
-                        include_B,B0,gammab)
+                        include_B,B0,gammab,
+                        time_dep)
 
-        self.normalize()
+        self.normfactor = 1
+        #self.normalize()
         
     def __call__(self,m,integral_form=False):
         if integral_form:
@@ -309,25 +315,30 @@ class HC_CMF(MassFunction):
 
     @property
     def B0(self):
-        try:
-            return self.distr.B0
-        except(AttributeError):
+        if not self.distr.include_B:
             raise AttributeError("This object has no B0")
-
+        else:
+            return self.distr.B0
+        
     @property
     def gammab(self):
-        try:
-            return self.distr.gammab
-        except(AttributeError):
+        if not self.distr.include_B:
             raise AttributeError("This object has no gammab")
+        else:
+            return self.distr.gammab
+
+    @property
+    def time_dep(self):
+        return self.distr.time_dep
         
 class HC(Distribution):
 
-    def init(self, m1, m2,
-             clump_size, n0, T0, mu,
-             V0, eta, b_forcing, Mach,
-             eos, gamma1, gamma2, rho_crit, m,
-             include_B, B0, gammab):
+    def __init__(self, m1, m2,
+                 clump_size, n0, T0, mu,
+                 V0, eta, b_forcing, Mach,
+                 eos, gamma1, gamma2, rho_crit, m,
+                 include_B, B0, gammab,
+                 time_dep):
 
         self.m1 = m1
         self.m2 = m2
@@ -349,12 +360,14 @@ class HC(Distribution):
             self.gamma2 = gamma2
             self.rho_crit = rho_crit
             self.m = m
-        self.include_B = include_B
-        if include_B:
-            self.B0 = B0
-            self.gammab	= gammab
 
-    def _calculate(self,mass):
+        self.include_B = include_B
+        self.B0 = B0
+        self.gammab = gammab
+
+        self.time_dep = time_dep
+        
+    def _calculate(self,x):
         #this block encompasses the changes based on EOS and sources of support
         #use EOS to set thermal Cs (for Mj/Lj/Mstar)
         rhobar =  (self.n0 * self.mu * constants.m_p).to(u.g/u.cm**3)
@@ -365,12 +378,12 @@ class HC(Distribution):
 
         #use EOS/support to define M(R) and dM/dR
         mag_coef = 1 if self.include_B else 0
-	gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom "gauss" unit to work with magnetism in cgs
+        gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom gauss unit to work in cgs
         B0 = self.B0.to(u.G).value * gauss # transform to custom gauss
-        Va_sq = (B0**2 / 24 * np.pi * rhobar / Cs**2).to(u.dimensionless_unscaled)
+        Va_sq = (B0**2 / (24 * np.pi * rhobar) / Cs**2).to(u.dimensionless_unscaled)
 
         #formally define M(R) and D (the thermal and magnetic terms of M)
-        if eos == 'barotropic':
+        if self.eos == 'barotropic':
             Kcrit = ((self.rho_crit / rhobar).decompose())**(self.gamma1-self.gamma2)
             # M is defined for later use in root finding
             def R_M(R_,M_):
@@ -411,7 +424,7 @@ class HC(Distribution):
         Lj = ((np.pi**(3/2) / cm)**(1/3) * Cs / np.sqrt(constants.G * rhobar)).to(u.pc)
         Mstar = self.V0 / Cs * (Lj / (1*u.pc))**self.eta / np.sqrt(3)
 
-        Mt = mass / Mj.value
+        Mt = x / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
 
@@ -422,24 +435,24 @@ class HC(Distribution):
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
 
         #determine maximum possible "core" mass given provided sizescale
-        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(clump_size/Lj)).root * Mj
+        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(self.clump_size/Lj)).root * Mj
 
         dM = dM_dR(Mt,Rt)
         N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM *
              ((3 / Rt - dM / Mt) + corr) *
              np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8))
 
-        if time_dep:
+        if self.time_dep:
             alpha_ct = 3.7 # coefficient for crossing time, chosen to make phi ~ 3
             alpha_g = 0.6 # coefficient for self-gravitating gas in uniform density fluctuations
             phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
 
             N *= np.sqrt(np.exp(delta)) / phi_t
 
-        N *= sizescale**3
+        N *= self.clump_size**3
         N = N.to(u.dimensionless_unscaled).value
         
-        return N * (M >= max(self.m1,0)) * (M <= min(self.m2,mmax.value))
+        return N * (x >= max(self.m1,0)) * (x <= min(self.m2,mmax.value))
 
     def pdf(self,x):
         return self._calculate(x)
