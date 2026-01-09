@@ -201,6 +201,9 @@ class HC_CMF(MassFunction):
             Critical density in a barotropic EOS (i.e. where the piecewise
             halves meet). Only used if eos == 'barotropic' 
             (default = 1e-18 g cm^-3) 
+        m : float
+            Exponent governing the combination of the piecewise components
+            of a barotropic EOS; higher = less blending (default = 3)
         include_B : bool
             Whether or not to include support from a magnetic field in
             CMF calculation. (default = False)
@@ -221,7 +224,7 @@ class HC_CMF(MassFunction):
         self.distr = HC(mmin,mmax,
                         clump_size,n0,T0,mu,
                         V0,eta,b_forcing,Mach,
-                        eos,gamma1,gamma2,rho_crit,
+                        eos,gamma1,gamma2,rho_crit,m,
                         include_B,B0,gammab)
 
         self.normalize()
@@ -298,6 +301,13 @@ class HC_CMF(MassFunction):
             raise AttributeError("This object has no rho_crit")
 
     @property
+    def rho_crit(self):
+        try:
+            return self.distr.rho_crit
+        except(AttributeError):
+            raise AttributeError("This object has no m")
+
+    @property
     def B0(self):
         try:
             return self.distr.B0
@@ -316,15 +326,15 @@ class HC(Distribution):
     def init(self, m1, m2,
              clump_size, n0, T0, mu,
              V0, eta, b_forcing, Mach,
-             eos, gamma1, gamma2, rho_crit,
+             eos, gamma1, gamma2, rho_crit, m,
              include_B, B0, gammab):
 
         self.m1 = m1
-	self.m2 = m2
-        
+        self.m2 = m2
+
         self.clump_size = clump_size
         self.n0 = n0
-	self.T0 = T0
+        self.T0 = T0
         self.mu = mu
 
         self.V0 = V0
@@ -333,63 +343,61 @@ class HC(Distribution):
         self.Mach = Mach
 
         self.eos = eos
-	if self.eos != 'isothermal':
+        if self.eos != 'isothermal':
             self.gamma1 = gamma1
-	if self.eos == 'barotropic':
+        if self.eos == 'barotropic':
             self.gamma2 = gamma2
             self.rho_crit = rho_crit
-	if include_B:
+            self.m = m
+        self.include_B = include_B
+        if include_B:
             self.B0 = B0
             self.gammab	= gammab
 
-    def _calculate(self,M):
-        #-(t0/tR) x rhobar/Mj/M x dR/dM x (ddelta/dR - abs(dsigma/dR/sigma*(delta+sigma^2/2))) x 1/sqrt(2pisigma^2) x exp(-delta^2/2sigma^2 + delta / 2 - sigma^2/8)
-        #functions of EOS: M(R), dM/dR, Mj/Lj/Mstar (via sound speed)
-        #functions of time dependence: tR
-
+    def _calculate(self,mass):
         #this block encompasses the changes based on EOS and sources of support
         #use EOS to set thermal Cs (for Mj/Lj/Mstar)
-        rhobar =  meandens * mean_mol_wt * constants.m_p
+        rhobar =  (self.n0 * self.mu * constants.m_p).to(u.g/u.cm**3)
         
-        cs_mod = 1 if eos == 'isothermal' else gamma1
-        Cs = ((constants.k_B * temperature * cs_mod /
-               (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)
+        cs_mod = 1 if self.eos == 'isothermal' else self.gamma1
+        Cs = ((constants.k_B * self.T0 * cs_mod /
+               (self.mu * constants.m_p))**0.5).to(u.km/u.s)
 
         #use EOS/support to define M(R) and dM/dR
-        mag_coef = 1 if include_B else 0
+        mag_coef = 1 if self.include_B else 0
 	gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom "gauss" unit to work with magnetism in cgs
-        B0 = B0.to(u.G).value * gauss # transform to custom gauss
-        Va_sq = B0**2 / 24 * np.pi * rhobar / Cs**2
+        B0 = self.B0.to(u.G).value * gauss # transform to custom gauss
+        Va_sq = (B0**2 / 24 * np.pi * rhobar / Cs**2).to(u.dimensionless_unscaled)
 
         #formally define M(R) and D (the thermal and magnetic terms of M)
         if eos == 'barotropic':
-            Kcrit = ((rho_crit / meandens).decompose())**(gamma1-gamma2)
+            Kcrit = ((self.rho_crit / rhobar).decompose())**(self.gamma1-self.gamma2)
             # M is defined for later use in root finding
             def R_M(R_,M_):
-                term1 = ((M_ / R_**3)**((gamma1-1)*m) + Kcrit**m * (M_ / R_**3)**((gamma2-1)*m))**(1/m)
-                return term1 + Mstar**2 * R_**(2*eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1) - M_
+                term1 = ((M_ / R_**3)**((self.gamma1-1)*self.m) + Kcrit**self.m * (M_ / R_**3)**((self.gamma2-1)*self.m))**(1/self.m)
+                return term1 + Mstar**2 * R_**(2*self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1) - M_
 
             def D_funcs(rho_):
-                D = ((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m) + mag_coef * Va_sq * rho_**(2*gammab-1)
-                dD = (((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m-1) *
-                      ((gamma1 - 1) * rho_**((gamma1-1)*m-1) + Kcrit**m * (gamma2 - 1) * rho_**((gamma2-1)*m-1)) +
-                      mag_coef * (2 * gammab - 1) * Va_sq * rho_**(2*gammab-2))
+                D = ((rho_)**((self.gamma1-1)*self.m) + Kcrit**self.m * (rho_)**((self.gamma2-1)*self.m))**(1/self.m) + mag_coef * Va_sq * rho_**(2*self.gammab-1)
+                dD = (((rho_)**((self.gamma1-1)*self.m) + Kcrit**self.m * (rho_)**((self.gamma2-1)*self.m))**(1/self.m-1) *
+                      ((self.gamma1 - 1) * rho_**((self.gamma1-1)*self.m-1) + Kcrit**self.m * (self.gamma2 - 1) * rho_**((self.gamma2-1)*self.m-1)) +
+                      mag_coef * (2 * self.gammab - 1) * Va_sq * rho_**(2*self.gammab-2))
                 return D, dD 
             
         else:
             def R_M(R_,M_):
-                return R_ * ((M_ / R_**3)**(cs_mod-1) + Mstar**2 * R_**(2 * eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1)) - M_
+                return R_ * ((M_ / R_**3)**(cs_mod-1) + Mstar**2 * R_**(2 * self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1)) - M_
 
             def D_funcs(rho_):
-                D = rho_**(cs_mod-1) + mag_coef * Va_sq * rho_**(2*gammab-1)
-                dD = (cs_mod-1) * rho_**(cs_mod-2) + mag_coef * Va_sq * (2 * gammab - 1) * rho_**(2*gammab-2)
+                D = rho_**(cs_mod-1) + mag_coef * Va_sq * rho_**(2*self.gammab-1)
+                dD = (cs_mod-1) * rho_**(cs_mod-2) + mag_coef * Va_sq * (2 * self.gammab - 1) * rho_**(2*self.gammab-2)
                 return D, dD
 
         #equations 33/34 (specifying dM/dR) of HC13 hold for all relevant definitions of D
         def dM_dR(M_,R_):
             rho = M_ / R_**3
             D, dD = D_funcs(rho)
-            B = D - 3 * rho * dD * (2 * eta + 1) * Mstar * R_**(2*eta)
+            B = D - 3 * rho * dD * (2 * self.eta + 1) * Mstar * R_**(2*self.eta)
             C = 1 - R_**-2 * dD
             return B / C
 
@@ -401,20 +409,20 @@ class HC(Distribution):
         cm = 4 * np.pi / 3
         Mj = (aj / cm * Cs**3 / np.sqrt(constants.G**3 * rhobar)).to(u.M_sun)
         Lj = ((np.pi**(3/2) / cm)**(1/3) * Cs / np.sqrt(constants.G * rhobar)).to(u.pc)
-        Mstar = V0 / Cs * (Lj / 1*u.pc)**eta / np.sqrt(3)
+        Mstar = self.V0 / Cs * (Lj / (1*u.pc))**self.eta / np.sqrt(3)
 
-        Mt = M / Mj.value
+        Mt = mass / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
 
         #calculate variance and correction term (second term in HC13 equation 2)
-        sig_0 = np.log(1 + b_forcing**2 * Mach**2)
-        sig_sq = sig_0 * (1 - (Rt * Lj / sizescale)**(2*eta))
+        sig_0 = np.log(1 + self.b_forcing**2 * self.Mach**2)
+        sig_sq = sig_0 * (1 - (Rt * Lj / self.clump_size)**(2*self.eta))
         dsigma_dR = -(2 * np.sqrt(sig_sq))**-1 * (sig_0 - sig_sq) / Rt
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
 
         #determine maximum possible "core" mass given provided sizescale
-        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(sizescale/Lj)).root * Mj
+        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(clump_size/Lj)).root * Mj
 
         dM = dM_dR(Mt,Rt)
         N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM *
@@ -429,7 +437,7 @@ class HC(Distribution):
             N *= np.sqrt(np.exp(delta)) / phi_t
 
         N *= sizescale**3
-        N = N.decompose()
+        N = N.to(u.dimensionless_unscaled).value
         
         return N * (M >= max(self.m1,0)) * (M <= min(self.m2,mmax.value))
 
