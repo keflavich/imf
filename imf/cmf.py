@@ -23,7 +23,7 @@ class PN_CMF:
 
     Does not match their figures yet!
     """
-    def __init__(self,mmin,mmax,
+    def __init__(self,mmin=None,mmax=None,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  alpham1=1.35, eff=0.26, beta=0.4,
@@ -148,10 +148,13 @@ class PN_CMF:
 
 class HC(MassFunction):
     
-    def init(self, sizescale=1*u.pc, n17=3.8, alpha_ct=0.75, mean_mol_wt=2.33,
+    def init(self,mmin=None,mmax=None,
+             sizescale=1*u.pc, n17=3.8, mean_mol_wt=2.33,
              V0=0.8*u.km/u.s, meandens=5000*u.cm**-3, temperature=10*u.K,
              eta=0.45, b_forcing=0.4, Mach=6,
-             eos='isothermal', include_B=False):
+             eos='isothermal',gamma1=0.7,
+             gamma2=1.1,rho_crit=1e-18*u.g*u.cm**-3,
+             include_B=False,B0=10*u.uG,gammab=0.1):
         """ Equation 21 of Hennebelle & Chabrier 2013
         
         Parameters
@@ -179,8 +182,6 @@ class HC(MassFunction):
         eos_types = ['isothermal','polytropic','barotropic']
         if eos not in eos_types:
             raise ValueError(f'EOS must be one of the following: {eos_types}')
-        
-        rho_bar = meandens * mean_mol_wt * constants.m_p
 
         c_s = ((constants.k_B * temperature /
                 (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
@@ -191,6 +192,9 @@ class HC(MassFunction):
             # eqn 17
             eta = (n17 - 3.)/2.
 
+        #define a custom "gauss" unit to work with magnetism in cgs
+        gauss = u.g**0.5 / u.cm**0.5 / u.s
+            
         alpha_g = 3/5. # for a uniform density fluctuation
         # eqn 9
         phit = 2 * alpha_ct * (24 / np.pi**2 / alpha_g)
@@ -253,28 +257,32 @@ class HC(Distribution):
         #functions of time dependence: tR
 
         #this block encompasses the changes based on EOS and sources of support
-        #EOS sets thermal Cs for Mj/Lj/Mstar
+        #use EOS to set thermal Cs (for Mj/Lj/Mstar)
+        rhobar =  meandens * mean_mol_wt * constants.m_p
+        
         cs_mod = 1 if eos == 'isothermal' else gamma1
         Cs = ((constants.k_B * temperature * cs_mod /
-               (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
+               (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)
 
-        #EOS/support define M(R) and dM/dR
+        #use EOS/support to define M(R) and dM/dR
         mag_coef = 1 if include_B else 0
-        Va_sq = B0**2 / 24 * np.pi * meandens / Cs**2
-        rhobar = meandens * mean_mol_wt * constants.m_p
+	gauss = u.g**0.5 / u.cm**0.5 / u.s #define a custom "gauss" unit to work with magnetism in cgs
+        B0 = B0.to(u.G).value * gauss #transform to custom gauss
+        Va_sq = B0**2 / 24 * np.pi * rhobar / Cs**2
 
-        #define M(R) and D (the thermal and magnetic terms of M)
+        #formally define M(R) and D (the thermal and magnetic terms of M)
         if eos == 'barotropic':
             Kcrit = ((rho_crit / meandens).decompose())**(gamma1-gamma2)
+            #M is defined for later use in root finding (associating input masses with appropriate radii)
             def R_M(R_,M_):
                 term1 = ((M_ / R_**3)**((gamma1-1)*m) + Kcrit**m * (M_ / R_**3)**((gamma2-1)*m))**(1/m)
-                return term1 + Mstar**2 * R_**(2*eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1)
+                return term1 + Mstar**2 * R_**(2*eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1) - M_
 
             def D_funcs(rho_):
                 D = ((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m) + mag_coef * Va_sq * rho_**(2*gammab-1)
                 dD = (((rho_)**((gamma1-1)*m) + Kcrit**m * (rho_)**((gamma2-1)*m))**(1/m-1) *
                       ((gamma1 - 1) * rho_**((gamma1-1)*m-1) + Kcrit**m * (gamma2 - 1) * rho_**((gamma2-1)*m-1)) +
-                      mag_coef * (2 * gammab - 1) * Va_sq * rho_**(2*gammab-2)
+                      mag_coef * (2 * gammab - 1) * Va_sq * rho_**(2*gammab-2))
                 return D, dD 
             
         else:
@@ -287,15 +295,16 @@ class HC(Distribution):
                 return D, dD
 
         #equations 33/34 (specifying dM/dR) of HC13 hold for all relevant definitions of D
-        def dM_dR(M,R):
-            rho = M / R**3
+        def dM_dR(M_,R_):
+            rho = M_ / R_**3
             D, dD = D_funcs(rho)
-            B = D - 3 * rho * dD * (2 * eta + 1) * Mstar * R**(2*eta)
-            C = 1 - R**-2 * dD
+            B = D - 3 * rho * dD * (2 * eta + 1) * Mstar * R_**(2*eta)
+            C = 1 - R_**-2 * dD
             return B / C
 
-        def get_root(M):
-	    return root_scalar(R_M,x0=1,args=(M)).root
+        #root find for R
+        def get_root(M_):
+            return root_scalar(R_M,x0=1,args=(M_)).root
         
         aj = np.pi**(5/2) / 6
         cm = 4 * np.pi / 3
@@ -313,8 +322,12 @@ class HC(Distribution):
         dsigma_dR = -(2 * np.sqrt(sig_sq))**-1 * (sig_0 - sig_sq) / Rt
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
 
-        N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM_dR(Mt,Rt) *
-             ((3 / Rt - dM_dR(Mt,Rt) / Mt) + corr) *
+        #determine maximum possible "core" mass given provided sizescale
+        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(sizescale/Lj)).root * Mj
+
+        dM = dM_dR(Mt,Rt)
+        N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM *
+             ((3 / Rt - dM / Mt) + corr) *
              np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8))
 
         if time_dep:
@@ -323,8 +336,11 @@ class HC(Distribution):
             phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
 
             N *= np.sqrt(np.exp(delta)) / phi_t
+
+        N *= sizescale**3
+        N = N.decompose()
         
-        return N * (M > self.m1) * (M < self.m2)
+        return N * (M >= max(self.m1,0)) * (M <= min(self.m2,mmax.value))
 
     def pdf(self,x):
         return self.calculate(x)
