@@ -146,112 +146,203 @@ class PN_CMF:
     def massfunc(self):
         return self._massfunc
 
-class HC(MassFunction):
+class HC_CMF(MassFunction):
     
     def init(self,mmin=None,mmax=None,
-             sizescale=1*u.pc, n17=3.8, mean_mol_wt=2.33,
-             V0=0.8*u.km/u.s, meandens=5000*u.cm**-3, temperature=10*u.K,
-             eta=0.45, b_forcing=0.4, Mach=6,
+             clump_size=1*u.pc,
+             n0=5000*u.cm**-3, T0=10*u.K, mu=2.33,
+             V0=0.8*u.km*u.s**-1, eta=None, n_pow=3.8,
+             b_forcing=0.4, Mach=6,
              eos='isothermal',gamma1=0.7,
              gamma2=1.1,rho_crit=1e-18*u.g*u.cm**-3,
              include_B=False,B0=10*u.uG,gammab=0.1):
-        """ Equation 21 of Hennebelle & Chabrier 2013
+        """Generalized core mass function following the formalism of
+        Hennebelle/Chabrier 2008/2009/2013.
         
         Parameters
         ----------
-        mass : np.array
-            Masses at which to evaluate the PDF
-        sizescale : pc equivalent
-            The size of the clump (I think - extremely difficult to find this)
-        n17 : float
-            The "n" value in Equation 17, quoted to be 3.8 shortly afterward in the text
-        alpha_ct : float
-            "a dimensionless coefficient of the order of a few"
-            I derived 0.75 from equation 9
-        V0 : float
-            u0 * 0.8 km/s according to the bottom of page 6, under eqn 36,
-            which references eqn 16
+        mmin : float
+            Minimum permissible core mass
+        mmax : float
+            Maximum permissible core mass
+        clump_size : pc (or equivalent)
+            Radius of the parent clump (default = 1 pc)
+        n0 : cm^-3 (or equivalent)
+            Mean number density of the parent clump (default = 5e3 cm^-3)
+        T0 : K (or equivalent)
+            Mean temperature of the parent clump (default = 10 K)
+        mu : float
+            Mean molecular weight of gas (default = 2.33)
+        V0 : km s^-1 (or equivalent)
+            RMS velocity of the parent clump at R = 1 pc 
+            (default = 0.8 km s^-1)
         eta : None or float
-            derived from Equation 17, but can be specified directly
+            Exponent governing the behavior of dispersion velocity with scale
+        n_pow : float
+            Index of 3D velocity power spectrum. Used to derive eta 
+            if no eta is provided (default = 3.8)
         b_forcing : float
-            The Forcing Parameter `b` from equation 4
+            Forcing parameter of turbulence (default = 0.4)
         Mach : float
-            Mach number
+            Characteristic Mach number of the parent clump (default = 6)
+        eos : str
+            String specifying which equation of state to use for gas 
+            in the parent clump. Accepts 'isothermal', 'polytropic', 
+            and 'barotropic'; see papers for implementation details
+            (default = 'isothermal')
+        gamma1 : float
+            Exponent in a non-isothermal EOS. The sole exponent in a 
+            polytropic case and the lower-density exponent in a
+            barotropic case. Only used if eos != 'isothermal' (default = 0.7)
+        gamma2 : float
+            High-density exponent in a barotropic EOS. Only used if 
+            eos == 'barotropic' (default = 1.1)
+        rho_crit : g cm^-3 (or equivalent)
+            Critical density in a barotropic EOS (i.e. where the piecewise
+            halves meet). Only used if eos == 'barotropic' 
+            (default = 1e-18 g cm^-3) 
+        include_B : bool
+            Whether or not to include support from a magnetic field in
+            CMF calculation. (default = False)
+        B0 : gauss (or equivalent)
+            Mean magnetic field strength (default = 10 microgauss)
+        gammab : float
+            Exponent governing the relationship between magnetic field
+            strength and gas density (default = 0.1)
         """
+        
+        if eta is None:
+            eta = (n_pow - 3) / 2
 
         eos_types = ['isothermal','polytropic','barotropic']
         if eos not in eos_types:
             raise ValueError(f'EOS must be one of the following: {eos_types}')
-
-        c_s = ((constants.k_B * temperature /
-                (mean_mol_wt*constants.m_p))**0.5).to(u.km/u.s)
-
-        sigma = (np.log(1+b_forcing**2 * Mach**2))**0.5
-
-        if eta is None:
-            # eqn 17
-            eta = (n17 - 3.)/2.
-
-        #define a custom "gauss" unit to work with magnetism in cgs
-        gauss = u.g**0.5 / u.cm**0.5 / u.s
             
-        alpha_g = 3/5. # for a uniform density fluctuation
-        # eqn 9
-        phit = 2 * alpha_ct * (24 / np.pi**2 / alpha_g)
+        self.distr = HC(mmin,mmax,
+                        clump_size,n0,T0,mu,
+                        V0,eta,b_forcing,Mach,
+                        eos,gamma1,gamma2,rho_crit,
+                        include_B,B0,gammab)
 
-        # dimensionless geometrical factor of the order of unity
-        # For a sphere:
-        aJ = np.pi**2.5 / 6
-        # a geometrical factor, typically of the order of 4pi/3
-        Cm = 4 * np.pi / 3
-
-        # Jeans mass (eqn 13)
-        MJ0 = (aJ / Cm * c_s**3 * constants.G**-1.5 * rho_bar**-0.5).to(u.M_sun)
-    
-        # Jeans length (eqn 14)
-        lambdaJ0 = ((np.pi**1.5 / Cm)**(1./3) * c_s * (constants.G*rho_bar)**-0.5).to(u.pc)
-
-        # relative Mach number (eqn 20)
-        Mstar = (3**-0.5 * V0 / c_s * (lambdaJ0 / u.pc)**eta).to(u.dimensionless_unscaled)
-    
-        # Eqn 7 of Paper I
-        # delta = np.log(rho/rho_bar
-        # R = (mass/rho_bar)**(1/3.) * np.exp(-delta/3.) / lambdaJ0
-
-        def R_side(R,M):
-            return R * (1 + Mstar**2 * R**(2 * eta)) - M
-
-        def get_root(M):
-            return root_scalar(R_side,x0=1,args=(M)).root
-
-        #Rtwiddle = (sizescale / lambdaJ0).to(u.dimensionless_unscaled)
-        Rtwiddle = np.vectorize(get_root)(mass.value)
+        self.normalize()
         
-        Mtwiddle = (mass / MJ0).to(u.dimensionless_unscaled)
+    def __call__(self,m,integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(m)
+        else:
+            return self.normfactor * self.distr.pdf(m)
 
-        #sigma *= 1 - (Rtwiddle * lambdaJ0 / sizescale)**(n17 - 3)
+    @property
+    def mmin(self):
+        return self.distr.m1
 
-        # after eqn 21
-        N0 = rho_bar / MJ0
-        # PROBLEM: N0 is defined to be rho_bar / MJ0, but that is a dimensional
-        # quantity with units cm^-3. This is a contradiction that means some
-        # definition here is wrong.
+    @property
+    def mmax(self):
+        return self.distr.m2
 
-        # eqn 21
-        N = (2./phit * N0 * Rtwiddle**-6 *
-             (1 + (1 - eta) * Mstar**2 * Rtwiddle**(2*eta)) /
-             (1+(2*eta+1)*Mstar**2*Rtwiddle**(2*eta)) *
-             (Mtwiddle / Rtwiddle**3)**(-1 - np.log(Mtwiddle/Rtwiddle**3) / 2 / sigma**2) *
-             np.exp(-sigma**2/8.) / (2 * np.pi)**0.5 / sigma)
+    @property
+    def clump_size(self):
+        return self.distr.clump_size
 
-        return N
+    @property
+    def n0(self):
+        return self.distr.n0
 
+    @property
+    def T0(self):
+        return self.distr.T0
+
+    @property
+    def mu(self):
+        return self.distr.mu
+
+    @property
+    def V0(self):
+        return self.distr.V0
+
+    @property
+    def eta(self):
+        return self.distr.eta
+
+    @property
+    def b_forcing(self):
+        return self.distr.b_forcing
+
+    @property
+    def Mach(self):
+        return self.distr.Mach
+
+    @property
+    def eos(self):
+        return self.distr.eos
+
+    @property
+    def gamma1(self):
+        try:
+            return self.distr.gamma1
+        except(AttributeError):
+            raise AttributeError("This object has no gamma1")
+
+    @property
+    def gamma2(self):
+        try:
+            return self.distr.gamma2
+        except(AttributeError):
+            raise AttributeError("This object has no gamma2")
+
+    @property
+    def rho_crit(self):
+        try:
+            return self.distr.rho_crit
+        except(AttributeError):
+            raise AttributeError("This object has no rho_crit")
+
+    @property
+    def B0(self):
+        try:
+            return self.distr.B0
+        except(AttributeError):
+            raise AttributeError("This object has no B0")
+
+    @property
+    def gammab(self):
+        try:
+            return self.distr.gammab
+        except(AttributeError):
+            raise AttributeError("This object has no gammab")
+        
 class HC(Distribution):
 
-    def __init__(self):
-        pass
+    def init(self, m1, m2,
+             clump_size, n0, T0, mu,
+             V0, eta, b_forcing, Mach,
+             eos, gamma1, gamma2, rho_crit,
+             include_B, B0, gammab):
 
-    def calculate(self,M):
+        self.m1 = m1
+	self.m2 = m2
+        
+        self.clump_size = clump_size
+        self.n0 = n0
+	self.T0 = T0
+        self.mu = mu
+
+        self.V0 = V0
+        self.eta = eta
+        self.b_forcing = b_forcing
+        self.Mach = Mach
+
+        self.eos = eos
+	if self.eos != 'isothermal':
+            self.gamma1 = gamma1
+	if self.eos == 'barotropic':
+            self.gamma2 = gamma2
+            self.rho_crit = rho_crit
+	if include_B:
+            self.B0 = B0
+            self.gammab	= gammab
+
+    def _calculate(self,M):
         #-(t0/tR) x rhobar/Mj/M x dR/dM x (ddelta/dR - abs(dsigma/dR/sigma*(delta+sigma^2/2))) x 1/sqrt(2pisigma^2) x exp(-delta^2/2sigma^2 + delta / 2 - sigma^2/8)
         #functions of EOS: M(R), dM/dR, Mj/Lj/Mstar (via sound speed)
         #functions of time dependence: tR
@@ -266,14 +357,14 @@ class HC(Distribution):
 
         #use EOS/support to define M(R) and dM/dR
         mag_coef = 1 if include_B else 0
-	gauss = u.g**0.5 / u.cm**0.5 / u.s #define a custom "gauss" unit to work with magnetism in cgs
-        B0 = B0.to(u.G).value * gauss #transform to custom gauss
+	gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom "gauss" unit to work with magnetism in cgs
+        B0 = B0.to(u.G).value * gauss # transform to custom gauss
         Va_sq = B0**2 / 24 * np.pi * rhobar / Cs**2
 
         #formally define M(R) and D (the thermal and magnetic terms of M)
         if eos == 'barotropic':
             Kcrit = ((rho_crit / meandens).decompose())**(gamma1-gamma2)
-            #M is defined for later use in root finding (associating input masses with appropriate radii)
+            # M is defined for later use in root finding
             def R_M(R_,M_):
                 term1 = ((M_ / R_**3)**((gamma1-1)*m) + Kcrit**m * (M_ / R_**3)**((gamma2-1)*m))**(1/m)
                 return term1 + Mstar**2 * R_**(2*eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*gammab-1) - M_
@@ -343,10 +434,10 @@ class HC(Distribution):
         return N * (M >= max(self.m1,0)) * (M <= min(self.m2,mmax.value))
 
     def pdf(self,x):
-        return self.calculate(x)
+        return self._calculate(x)
 
     def cdf(self,x):
-        return quad(self.calculate,0,x)[0] #placeholder, needs to be vectorized still
+        return quad(self._calculate,0,x)[0] #placeholder, needs to be vectorized still
 
     def ppf(self,x): #is there a way to do this without interpolation?
         return 0
