@@ -367,6 +367,8 @@ class HC(Distribution):
 
         self.time_dep = time_dep
         
+    #alternate strat: have _calculate be _pdf for HC(scipy.stats.rv_continuous), don't define anything else
+    
     def _calculate(self,x):
         #this block encompasses the changes based on EOS and sources of support
         #use EOS to set thermal Cs (for Mj/Lj/Mstar)
@@ -387,13 +389,15 @@ class HC(Distribution):
             Kcrit = ((self.rho_crit / rhobar).decompose())**(self.gamma1-self.gamma2)
             # M is defined for later use in root finding
             def R_M(R_,M_):
-                term1 = ((M_ / R_**3)**((self.gamma1-1)*self.m) + Kcrit**self.m * (M_ / R_**3)**((self.gamma2-1)*self.m))**(1/self.m)
-                return term1 + Mstar**2 * R_**(2*self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1) - M_
+                A = (M_ / R_**3)**((self.gamma1-1)*self.m) + Kcrit**self.m * (M_ / R_**3)**((self.gamma2-1)*self.m)
+                return R_ * (A**(1/self.m) + Mstar**2 * R_**(2*self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1)) - M_
 
             def D_funcs(rho_):
-                D = ((rho_)**((self.gamma1-1)*self.m) + Kcrit**self.m * (rho_)**((self.gamma2-1)*self.m))**(1/self.m) + mag_coef * Va_sq * rho_**(2*self.gammab-1)
-                dD = (((rho_)**((self.gamma1-1)*self.m) + Kcrit**self.m * (rho_)**((self.gamma2-1)*self.m))**(1/self.m-1) *
-                      ((self.gamma1 - 1) * rho_**((self.gamma1-1)*self.m-1) + Kcrit**self.m * (self.gamma2 - 1) * rho_**((self.gamma2-1)*self.m-1)) +
+                A = rho_**((self.gamma1-1)*self.m) + Kcrit**self.m * rho_**((self.gamma2-1)*self.m)
+                D = A**(1/self.m) + mag_coef * Va_sq * rho_**(2*self.gammab-1)
+                dD = (A**(1/self.m-1) *
+                      ((self.gamma1 - 1) * rho_**((self.gamma1-1)*self.m-1) +
+                       Kcrit**self.m * (self.gamma2 - 1) * rho_**((self.gamma2-1)*self.m-1)) +
                       mag_coef * (2 * self.gammab - 1) * Va_sq * rho_**(2*self.gammab-2))
                 return D, dD 
             
@@ -410,7 +414,7 @@ class HC(Distribution):
         def dM_dR(M_,R_):
             rho = M_ / R_**3
             D, dD = D_funcs(rho)
-            B = D - 3 * rho * dD * (2 * self.eta + 1) * Mstar * R_**(2*self.eta)
+            B = D - 3 * rho * dD + (2 * self.eta + 1) * Mstar * R_**(2*self.eta)
             C = 1 - R_**-2 * dD
             return B / C
 
