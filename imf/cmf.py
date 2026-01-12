@@ -232,8 +232,7 @@ class HC_CMF(MassFunction):
                         include_B,B0,gammab,
                         time_dep)
 
-        self.normfactor = 1
-        #self.normalize()
+        self.normalize()
         
     def __call__(self,m,integral_form=False):
         if integral_form:
@@ -435,7 +434,7 @@ class HC(Distribution):
         #calculate variance and correction term (second term in HC13 equation 2)
         sig_0 = np.log(1 + self.b_forcing**2 * self.Mach**2)
         sig_sq = sig_0 * (1 - (Rt * Lj / self.clump_size)**(2*self.eta))
-        dsigma_dR = -(2 * np.sqrt(sig_sq))**-1 * (sig_0 - sig_sq) / Rt
+        dsigma_dR = -self.eta / np.sqrt(sig_sq) * (sig_0 - sig_sq) / Rt
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
 
         #determine maximum possible "core" mass given provided sizescale
@@ -443,7 +442,7 @@ class HC(Distribution):
 
         dM = dM_dR(Mt,Rt)
         N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM *
-             ((3 / Rt - dM / Mt) + corr) *
+             ((3 / Rt - dM / Mt) - abs(corr)) *
              np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8))
 
         if self.time_dep:
@@ -455,19 +454,26 @@ class HC(Distribution):
 
         N *= self.clump_size**3
         N = N.to(u.dimensionless_unscaled).value
-        
-        return N * (x >= max(self.m1,0)) * (x <= min(self.m2,mmax.value))
 
+        #get rid of impossible entries
+        N = np.atleast_1d(N)
+        N[~np.isfinite(N)] = 0
+        if len(N) == 1:
+            N = N[0]
+        N *= (x >= max(self.m1,0)) * (x <= min(self.m2,mmax.value))
+        
+        return N
+    
     def pdf(self,x):
         return self._calculate(x)
 
-    def cdf(self,x):
-        return quad(self._calculate,0,x)[0] #placeholder, needs to be vectorized still
+    #def cdf(self,x):
+    #    return quad(self._calculate,0,x)[0] #placeholder, needs to be vectorized still
 
-    def ppf(self,x): #is there a way to do this without interpolation?
-        return 0
+    #def ppf(self,x): #is there a way to do this without interpolation?
+    #    return 0
 
-    def rvs(self,N):
-        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
-        return self.ppf(samp)
+    #def rvs(self,N):
+    #    samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+    #    return self.ppf(samp)
 
