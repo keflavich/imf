@@ -151,8 +151,8 @@ class HC_CMF(MassFunction):
     def __init__(self,mmin=None,mmax=None,
                  clump_size=1*u.pc,
                  n0=5000*u.cm**-3, T0=10*u.K, mu=2.33,
-                 V0=0.8*u.km*u.s**-1, eta=None, n_pow=3.8,
-                 b_forcing=0.4, Mach=6,
+                 V0=0.8*u.km*u.s**-1, eta=None,
+                 n_pow=3.8, b_forcing=0.5,
                  eos='isothermal',gamma1=0.7,
                  gamma2=1.1,rho_crit=1e-18*u.g*u.cm**-3,m=3,
                  include_B=False,B0=10*u.uG,gammab=0.1,
@@ -184,8 +184,6 @@ class HC_CMF(MassFunction):
             if no eta is provided (default = 3.8)
         b_forcing : float
             Forcing parameter of turbulence (default = 0.4)
-        Mach : float
-            Characteristic Mach number of the parent clump (default = 6)
         eos : str
             String specifying which equation of state to use for gas 
             in the parent clump. Accepts 'isothermal', 'polytropic', 
@@ -227,7 +225,7 @@ class HC_CMF(MassFunction):
             
         self.distr = HC(mmin,mmax,
                         clump_size,n0,T0,mu,
-                        V0,eta,b_forcing,Mach,
+                        V0,eta,b_forcing,
                         eos,gamma1,gamma2,rho_crit,m,
                         include_B,B0,gammab,
                         time_dep)
@@ -275,10 +273,6 @@ class HC_CMF(MassFunction):
     @property
     def b_forcing(self):
         return self.distr.b_forcing
-
-    @property
-    def Mach(self):
-        return self.distr.Mach
 
     @property
     def eos(self):
@@ -334,7 +328,7 @@ class HC(Distribution):
 
     def __init__(self, m1, m2,
                  clump_size, n0, T0, mu,
-                 V0, eta, b_forcing, Mach,
+                 V0, eta, b_forcing,
                  eos, gamma1, gamma2, rho_crit, m,
                  include_B, B0, gammab,
                  time_dep):
@@ -350,7 +344,6 @@ class HC(Distribution):
         self.V0 = V0
         self.eta = eta
         self.b_forcing = b_forcing
-        self.Mach = Mach
 
         self.eos = eos
         if self.eos != 'isothermal':
@@ -413,7 +406,7 @@ class HC(Distribution):
         def dM_dR(M_,R_):
             rho = M_ / R_**3
             D, dD = D_funcs(rho)
-            B = D - 3 * rho * dD + (2 * self.eta + 1) * Mstar * R_**(2*self.eta)
+            B = D - 3 * rho * dD + (2 * self.eta + 1) * Mstar**2 * R_**(2*self.eta)
             C = 1 - R_**-2 * dD
             return B / C
 
@@ -426,13 +419,14 @@ class HC(Distribution):
         Mj = (aj / cm * Cs**3 / np.sqrt(constants.G**3 * rhobar)).to(u.M_sun)
         Lj = ((np.pi**(3/2) / cm)**(1/3) * Cs / np.sqrt(constants.G * rhobar)).to(u.pc)
         Mstar = self.V0 / Cs * (Lj / (1*u.pc))**self.eta / np.sqrt(3)
-
+        Mach = np.sqrt(3) * Mstar * (self.clump_size / Lj)**self.eta
+        
         Mt = x / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
 
         #calculate variance and correction term (second term in HC13 equation 2)
-        sig_0 = np.log(1 + self.b_forcing**2 * self.Mach**2)
+        sig_0 = np.log(1 + self.b_forcing**2 * Mach**2)
         sig_sq = sig_0 * (1 - (Rt * Lj / self.clump_size)**(2*self.eta))
         dsigma_dR = -self.eta / np.sqrt(sig_sq) * (sig_0 - sig_sq) / Rt
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
