@@ -2,8 +2,9 @@ from __future__ import print_function
 import numpy as np
 from astropy import units as u
 from astropy import constants
-import scipy.stats
 from scipy.optimize import root_scalar
+from scipy.integrate import cumulative_trapezoid
+from scipy.interpolate import PchipInterpolator
 
 from . import imf
 from .distributions import Distribution
@@ -227,12 +228,14 @@ class HC_CMF(MassFunction):
                         clump_size,n0,T0,mu,
                         V0,eta,b_forcing,
                         eos,gamma1,gamma2,rho_crit,m,
-                        include_B,B0,gammab,
-                        time_dep)
-
-        self.normalize()
+                        include_B,B0,gammab)
         
-    def __call__(self,m,integral_form=False):
+    def __call__(self,m,
+                 integral_form=False,
+                 time_dep=True):
+
+        self.distr.time_dep = time_dep
+        
         if integral_form:
             return self.normfactor * self.distr.cdf(m)
         else:
@@ -319,10 +322,6 @@ class HC_CMF(MassFunction):
             raise AttributeError("This object has no gammab")
         else:
             return self.distr.gammab
-
-    @property
-    def time_dep(self):
-        return self.distr.time_dep
         
 class HC(Distribution):
 
@@ -330,8 +329,7 @@ class HC(Distribution):
                  clump_size, n0, T0, mu,
                  V0, eta, b_forcing,
                  eos, gamma1, gamma2, rho_crit, m,
-                 include_B, B0, gammab,
-                 time_dep):
+                 include_B, B0, gammab):
 
         self.m1 = m1
         self.m2 = m2
@@ -357,11 +355,13 @@ class HC(Distribution):
         self.B0 = B0
         self.gammab = gammab
 
-        self.time_dep = time_dep
-        
-    #alternate strat: have _calculate be _pdf for HC(scipy.stats.rv_continuous), don't define anything else
+        self._points = np.geomspace(self.m1,self.m2)
+        keys = ['pdf','cdf','ppf']
+        self._func_dict = {key: [] for key in keys}
+
+        self._calculate()
     
-    def _calculate(self,x):
+    def _calculate(self):
         #this block encompasses the changes based on EOS and sources of support
         #use EOS to set thermal Cs (for Mj/Lj/Mstar)
         rhobar =  (self.n0 * self.mu * constants.m_p).to(u.g/u.cm**3)
@@ -421,7 +421,7 @@ class HC(Distribution):
         Mstar = self.V0 / Cs * (Lj / (1*u.pc))**self.eta / np.sqrt(3)
         Mach = np.sqrt(3) * Mstar * (self.clump_size / Lj)**self.eta
         
-        Mt = x / Mj.value
+        Mt = self._points / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
 
@@ -435,39 +435,74 @@ class HC(Distribution):
         mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(self.clump_size/Lj)).root * Mj
 
         dM = dM_dR(Mt,Rt)
-        N = (rhobar / Mj / np.sqrt(2 * np.pi * sig_sq) / dM *
-             ((3 / Rt - dM / Mt) - abs(corr)) *
-             np.exp(-delta**2 / 2 / sig_sq + delta / 2 - sig_sq / 8))
-
-        if self.time_dep:
-            alpha_ct = 3.7 # coefficient for crossing time, chosen to make phi ~ 3
-            alpha_g = 0.6 # coefficient for self-gravitating gas in uniform density fluctuations
-            phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
-
-            N *= np.sqrt(np.exp(delta)) / phi_t
+        N = (rhobar / Mj / Mt / dM * ((3 / Rt - dM / Mt) + corr) /
+             np.sqrt(2 * np.pi * sig_sq) *
+             np.exp(-(delta - sig_sq / 2)**2 / 2 / sig_sq))
 
         N *= self.clump_size**3
         N = N.to(u.dimensionless_unscaled).value
 
         #get rid of impossible entries
-        N = np.atleast_1d(N)
         N[~np.isfinite(N)] = 0
-        if len(N) == 1:
-            N = N[0]
-        N *= (x >= max(self.m1,0)) * (x <= min(self.m2,mmax.value))
+        N *= self._points <= min(self.m2,mmax.value)
+
+        #store time-independent PDF
+        norm /= np.trapezoid(N,x=self._points)
+        cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],
+                                     (self._points[1:]+self._points[:-1])/2,
+                                     [self.m2]))
+        zero_arg = np.argmin(np.diff(cdf))
+
+        self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
+        self._func_dict['cdf'].append(PchipInterpolator(cdf_points,cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
+
+        #store time-dependent PDF       
+        alpha_ct = 3.7 # coefficient for crossing time, chosen to make phi ~ 3
+        alpha_g = 0.6 # coefficient for self-gravitating gas in uniform density fluctuations
+        phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
+        N *= np.sqrt(np.exp(delta)) / phi_t
+
+        norm /= np.trapezoid(N,x=self._points)
+        cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],
+                                     (self._points[1:]+self._points[:-1])/2,
+                                     [self.m2]))
+        zero_arg = np.argmin(np.diff(cdf))
+
+        self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
+        self._func_dict['cdf'].append(PchipInterpolator(cdf_points,cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
         
-        return N
-    
+    def _pick_function(self,functype,time_dep):
+        return self._func_dict[functype][int(time_dep)]
+
+    def _update_functions(self):
+        self._pdf = self._pick_function('pdf',self.time_dep)
+        self._cdf = self._pick_function('cdf',self.time_dep)
+        self._ppf = self._pick_function('ppf',self.time_dep)
+        
     def pdf(self,x):
-        return self._calculate(x)
+        return self._pdf(x,extrapolate=False)
 
-    #def cdf(self,x):
-    #    return quad(self._calculate,0,x)[0] #placeholder, needs to be vectorized still
+    def cdf(self,x):
+        return self._cdf(x,extrapolate=False)
 
-    #def ppf(self,x): #is there a way to do this without interpolation?
-    #    return 0
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
 
-    #def rvs(self,N):
-    #    samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
-    #    return self.ppf(samp)
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
 
+    @property
+    def time_dep(self):
+        return self._time_dep
+
+    @time_dep.setter
+    def time_dep(self,x):
+        self._time_dep = x
+        self._update_functions()
