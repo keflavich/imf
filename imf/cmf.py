@@ -146,6 +146,104 @@ class PN_CMF:
     @property
     def massfunc(self):
         return self._massfunc
+    
+class PN(Distribution):
+
+    def __init__(self,taccr,maccr,mbe,rho,
+                 tcross,birthdays):
+        
+        self.tbe = (taccr * (maccr / mbe)**(-1/3.)).to(u.s)
+        self.tff = ((3 * np.pi / (32 * constants.G * rho))**0.5).to(u.s)
+	self.mmax = (maccr * ((tbe + tff) / taccr)**3).to(u.M_sun)
+        self.belowBE = maccr < mbe
+        self.m_f = np.vstack([mmax.value, maccr.value]).min(axis=0)*u.M_sun
+
+        self.tcross = tcross
+        self.birthdays = birthdays
+        self.tnow = None
+
+        keys = ['prestellar','stellar','all']
+        self._func_dict = {key: None for key in keys}
+        
+    def _set_time(self,tnow):
+        keys = ['prestellar','stellar','all']
+        
+        if tnow != self.tnow:
+            age = tnow * self.tcross - self.birthdays
+            isBorn = age > 0
+            isPrestellar = age < tbe + tff
+            isStellar = np.logical_and(~isPrestellar,~belowBE)
+            isForming = age < self.taccr
+
+            mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
+            mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
+            #mnow[mnow > m_f] = m_f[mnow > m_f]
+
+            for key in keys:
+                if visible_only:
+                    cut = np.logical_and(isBorn,isForming)
+                    if cores == 'prestellar':
+		        cut = np.logical_and(cut,isPrestellar)
+                    elif cores == 'stellar':
+		        cut = np.logical_and(cut,isStellar)
+                else:
+                    if cores == 'prestellar':
+		        cut = np.logical_and(isBorn,~isStellar)
+	            elif cores == 'stellar':
+                        cut = np.logical_and(isBorn,isStellar)
+                    else:
+	                cut = np.ones(len(mnow)).astype(int)
+                    
+	        core_masses = mnow[cut]
+
+                edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
+                hist,edges = np.histogram(core_masses,bins=edges)
+            
+                #construct function dictionary
+                norm = np.trapezoid(N,x=self._points)
+                cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
+                cdf = np.concatenate((cdf,[max(cdf)]))
+                cdf_points = np.concatenate(([min(self._points)],
+	                                     (self._points[1:]+self._points[:-1])/2,
+                                             [self.m2]))
+	        zero_arg = np.argmin(np.diff(cdf))
+
+                functions = [PchipInterpolator(self._points,N/norm),
+                             PchipInterpolator(cdf_points,cdf),
+                             PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])]
+                self._func_dict[key] = functions
+            
+        else:
+            pass
+        
+    def pdf(self,x):
+        return self._pdf(x,extrapolate=False)
+
+    def cdf(self,x):
+        return self._cdf(x,extrapolate=False)
+
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
+
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
+
+    def _pick_functions(self,cores):
+        return self._func_dict[cores]
+
+    def _update_functions(self):
+        self._pdf, self._cdf, self._ppf = *self._pick_functions(self.cores)
+
+    @property
+    def cores(self):
+        return self._cores
+
+    @cores.setter
+    def cores(self,x):
+        self._cores = x
+        self._update_functions()
+
 
 class HC_CMF(MassFunction):
     
@@ -229,6 +327,8 @@ class HC_CMF(MassFunction):
                         V0,eta,b_forcing,
                         eos,gamma1,gamma2,rho_crit,m,
                         include_B,B0,gammab)
+
+        self.normfactor = 1
         
     def __call__(self,m,
                  integral_form=False,
@@ -447,7 +547,7 @@ class HC(Distribution):
         N *= self._points <= min(self.m2,mmax.value)
 
         #store time-independent PDF
-        norm /= np.trapezoid(N,x=self._points)
+        norm = np.trapezoid(N,x=self._points)
         cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
         cdf = np.concatenate((cdf,[max(cdf)]))
         cdf_points = np.concatenate(([min(self._points)],
@@ -465,7 +565,7 @@ class HC(Distribution):
         phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
         N *= np.sqrt(np.exp(delta)) / phi_t
 
-        norm /= np.trapezoid(N,x=self._points)
+        norm = np.trapezoid(N,x=self._points)
         cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
         cdf = np.concatenate((cdf,[max(cdf)]))
         cdf_points = np.concatenate(([min(self._points)],
