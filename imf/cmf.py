@@ -43,7 +43,7 @@ class PN_CMF:
             Determines the mass function (replace with mass function?)
         eff : float
             Efficiency of core formation. The core mass budget is
-            eff * cloud mass (default = 0.26)
+            eff * cloud mass (default = 0.26) (maybe not necessary?)
         beta : float
             Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
         T_mean : K (or equivalent)
@@ -94,65 +94,30 @@ class PN_CMF:
     def __call__(self,m,
                  tnow=1, #tnow is in # of crossing times
                  cores='prestellar',
-                 integral_form=False,
                  visible_only=True,
-                 return_masses=False):
+                 integral_form=False):
         """
         Parameters
         ----------
         tnow : float
-            Time at which to evaluate the CMF (in units of crossing times)
-        visible_only : Bool
-        
-        """
-        
-        #core_types = ['prestellar','stellar','all']
+            Time at which to evaluate the CMF, in units of crossing times
+            (default = 1)
+        cores : str
+            Which type(s) of cores to use for CMF calculation. Can be 
+            'prestellar', 'stellar', or 'all' (default = 'prestellar') 
+        visible_only : bool
+            Limits cores used in CMF calculations to those expected to be
+            observable (default = True)
+        """            
 
-        tbe = (self.taccr * (self.maccr / self.mbe)**(-1/3.)).to(u.s)
-        tff = ((3 * np.pi / (32 * constants.G * self.rho))**0.5).to(u.s)
-        mmax = (self.maccr * ((tbe + tff) / self.taccr)**3).to(u.M_sun)
-
-        age = tnow * self.tcross - self.birthdays
-        isBorn = age > 0
-        isPrestellar = age < tbe + tff
-        belowBE = self.maccr < self.mbe
-        isStellar = np.logical_and(~isPrestellar,~belowBE)
-        isForming = age < self.taccr
-
-        m_f = np.vstack([mmax.value, self.maccr.value]).min(axis=0)*u.M_sun
-        mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
-        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
-        #mnow[mnow > m_f] = m_f[mnow > m_f]
-
-	#We assume that cores that do not reach their BE mass are seen only during
-        #their formation time, taccr
-
-        if visible_only:
-            cut = np.logical_and(isBorn,isForming)
-            if cores == 'prestellar':
-                cut = np.logical_and(cut,isPrestellar)
-            elif cores == 'stellar':
-                cut = np.logical_and(cut,isStellar)
-        else:
-            if cores == 'prestellar':
-                cut = np.logical_and(isBorn,~isStellar)
-            elif cores == 'stellar':
-                cut = np.logical_and(isBorn,isStellar)
-            else:
-                cut = np.ones(len(mnow)).astype(int)
-
-        core_masses = mnow[cut]
-
-        edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
-        hist,edges = np.histogram(core_masses,bins=edges)
-        if return_masses:
-            return hist,edges,core_masses
-        else:
-            return hist,edges
-
-        #########
+        self.distr.visible = visible_only
         self.distr.time = tnow
-        self.distr.cores = cores
+
+        core_types = ['prestellar','stellar','all']
+        if cores in core_types:
+            self.distr.cores = cores
+        else:
+            raise ValueError(f"cores should be one of {core_types}")
 
         if integral_form:
             return self.normfactor * self.distr.cdf(m)
@@ -203,15 +168,15 @@ class PN(Distribution):
 
         self.tcross = tcross
         self.birthdays = birthdays
-        self.tnow = None
+        self.time = None
 
         keys = ['prestellar','stellar','all']
         self._func_dict = {key: None for key in keys}
         
-    def _set_time(self,tnow):
+    def _calculate(self,tnow,override=False):
         keys = ['prestellar','stellar','all']
         
-        if tnow != self.tnow:
+        if (tnow != self.time) or override:
             age = tnow * self.tcross - self.birthdays
             isBorn = age > 0
             isPrestellar = age < tbe + tff
@@ -223,16 +188,16 @@ class PN(Distribution):
             #mnow[mnow > m_f] = m_f[mnow > m_f]
 
             for key in keys:
-                if visible_only:
+                if self.visible:
                     cut = np.logical_and(isBorn,isForming)
-                    if cores == 'prestellar':
+                    if key == 'prestellar':
                         cut = np.logical_and(cut,isPrestellar)
-                    elif cores == 'stellar':
+                    elif key == 'stellar':
                         cut = np.logical_and(cut,isStellar)
                 else:
-                    if cores == 'prestellar':
+                    if key == 'prestellar':
                         cut = np.logical_and(isBorn,~isStellar)
-                    elif cores == 'stellar':
+                    elif key == 'stellar':
                         cut = np.logical_and(isBorn,isStellar)
                     else:
                         cut = np.ones(len(mnow)).astype(int)
@@ -254,8 +219,7 @@ class PN(Distribution):
                 functions = [PchipInterpolator(self._points,N/norm),
                              PchipInterpolator(cdf_points,cdf),
                              PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])]
-                self._func_dict[key] = functions
-            
+                self._func_dict[key] = functions            
         else:
             pass
         
@@ -280,6 +244,15 @@ class PN(Distribution):
         self._pdf, self._cdf, self._ppf = self._pick_functions(self.cores)
 
     @property
+    def time(self):
+        return self._time
+
+    @time.setter
+    def time(self,x):
+        self._calculate(time)
+        self._time = x
+        
+    @property
     def cores(self):
         return self._cores
 
@@ -287,6 +260,14 @@ class PN(Distribution):
     def cores(self,x):
         self._cores = x
         self._update_functions()
+
+    @property
+    def visible(self):
+        return self._visible
+
+    @visible.setter
+    def visible(self,x):
+        self._visible = x
 
 
 class HC_CMF(MassFunction):
