@@ -15,11 +15,18 @@ from . import distributions
 
 class MassFunction(object):
     """
-    Generic Mass Function class
-
-    (this is mostly meant to be subclassed by other functions, not used itself)
+    Generic class establishing basic operations for mass functions.
+    Intended for subclassing.
     """
     def __init__(self, mmin=None, mmax=None):
+        """
+        Parameters
+        ----------
+        mmin: float or None
+            Minimum stellar mass
+        mmax: float or None
+            Maximum stellar mass
+        """
         self._mmin = self.default_mmin if mmin is None else mmin
         self._mmax = self.default_mmax if mmax is None else mmax
 
@@ -95,6 +102,11 @@ class Salpeter(MassFunction):
         """
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
+
+        Parameters
+        ----------
+        alpha: float
+            The exponent of the power law (default = 2.35)
         """
         super().__init__(mmin=mmin, mmax=mmax)
 
@@ -357,11 +369,32 @@ class ChabrierPowerLaw(MassFunction):
         
 class PadoanTF(MassFunction):
     """
-    Padoan & Nordlund 2002 turbulent fragmentation
+    IMF implementing the form derived in Padoan & Nordlund (2002)
+    emerging from turbulent fragmentation theory.
     """
     def __init__(self,mmin=1e-2,mmax=np.inf,
                  b=1.8,T0=10,n0=5e2,
                  sigma=None,mach=10):
+        """
+        IMF implementing the form derived in Padoan & Nordlund (2002)
+        emerging from turbulent fragmentation theory.
+        
+        Parameters
+        ----------
+        mmin: float
+        mmax: float
+        b: float
+            Spectral index of the turbulence power spectrum (default = 1.8)
+        T0: float
+            Average gas temperature in K (default = 10)
+        n0: float
+            Average gas number density in cm^-3 (default = 5e2)
+        sigma: float or None
+            Standard deviation of the log of gas density
+        mach: float
+            Mach number of the turbulent flow. Used to calculate sigma 
+            if sigma is None
+        """
 
         if sigma is None and mach is None:
             raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')

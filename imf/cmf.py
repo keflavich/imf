@@ -2,6 +2,7 @@ from __future__ import print_function
 import numpy as np
 from astropy import units as u
 from astropy import constants
+import scipy
 from scipy.optimize import root_scalar
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
@@ -10,17 +11,17 @@ from . import imf
 from .distributions import Distribution
 from .imf import MassFunction
 
-class PN_CMF:
+class PN_CMF(MassFunction):
     """
     Core mass function derived from a population generated according to
-    Padoan/Nordlund 2011 (http://adsabs.harvard.edu/abs/2011ApJ...741L..22P)
+    Padoan/Nordlund 2011
 
     Does not match their figures yet!
     """
     def __init__(self,mmin=None,mmax=None,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
-                 alpham1=1.35, eff=0.26, beta=0.4,
+                 massfunc=None, eff=0.26, beta=0.4, b=1.8,
                  T_mean=7*u.K, mu=2.33):
         """
         Parameters
@@ -39,33 +40,41 @@ class PN_CMF:
         rho0 : g cm^-3 (or equivalent)
             Mean mass density of gas in the parent cloud
             (default = 2e-21 g cm^-3)
-        alpham1 : float
-            Determines the mass function (replace with mass function?)
+        massfunc : MassFunction
+            Mass function determining the final masses of cores.
+            Defaults to a PadoanTF instance with the properties
+            of the parent cloud
         eff : float
             Efficiency of core formation. The core mass budget is
-            eff * cloud mass (default = 0.26) (maybe not necessary?)
+            eff * cloud mass (default = 0.26)
         beta : float
             Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
+        b : float
+            Spectral index of the turbulence power spectrum (default = 1.8)
         T_mean : K (or equivalent)
             Mean core temperature (default = 7 K)
         mu : float
             Mean molecular weight of gas (default = 2.33)
         """
-
+        if mmin is None:
+            mmin = 0.01
+        if mmax is None:
+            mmax = 120
+        
         self._tcross = (L0 / v0).to(u.Myr)
         m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
 
         # Mach number defined on largest scale (assumed)
-        MS0 = (v0 / ((constants.k_B * T0 / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)).value
+        MS0 = (v0 / ((constants.k_B * T0 / (mu * constants.m_p))**0.5).to(u.km/u.s)).value
 
         # implementing eqn 1
         sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density [eqn 3]
         s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
 
-        n0 = (rho0 / constants.m_p / mean_mol_wt).to(u.cm**-3).value
+        n0 = (rho0 / constants.m_p / mu).to(u.cm**-3).value
         self._massfunc = imf.PadoanTF(mmin=mmin,mmax=mmax,
-                                      T0=T0.value,n0=n0,
-                                      sigma=s)
+                                      T0=T0.value,n0=n0,b=b,
+                                      sigma=s) if massfunc is None else massfunc
         self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
                                        massfunc=self.massfunc,
                                        silent=True) * u.M_sun
@@ -81,15 +90,17 @@ class PN_CMF:
         
         self._birthdays = np.random.random(len(self.maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
 
-        a = (3 - (3 / alpham1)) / 2
+        a = (b - 1) / 2
         self._taccr = (self.tcross * sigma_rho**((4 - 4 * a) / (3 - 2 * a)) *
                        (self.maccr / m0)**((1 - a) / (3 - 2 * a))).to(u.Myr)
 
-        c_s = ((constants.k_B * T_mean / (mean_mol_wt * constants.m_p))**0.5).to(u.km/u.s)
+        c_s = ((constants.k_B * T_mean / (mu * constants.m_p))**0.5).to(u.km/u.s)
         self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * self.rho**0.5)).to(u.M_sun)
 
-        self.distr = PN(self.taccr,self.maccr,self.mbe,
+        self.distr = PN(mmin,mmax,
+                        self.maccr,self.taccr,self.mbe,
                         self.rho,self.tcross,self.birthdays)
+        self.normfactor = 1
 
     def __call__(self,m,
                  tnow=1, #tnow is in # of crossing times
@@ -110,8 +121,13 @@ class PN_CMF:
             observable (default = True)
         """            
 
-        self.distr.visible = visible_only
-        self.distr.time = tnow
+        recalc = np.logical_or(tnow != self.distr.time,
+                               visible_only != self.distr.visible)
+        
+        if recalc:
+            self.distr.time = tnow
+            self.distr.visible = visible_only
+            self.distr._calculate()
 
         core_types = ['prestellar','stellar','all']
         if cores in core_types:
@@ -124,9 +140,18 @@ class PN_CMF:
         else:
             return self.normfactor * self.distr.pdf(m)
 
-    def will_collapse(self):
-        return self.maccr > self.mbe / 2
+    def mtot(self):
+        r"""
+        Returns the total mass of material in cores (in $M_\odot$)
+        """
+        return sum(self.maccr)
 
+    def get_masses(self,tnow=1,cores='prestellar',visible_only=True):
+        r"""
+        Returns the masses of cores meeting the specifications (in $M_\odot$)
+        """
+        return self.distr._core_masses(tnow,visible_only,cores)
+        
     @property
     def tcross(self):
         return self._tcross
@@ -157,71 +182,78 @@ class PN_CMF:
     
 class PN(Distribution):
 
-    def __init__(self,taccr,maccr,mbe,rho,
+    def __init__(self,m1,m2,
+                 maccr,taccr,mbe,rho,
                  tcross,birthdays):
         
-        self.tbe = (taccr * (maccr / mbe)**(-1/3.)).to(u.s)
+        self.m1 = m1
+        self.m2 = m2
+        self.maccr = maccr
+        self.taccr = taccr
+        self.tbe = (self.taccr * (self.maccr / mbe)**(-1/3.)).to(u.s)
         self.tff = ((3 * np.pi / (32 * constants.G * rho))**0.5).to(u.s)
-        self.mmax = (maccr * ((tbe + tff) / taccr)**3).to(u.M_sun)
-        self.belowBE = maccr < mbe
-        self.m_f = np.vstack([mmax.value, maccr.value]).min(axis=0)*u.M_sun
+        self.mmax = (self.maccr * ((self.tbe + self.tff) / self.taccr)**3).to(u.M_sun)
+        self.belowBE = self.maccr < mbe
+        self.m_f = np.vstack([self.mmax.value, self.maccr.value]).min(axis=0)*u.M_sun
 
         self.tcross = tcross
         self.birthdays = birthdays
         self.time = None
+        self.visible = True
 
         keys = ['prestellar','stellar','all']
         self._func_dict = {key: None for key in keys}
         
-    def _calculate(self,tnow,override=False):
-        keys = ['prestellar','stellar','all']
-        
-        if (tnow != self.time) or override:
-            age = tnow * self.tcross - self.birthdays
-            isBorn = age > 0
-            isPrestellar = age < tbe + tff
-            isStellar = np.logical_and(~isPrestellar,~belowBE)
-            isForming = age < self.taccr
+    def _core_masses(self,tnow,visible,cores):
+        age = tnow * self.tcross - self.birthdays
+        isBorn = age > 0
+        isPrestellar = age < self.tbe + self.tff
+        isStellar = np.logical_and(~isPrestellar,~self.belowBE)
+        isForming = age < self.taccr
 
-            mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
-            mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
-            #mnow[mnow > m_f] = m_f[mnow > m_f]
+        mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
+        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
+        #mnow[mnow > m_f] = m_f[mnow > m_f]
 
-            for key in keys:
-                if self.visible:
-                    cut = np.logical_and(isBorn,isForming)
-                    if key == 'prestellar':
-                        cut = np.logical_and(cut,isPrestellar)
-                    elif key == 'stellar':
-                        cut = np.logical_and(cut,isStellar)
-                else:
-                    if key == 'prestellar':
-                        cut = np.logical_and(isBorn,~isStellar)
-                    elif key == 'stellar':
-                        cut = np.logical_and(isBorn,isStellar)
-                    else:
-                        cut = np.ones(len(mnow)).astype(int)
-
-                core_masses = mnow[cut]
-
-                edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
-                hist,edges = np.histogram(core_masses,bins=edges)
-            
-                #construct function dictionary
-                norm = np.trapezoid(N,x=self._points)
-                cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
-                cdf = np.concatenate((cdf,[max(cdf)]))
-                cdf_points = np.concatenate(([min(self._points)],
-	                                     (self._points[1:]+self._points[:-1])/2,
-                                             [self.m2]))
-                zero_arg = np.argmin(np.diff(cdf))
-
-                functions = [PchipInterpolator(self._points,N/norm),
-                             PchipInterpolator(cdf_points,cdf),
-                             PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])]
-                self._func_dict[key] = functions            
+        if visible:
+            cut = np.logical_and(isBorn,isForming)
+            if cores == 'prestellar':
+                cut = np.logical_and(cut,isPrestellar)
+            elif cores == 'stellar':
+                cut = np.logical_and(cut,isStellar)
         else:
-            pass
+            if cores == 'prestellar':
+                cut = np.logical_and(isBorn,~isStellar)
+            elif cores == 'stellar':
+                cut = np.logical_and(isBorn,isStellar)
+            else:
+                cut = np.ones(len(mnow)).astype(int)
+
+        core_masses = mnow[cut]
+        core_masses = core_masses[core_masses.value > self.m1] #only consider cores above minimum provided core mass
+        return core_masses
+
+    def _calculate(self):
+        keys = ['prestellar','stellar','all']
+
+        for key in keys:
+            core_masses = self._core_masses(self.time,self.visible,key)
+            
+            edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
+            N,edges = np.histogram(core_masses,bins=edges)
+            centers = (edges[:-1] + edges[1:]) / 2
+            
+            #construct function dictionary
+            norm = np.trapezoid(N,x=centers)
+            cdf = cumulative_trapezoid(N/norm,centers,initial=0)
+            cdf = np.concatenate((cdf,[max(cdf)]))
+            cdf_points = edges
+            zero_arg = np.argmin(np.diff(cdf))
+
+            functions = [PchipInterpolator(centers,N/norm),
+                         PchipInterpolator(cdf_points,cdf),
+                         PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])]
+            self._func_dict[key] = functions
         
     def pdf(self,x):
         return self._pdf(x,extrapolate=False)
@@ -249,17 +281,7 @@ class PN(Distribution):
 
     @time.setter
     def time(self,x):
-        self._calculate(time)
         self._time = x
-        
-    @property
-    def cores(self):
-        return self._cores
-
-    @cores.setter
-    def cores(self,x):
-        self._cores = x
-        self._update_functions()
 
     @property
     def visible(self):
@@ -268,7 +290,15 @@ class PN(Distribution):
     @visible.setter
     def visible(self,x):
         self._visible = x
+    
+    @property
+    def cores(self):
+        return self._cores
 
+    @cores.setter
+    def cores(self,x):
+        self._cores = x
+        self._update_functions()
 
 class HC_CMF(MassFunction):
     
@@ -355,6 +385,7 @@ class HC_CMF(MassFunction):
         #scale density according to Larson laws
         n0 = (n_cl * 1e3 * u.cm**-3) / (clump_size.to(u.pc).value)**0.7
         rho0 = (n0 * mu * constants.m_p).to(u.g/u.cm**3)
+        self._mtot = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
         
         #scale sound speed according to EOS
         if Cs0 is None:
@@ -384,6 +415,13 @@ class HC_CMF(MassFunction):
             return self.normfactor * self.distr.cdf(m)
         else:
             return self.normfactor * self.distr.pdf(m)
+
+    @property
+    def mtot(self):
+        r"""
+        Total cloud mass (in $M_\odot$)
+        """
+        return self._mtot
 
     @property
     def mmin(self):
@@ -551,7 +589,7 @@ class HC(Distribution):
         
         #Jeans mass/length; leading coefficients are as in the IDL code
         aj = np.pi**2.5 / 6
-        Mj = (aj * Cs**3 / np.sqrt(constants.G**3 * self.rho0)).to(u.M_sun) * cs_mod**1.5 #in the IDL code, gamma is explicit here
+        Mj = (aj * Cs**3 / np.sqrt(constants.G**3 * self.rho0)).to(u.M_sun) * cs_mod**1.5 #in the IDL code, gamma is explicit for Mj/Lj
         Lj = ((np.pi**0.5 / 2)**(1/3) * Cs / np.sqrt(constants.G * self.rho0)).to(u.pc) * cs_mod**0.5
         Li = self.clump_size.to(u.pc) / Lj
         
@@ -578,9 +616,6 @@ class HC(Distribution):
              np.sqrt(2 * np.pi * sig_sq) *
              np.exp(-(delta - sig_sq / 2)**2 / 2 / sig_sq))
 
-        #N *= self.clump_size.to(u.pc)**3
-        #N = N.to(u.dimensionless_unscaled).value
-
         #get rid of impossible entries
         N[~np.isfinite(N)] = 0
         N *= self._points <= min(self.m2,mmax.value)
@@ -598,12 +633,8 @@ class HC(Distribution):
         self._func_dict['cdf'].append(PchipInterpolator(cdf_points,cdf))
         self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
 
-        #store time-dependent PDF       
-        alpha_ct = 3.7 # coefficient for crossing time, chosen to make phi ~ 3
-        alpha_g = 0.6 # coefficient for self-gravitating gas in uniform density fluctuations
-        phi_t = 2 * alpha_ct * np.sqrt(24 / np.pi**2 / alpha_g)
-        N *= np.sqrt(np.exp(delta)) / phi_t
-
+        #store time-dependent PDF
+        N *= np.sqrt(np.exp(delta))
         norm = np.trapezoid(N,x=self._points)
         cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
         cdf = np.concatenate((cdf,[max(cdf)]))
