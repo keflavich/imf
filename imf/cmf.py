@@ -246,13 +246,10 @@ class PN(Distribution):
             #construct function dictionary
             norm = np.trapezoid(N,x=centers)
             cdf = cumulative_trapezoid(N/norm,centers,initial=0)
-            cdf = np.concatenate((cdf,[max(cdf)]))
-            cdf_points = edges
-            zero_arg = np.argmin(np.diff(cdf))
 
             functions = [PchipInterpolator(centers,N/norm),
-                         PchipInterpolator(cdf_points,cdf),
-                         PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])]
+                         PchipInterpolator(centers,cdf),
+                         PchipInterpolator(cdf,centers)]
             self._func_dict[key] = functions
         
     def pdf(self,x):
@@ -266,7 +263,8 @@ class PN(Distribution):
 
     def rvs(self,N):
         samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
-        return self.ppf(samp)
+        ret = self.ppf(samp)
+        return ret[np.isfinite(ret)]
 
     def _pick_functions(self,cores):
         functions = self._func_dict[cores]
@@ -302,7 +300,6 @@ class PN(Distribution):
 
 class HC_CMF(MassFunction):
     
-    #add a sound speed parameter that overrides calculation
     def __init__(self,mmin=None,mmax=None,
                  clump_size=1*u.pc, n_cl=5, mu=2.33,
                  Cs0=0.2*u.km/u.s, T0=10*u.K,
@@ -623,29 +620,20 @@ class HC(Distribution):
         #store time-independent PDF
         norm = np.trapezoid(N,x=self._points)
         cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
-        cdf = np.concatenate((cdf,[max(cdf)]))
-        cdf_points = np.concatenate(([min(self._points)],
-                                     (self._points[1:]+self._points[:-1])/2,
-                                     [self.m2]))
-        zero_arg = np.argmin(np.diff(cdf))
+        zero_arg = np.argmax(self._points[self._points < mmax.value])
 
         self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
-        self._func_dict['cdf'].append(PchipInterpolator(cdf_points,cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
+        self._func_dict['cdf'].append(PchipInterpolator(self._points,cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
 
         #store time-dependent PDF
         N *= np.sqrt(np.exp(delta))
         norm = np.trapezoid(N,x=self._points)
         cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
-        cdf = np.concatenate((cdf,[max(cdf)]))
-        cdf_points = np.concatenate(([min(self._points)],
-                                     (self._points[1:]+self._points[:-1])/2,
-                                     [self.m2]))
-        zero_arg = np.argmin(np.diff(cdf))
 
         self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
-        self._func_dict['cdf'].append(PchipInterpolator(cdf_points,cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1]))
+        self._func_dict['cdf'].append(PchipInterpolator(self._points,cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
         
     def _pick_function(self,functype,time_dep):
         return self._func_dict[functype][int(time_dep)]
@@ -666,7 +654,8 @@ class HC(Distribution):
 
     def rvs(self,N):
         samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
-        return self.ppf(samp)
+        ret = self.ppf(samp)
+        return ret[np.isfinite(ret)]
 
     @property
     def time_dep(self):

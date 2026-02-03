@@ -4,11 +4,10 @@ from astropy import units as u
 
 import os
 
-from imf.cmf import PN_CMF,hc13_mf
+from imf.cmf import PN_CMF,HC_CMF
+from imf import ChabrierPowerLaw
 
 def test_pn11(tnow=1,nbins=50,nreal=5):
-
-    os.mkdir('plots/cmf_test',exist_ok=True)
     
     ml = 0.01
     mu = 120
@@ -119,7 +118,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
              histtype='step',color='b',
              label=r'$m > m_{\rm BE} / 2$ ($t=t_0$)')
 
-    _, _, masses = cmf(tnow=2,cores='stellar',visible_only=False,return_masses=True)
+    masses = cmf.get_masses(tnow=2,cores='stellar',visible_only=False)
     plt.hist(masses.value, bins=edges,
              histtype='step',color='g',
              label=r'$N(m)$, stellar ($t=2t_0$)')
@@ -127,7 +126,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     all_ms = []
     for i in range(nreal):
         mf = PN_CMF(ml,mu)
-        _, _, masses_ = mf(tnow=tnow,visible_only=True,return_masses=True)
+        masses_ = mf.get_masses(tnow=tnow,visible_only=True)
         all_ms.extend(masses_)
 
     all_ms = np.array([v.value for v in all_ms])
@@ -145,13 +144,50 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.savefig('plots/cmf_test/fig4.pdf',dpi=300,bbox_inches='tight')
 
 def test_hc13():
-    masses = np.logspace(-2, 2, 100)*u.M_sun
-    sizescale = 10*u.pc
-    return hc13_mf(mass=masses, sizescale=sizescale)
+    masses = np.logspace(-2,2)
+    sizes = np.array([0.5,2,5,20]) * u.pc
+    ncls = [5,4,3,2]
+
+    chab = ChabrierPowerLaw()
+
+    #figure 2 (left)
+    for i,R in enumerate(sizes):
+        cmf = HC_CMF(clump_size=R,n_cl=ncls[i],eos='barotropic')
+
+        plt.figure()
+        plt.plot(masses,cmf.mass_weighted(masses),label='time-dependent')
+        plt.plot(masses,cmf.mass_weighted(masses,time_dep=False),':',label='time-independent')
+        plt.plot(masses*3,chab.mass_weighted(masses),'k--',label='Chabrier (shifted)')
+        plt.title(f'R={R}',fontsize='large')
+        plt.xlabel(r'Mass ($M_\odot$)',fontsize='large')
+        plt.ylabel('dN/dlogM',fontsize='large')
+        plt.legend()
+        plt.savefig(f'plots/cmf_test/HC_baro_{R.value}.pdf',dpi=300,bbox_inches='tight')
+        
+    #figure 2 (right)
+    for i,R in enumerate(sizes):
+        cmf = HC_CMF(clump_size=R,n_cl=ncls[i],eos='barotropic')
+        mag1 = HC_CMF(clump_size=R,n_cl=ncls[i],eos='barotropic',
+                      include_B=True)
+        mag2 = HC_CMF(clump_size=R,n_cl=ncls[i],eos='barotropic',
+                      include_B=True,B0=30*u.uG)
+        mag3 = HC_CMF(clump_size=R,n_cl=ncls[i],eos='barotropic',
+                      include_B=True,gammab=0.3)
+	plt.figure()
+	plt.plot(masses,cmf.mass_weighted(masses),label='no B (time-dependent)')
+	plt.plot(masses,mag1.mass_weighted(masses),label=r'B0 = 10 uG, $\gamma_b$ = 0.1')
+        plt.plot(masses,mag1.mass_weighted(masses),label=r'B0 = 30 uG, $\gamma_b$ = 0.1')
+        plt.plot(masses,mag1.mass_weighted(masses),label=r'B0 = 10 uG, $\gamma_b$ = 0.3')
+	plt.title(f'R={R}',fontsize='large')
+	plt.xlabel(r'Mass ($M_\odot$)',fontsize='large')
+        plt.ylabel('dN/dlogM',fontsize='large')
+        plt.legend()
+        plt.savefig(f'plots/cmf_test/HC_baro_mag_{R.value}.pdf',dpi=300,bbox_inches='tight')
 
 def main():
+    os.mkdir('plots/cmf_test',exist_ok=True)
     test_pn11(nbins=50)
-    #test_hc13()
+    test_hc13()
 
 if __name__ == '__main__':
     main()
