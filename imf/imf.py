@@ -1180,13 +1180,13 @@ class KoenConvolvedPowerLaw(MassFunction):
         self._quad_sub_limit = quad_sub_limit
         self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
                                                          self.gamma,self.sigma,npts)
-        self._normfactor = 1. / self.distr.cdf(self.mmax)
+        self.normfactor = 1. / self.distr.cdf(self.mmax)
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self._normfactor*self.distr.cdf(m)
+            return self.normfactor * self.distr.cdf(m)
         else:
-            return self._normfactor*self.distr.pdf(m)
+            return self.normfactor * self.distr.pdf(m)
     
     def integrate(self, mlow, mhigh, **kwargs):
         """
@@ -1226,10 +1226,6 @@ class KoenConvolvedPowerLaw(MassFunction):
     def quad_sub_limit(self,x):
         self._quad_sub_limit = x
 
-    @property
-    def normfactor(self):
-        return self._normfactor
-
 class SpotKoenConvolvedPowerLaw(MassFunction):
     """
     Implementation of Koen/Kondlo 2009 error-convolved powerlaw,
@@ -1250,7 +1246,7 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         super().__init__(mmin, mmax)
         self.sigma = sigma
         self.gamma = gamma
-        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
+        self.normfactor = 1 / self._integrate(self.mmax,integral_form=True)
 
     def _coef(self, integral_form):
         if integral_form:
