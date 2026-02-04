@@ -372,17 +372,15 @@ class PadoanTF(MassFunction):
     IMF implementing the form derived in Padoan & Nordlund (2002)
     emerging from turbulent fragmentation theory.
     """
-    def __init__(self,mmin=1e-2,mmax=np.inf,
+    default_mmin = 0.01
+    default_mmax = np.inf
+
+    def __init__(self,mmin=default_mmin,mmax=default_mmax,
                  b=1.8,T0=10,n0=5e2,
                  sigma=None,mach=10):
-        """
-        IMF implementing the form derived in Padoan & Nordlund (2002)
-        emerging from turbulent fragmentation theory.
-        
+        """        
         Parameters
         ----------
-        mmin: float
-        mmax: float
         b: float
             Spectral index of the turbulence power spectrum (default = 1.8)
         T0: float

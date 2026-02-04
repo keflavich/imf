@@ -249,7 +249,8 @@ class BrokenPowerLaw:
     
 class PadoanTF(Distribution):
     """
-    Calculates a turbulent fragmentation PDF
+    Manages the PDF/CDF for a Padoan/Nordlund (2002)
+    turbulent fragmentation IMF
     """
     def __init__(self,m1,m2,
                  b,T0,n0,sigma):
