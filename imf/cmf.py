@@ -200,7 +200,6 @@ class dist_pn(Distribution):
         self.tff = ((3 * np.pi / (32 * constants.G * rho))**0.5).to(u.s)
         self.mmax = (self.maccr * ((self.tbe + self.tff) / self.taccr)**3).to(u.M_sun)
         self.belowBE = self.maccr < mbe
-        self.m_f = np.vstack([self.mmax.value, self.maccr.value]).min(axis=0)*u.M_sun
 
         self.tcross = tcross
         self.birthdays = birthdays
@@ -218,8 +217,7 @@ class dist_pn(Distribution):
         isForming = age < self.taccr
 
         mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
-        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]
-        #mnow[mnow > m_f] = m_f[mnow > m_f]
+        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr] #cap current mass to final sampled mass
 
         if visible:
             cut = np.logical_and(isBorn,isForming)
@@ -368,15 +366,18 @@ class HC_CMF(MassFunction):
             (default = 1e-18 g cm^-3) 
         m : float
             Exponent governing the combination of the piecewise components
-            of a barotropic EOS; higher = less blending (default = 3)
+            of a barotropic EOS; higher = less blending. Only used if 
+            eos == 'barotropic' (default = 3)
         include_B : bool
             Whether or not to include support from a magnetic field in
             CMF calculation. (default = False)
         B0 : gauss (or equivalent)
-            Mean magnetic field strength (default = 10 microgauss)
+            Mean magnetic field strength. Only used if include_B is True
+            (default = 10 microgauss)
         gammab : float
             Exponent governing the relationship between magnetic field
-            strength and gas density (default = 0.1)
+            strength and gas density. Only used if include_B is True
+            (default = 0.1)
         """
         
         if eta is None:
@@ -466,45 +467,27 @@ class HC_CMF(MassFunction):
 
     @property
     def gamma1(self):
-        try:
-            return self.distr.gamma1
-        except(AttributeError):
-            raise AttributeError("This object has no gamma1")
+        return self.distr.gamma1
 
     @property
     def gamma2(self):
-        try:
-            return self.distr.gamma2
-        except(AttributeError):
-            raise AttributeError("This object has no gamma2")
+        return self.distr.gamma2
 
     @property
     def rho_crit(self):
-        try:
-            return self.distr.rho_crit
-        except(AttributeError):
-            raise AttributeError("This object has no rho_crit")
+        return self.distr.rho_crit
 
     @property
     def rho_crit(self):
-        try:
-            return self.distr.rho_crit
-        except(AttributeError):
-            raise AttributeError("This object has no m")
+        return self.distr.rho_crit
 
     @property
     def B0(self):
-        if not self.distr.include_B:
-            raise AttributeError("This object has no B0")
-        else:
-            return self.distr.B0
+        return self.distr.B0
         
     @property
     def gammab(self):
-        if not self.distr.include_B:
-            raise AttributeError("This object has no gammab")
-        else:
-            return self.distr.gammab
+        return self.distr.gammab
         
 class dist_hc(Distribution):
     """

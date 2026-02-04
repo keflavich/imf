@@ -23,10 +23,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     belowBE = cmf.maccr < cmf.mbe
     isStellar = np.logical_and(~isPrestellar,~belowBE)
     isForming = age < cmf.taccr
-
-    m_f = np.vstack([mmax.value, cmf.maccr.value]).min(axis=0)*u.M_sun
     mnow = ((age / cmf.taccr)**3 * cmf.maccr).to(u.M_sun)
-    mnow[mnow > m_f] = m_f[mnow > m_f]
 
     toplot = isBorn & isPrestellar & isForming
     gtmax = cmf.maccr > mmax
