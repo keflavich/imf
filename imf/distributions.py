@@ -250,7 +250,6 @@ class BrokenPowerLaw:
 class PadoanTF(Distribution):
     """
     Calculates a turbulent fragmentation PDF
-
     """
     def __init__(self,m1,m2,
                  b,T0,n0,sigma):

@@ -14,11 +14,14 @@ from .imf import MassFunction
 class PN_CMF(MassFunction):
     """
     Core mass function derived from a population generated according to
-    Padoan/Nordlund 2011
+    Padoan/Nordlund (2011)
 
-    Does not match their figures yet!
+    NOTE: does not match their figures yet
     """
-    def __init__(self,mmin=None,mmax=None,
+    default_mmin = 0.01
+    default_mmax = 120
+    
+    def __init__(self,mmin=default_mmin,mmax=default_mmax,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, eff=0.26, beta=0.4, b=1.8,
@@ -97,13 +100,13 @@ class PN_CMF(MassFunction):
         c_s = ((constants.k_B * T_mean / (mu * constants.m_p))**0.5).to(u.km/u.s)
         self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * self.rho**0.5)).to(u.M_sun)
 
-        self.distr = PN(mmin,mmax,
-                        self.maccr,self.taccr,self.mbe,
-                        self.rho,self.tcross,self.birthdays)
+        self.distr = dist_pn(mmin,mmax,
+                             self.maccr,self.taccr,self.mbe,
+                             self.rho,self.tcross,self.birthdays)
         self.normfactor = 1
 
     def __call__(self,m,
-                 tnow=1, #tnow is in # of crossing times
+                 tnow=1,
                  cores='prestellar',
                  visible_only=True,
                  integral_form=False):
@@ -180,8 +183,11 @@ class PN_CMF(MassFunction):
     def massfunc(self):
         return self._massfunc
     
-class PN(Distribution):
-
+class dist_pn(Distribution):
+    """
+    Manages the PDF/CDF for a population of cores generated 
+    through Padoan/Nordlund (2011) turbulent fragmentation
+    """
     def __init__(self,m1,m2,
                  maccr,taccr,mbe,rho,
                  tcross,birthdays):
@@ -227,7 +233,7 @@ class PN(Distribution):
             elif cores == 'stellar':
                 cut = np.logical_and(isBorn,isStellar)
             else:
-                cut = np.ones(len(mnow)).astype(int)
+                cut = np.ones(len(mnow)).astype(bool)
 
         core_masses = mnow[cut]
         core_masses = core_masses[core_masses.value > self.m1] #only consider cores above minimum provided core mass
@@ -299,8 +305,10 @@ class PN(Distribution):
         self._update_functions()
 
 class HC_CMF(MassFunction):
+    default_mmin = 0.01
+    default_mmax = 300
     
-    def __init__(self,mmin=None,mmax=None,
+    def __init__(self,mmin=default_mmin,mmax=default_mmax,
                  clump_size=1*u.pc, n_cl=5, mu=2.33,
                  Cs0=0.2*u.km/u.s, T0=10*u.K,
                  v0=0.8*u.km/u.s, eta=None,
@@ -389,11 +397,11 @@ class HC_CMF(MassFunction):
             Cs0 = np.sqrt(constants.k_B * T / mu / constants.m_p)
         Cs = Cs0.to(u.km/u.s) * np.sqrt((n0.value / 1e4)**(cs_mod-1))
 
-        self.distr = HC(mmin,mmax,
-                        clump_size,rho0,Cs,
-                        v0,eta,b_forcing,
-                        eos,gamma1,gamma2,rho_crit,m,
-                        include_B,B0,gammab)
+        self.distr = dist_hc(mmin,mmax,
+                             clump_size,rho0,Cs,
+                             v0,eta,b_forcing,
+                             eos,gamma1,gamma2,rho_crit,m,
+                             include_B,B0,gammab)
 
         self.normfactor = 1
         
@@ -498,8 +506,12 @@ class HC_CMF(MassFunction):
         else:
             return self.distr.gammab
         
-class HC(Distribution):
-
+class dist_hc(Distribution):
+    """
+    Manages the PDF/CDF for a CMF generated according to the 
+    Hennebelle/Chabrier turbulent fragmentation formalism
+    """
+    
     def __init__(self, m1, m2,
                  clump_size, rho0, Cs,
                  v0, eta, b_forcing,
