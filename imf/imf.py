@@ -675,7 +675,7 @@ def _prefactor(max_star,massfunc):
     """
     Returns the multiplier required for an IMF to have at most one star above m_max.
     """
-    return 1/massfunc.integrate(max_star,massfunc.mmax)[0]
+    return 1 / massfunc.integrate(max_star,massfunc.mmax)[0]
 
 def _M_cluster(m,massfunc):
     """
@@ -683,23 +683,23 @@ def _M_cluster(m,massfunc):
     largest star has mass m.
     """
     k = _prefactor(m,massfunc)
-    return k*massfunc.m_integrate(massfunc.mmin,m)[0]+m
+    return k * massfunc.m_integrate(massfunc.mmin,m)[0] + m
 
 def _max_star(m,M_res,massfunc):
     """
     Returns the most massive star capable of forming in a cluster of mass M_res
     according to the m_max/M_cluster relation. Formatted for use with root finding.
     """
-    return M_res-_M_cluster(m,massfunc)
+    return M_res - _M_cluster(m,massfunc)
 
 def _max_star_prime(m,M_res,massfunc):
     """
     Returns the derivative of _max_star at mass m. Used for Newton's method in
     the case of an infinite upper bound on the provided mass function.
     """
-    term1 = _prefactor(m,massfunc)**2*massfunc(m)*massfunc.m_integrate(massfunc.mmin,m)[0]
-    term2 = m*massfunc(m)*_prefactor(m,massfunc)
-    return -term1-term2-1
+    term1 = _prefactor(m,massfunc)**2 * massfunc(m) * massfunc.m_integrate(massfunc.mmin,m)[0]
+    term2 = m * massfunc(m) * _prefactor(m,massfunc)
+    return -term1 - term2 - 1
 
 def _get_next_m(m,last_m,k,massfunc):
     """
@@ -719,9 +719,8 @@ def _opt_sample(M_res,massfunc,tolerance):
     finMax = np.isfinite(mmax)
 
     #finding all the component stars requires a cutoff--ensure there is one
-    if not np.isfinite(np.log(mmin)):
-        if not np.isfinite(np.log(tolerance)):
-            raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
+    if not np.logical_or(np.isfinite(np.log(mmin)),np.isfinite(np.log(tolerance))):
+        raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
 
     if finMax:
         #bracket from min to ALMOST max (max gives an undefined prefactor)
@@ -732,17 +731,19 @@ def _opt_sample(M_res,massfunc,tolerance):
     k = _prefactor(sol.root,massfunc)
     M_tot = sol.root
     star_masses = [sol.root]
+    m_i = sol.root
 
     while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
         try:
-            sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
-                              bracket=[mmin,star_masses[-1]])
+            m_i_plus = root_scalar(lambda x: k * massfunc.integrate(x,m_i)[0]-1,
+                                   bracket=[mmin,m_i]).root
         except(ValueError):
             print(f'Reached provided lower mass bound; stopping')
             break
-        m = sol.root    
+        m = k * massfunc.m_integrate(m_i_plus,m_i)[0]
         star_masses.append(m)
         M_tot += m
+        m_i = m_i_plus
     
     return np.array(star_masses),M_tot
 
