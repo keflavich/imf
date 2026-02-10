@@ -1,14 +1,6 @@
-"""
-Protostellar luminosity functions as described by Offner and McKee, 2011
-
-
-Alternatively, perhaps try to construct a probabilistic P(L; m, m_f) given a
-series of stellar evolution codes?
-"""
-
 import numpy as np
 import scipy.integrate
-from scipy.interpolate import CloughTocher2DInterpolator,RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator
 from astropy.table import Table
 
 import os
@@ -17,7 +9,7 @@ from glob import glob
 loc = os.path.dirname(__file__)
 
 from .imf import MassFunction, ChabrierPowerLaw
-from . import distributions
+from .distributions import Distribution
 
 chabrierpowerlaw = ChabrierPowerLaw()
 
@@ -39,17 +31,39 @@ def get_fname(history,n_comp=1,taper=False):
         return prefix + f'2c{history}'
     
 class PLF(MassFunction):
-    """
-    documentation
+    r"""
+    Calculates the Protostellar Luminosity Function (PLF) 
+    corresponding to a supplied IMF and accretion history 
+    using the formalism of Offner/McKee (2011). 
+
+    Parameters
+    ----------
+    imf: MassFunction
+        The IMF of the emerging stellar population
+    lmin: float
+        Lower limit to luminosity in $L_\odot$ (default = 0.01)
+    lmax: float
+        Upper limit to luminosity in $L_\odot$ (default = 100)
+    f_epi: float
+        The fraction of mass accreted in episodic bursts (default = 0.25)
+    n: float
+        Exponent governing the tapering factor (default = 1)
+    tau: float
+        Time constant for accelerating star formation, in Myr (default = 1)
+    proto_trackdir: str
+        The location of the files containing the protostellar evolutionary
+        track information. Points to files in imf generated using a 
+        modified Klassen+ (2012) code by default, but will accept files 
+        with the same format
     """
     def __init__(self,imf,
                  lmin=0.01,lmax=100,
                  history='is',
-                 f_epi=0.75,
+                 f_epi=0.25,
                  n=1,tau=1,
-                 proto_trackdir=f'{loc}/data/K12_protoev_tables',
-                 **kwargs):
-        self.distr = None
+                 proto_trackdir=f'{loc}/data/K12_protoev_tables'):
+
+        raise NotImplementedError
         
         self._imf = imf
         self.imf.normalize()
@@ -67,10 +81,10 @@ class PLF(MassFunction):
         self._trackdir = proto_trackdir
         self._interps = self._make_interps(self._trackdir,**kwargs)
         
-        self.distr = distributions.PLF(self.imf,self.lmin,self.lmax,
-                                       self.j,self.jf,self.scale_value,
-                                       self.n,self.tau,
-                                       self.interps)
+        self.distr = dist_plf(self.imf,self.lmin,self.lmax,
+                              self.j,self.jf,self.scale_value,
+                              self.n,self.tau,
+                              self.interps)
         self.normfactor = 1
         
     def __call__(self,lum,
@@ -90,7 +104,7 @@ class PLF(MassFunction):
         interps = []
         for taper in (False,True):
             table = Table.read(f'{trackdir}/{get_fname(self.history,taper=taper)}_val_table.fits')
-            l_tot = table['lint'] + self.f_epi * table['lacc']
+            l_tot = table['lint'] + (1 - self.f_epi) * table['lacc']
             ok = np.isfinite(l_tot)
             mf_unq = np.unique(table['mf'])
             mf_min, mf_max = np.min(mf_unq), np.max(mf_unq)
@@ -102,14 +116,13 @@ class PLF(MassFunction):
             l_interp = RegularGridInterpolator((mf_unq,m_unq),l_data,method='pchip')
 
             grad = np.gradient(l_data,m_unq,axis=1)
-            #may need to deal with discontinuities?
             grad_interp = RegularGridInterpolator((mf_unq,m_unq),grad,method='pchip')
             
             interps.extend([l_interp,grad_interp])
 
         if np.logical_or(mf_min < self.imf.mmin,mf_max > self.imf.mmax):
             warnings.warn('IMF mmin/mmax is outside the range of values covered by evolutionary tracks; '
-                          'stars outside this range cannot contribute to the PLF')
+                          'stars outside this range will not contribute to the PLF')
         return interps
         
     def mass_weighted(self,x,
@@ -240,63 +253,186 @@ class PLF(MassFunction):
     def interps(self):
         return self._interps
 
-class McKeeOffner_PLF(MassFunction):
-    def __init__(self, j=1, n=1, jf=3/4., mmin=0.033, mmax=3.0, imf=chabrierpowerlaw, **kwargs):
-        """
-        Incomplete.  The PLF requires a protostellar evolution code as part of its input.
-        """
+class dist_plf(Distribution):
+    """
+    Manages the PDF/CDF for a PLF.
+
+    Currently not implemented due to algorithmic issues
+    with interpolation.    
+    """
+    def __init__(self,imf,l1,l2,
+                 j,jf,scale_value,
+	         n,tau,
+                 interps):
+
         raise NotImplementedError
+
+        self.imf = imf
+        self.l1 = l1
+        self.l2 = l2
         self.j = j
         self.jf = jf
+        self.scale_value = scale_value
         self.n = n
-        self.mmin = mmin
-        self.mmax = mmax
-        self.imf = imf
+        self.tau = tau
 
-        def den_func(x):
-            return self.imf(x)*x**(-self.jf)
-        self.denominator = scipy.integrate.quad(den_func, self.mmin, self.mmax, **kwargs)[0]
+        self.interps = interps
 
-        self.normfactor = 1
+        self._points = np.geomspace(self.l1,self.l2,100)
+        self._func_dict = None
+        self._taper = False
+        self._accelerating = False
+        self.interp_idx = 0
 
-    def __call__(self, luminosity, taper=False, integral_form=False, **kwargs):
-        """ Unclear if integral_form is right..."""
-        if taper:
+        self._calculate('all')
 
-            def num_func(x, luminosity_):
-                tf = (1-(luminosity_/x)**(1-self.j))**0.5
-                return self.imf(x)*x**(self.j-self.jf-1) * tf
+    def _make_bases(self,taper,accelerating):
+        def plf(lum,taper,accelerating):
+            avg_time = self._average_time(taper,accelerating)
 
-            def integrate(lolim, luminosity_):
-                integral = scipy.integrate.quad(num_func, lolim, self.mmax,
-                                                args=(luminosity_,),
-                                                **kwargs)[0]
-                return integral
+            def get_unknowns(mf,lum_):
+                interp_l = self.interps[self.interp_idx]
 
-            numerator = np.vectorize(integrate)(np.where(self.mmin <
-                                                         luminosity,
-                                                         luminosity,
-                                                         self.mmin),
-                                                luminosity)
+                masses = np.geomspace(0.1,mf) # in-bounds mass points for a 1D interpolation, beginning at the point where the code initializes a protostar 
+                m_of_l = PchipInterpolator(interp_l((np.ones(len(masses))* mf, masses)),masses)
+                ret_m = m_of_l(lum_)
 
+                interp_grad = self.interps[self.interp_idx+1]
+                ret_l = abs(ret_m * interp_grad((mf,ret_m)) / lum_)
+
+                return ret_m, ret_l
+
+            def m_dot(mf,mass_):
+                return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
+
+            def integrand(mf,lum_):
+
+                mass_, l_factor = get_unknowns(mf,lum_)
+
+                if taper:
+                    tf = self._tf(mf,taper)
+                    def root_t(t,mf,mass_):
+                        term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
+                        term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                        prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
+                        prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
+                        return term1 - term2, prime_term1 - prime_term2
+
+                    def taper_factor(mf,mass_):
+                        sol = root_scalar(root_t,args=(mf,mass_),x0=0,fprime=True)
+                        return 1 - (sol.root / tf)**self.n
+
+                    t_factor = taper_factor(mf,mass_)
+                    if accelerating:
+                        tm = (1 - t_factor)**(1 / self.n) * tf
+
+                else:
+                    t_factor = 1
+                    if accelerating:
+                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
+
+                ret = self.imf(mf) * mass_ / m_dot(mf,mass_) * a_factor / t_factor / l_factor
+                if np.isfinite(ret):
+                    return ret
+                else:
+                    return 0
+
+            def integral(lolim,mass_,**kwargs):
+                return scipy.integrate.quad(integrand,mmin,mmax,args=(lum_),**kwargs)[0]
+
+            ret = np.vectorize(integral)(lum,self.imf.mmin,self.imf.mmax)
+            return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PLF is always >= 0
+        
+        base = plf(self._points,taper,accelerating)
+        pdf = base / self._points
+        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        cdf = np.concatenate((cdf,[max(cdf)]))
+        cdf_points = np.concatenate(([min(self._points)],(self._points[1:]+self._points[:-1])/2,[self.l2]))
+        nonzero_args = np.nonzero(np.diff(cdf))[0]
+        start = np.min(nonzero_args)
+        end = np.max(nonzero_args) + 1
+        return (PchipInterpolator(self._points,pdf),
+                PchipInterpolator(cdf_points,cdf),
+                PchipInterpolator(cdf[start:end+1],cdf_points[start:end+1]))
+
+    def _calculate(self,mode):
+        not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
+
+        keys = ['pdf','cdf','ppf']
+        if mode == 'all':
+            func_dict = {key: [] for key in keys}
+            modes = [(0,0),(1,0),(0,1),(1,1)]
+            for m in modes:
+                bases = self._make_bases(*m)
+                for i,key in enumerate(keys):
+                    func_dict[key].append(bases[i])
+            self._func_dict = func_dict
+
+        elif mode == 'taper':
+            modes = [(1,0),(1,1)]
+            for i,m in enumerate(modes):
+                bases = self._make_bases(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][2*i+1] = bases[j]
+
+        elif mode == 'accelerating':
+            modes = [(0,1),(1,1)]
+            for i,m in enumerate(modes):
+                bases = self._make_bases(*m)
+                for j,key in enumerate(keys):
+                    self._func_dict[key][i+2] = bases[j]
+
+    def _pick_function(self,functype,taper,accelerating):
+        return self._func_dict[functype][int(taper+2*accelerating)]
+
+    def _update_functions(self):
+        self._pdf = self._pick_function('pdf',self.taper,self.accelerating)
+        self._cdf = self._pick_function('cdf',self.taper,self.accelerating)
+        self._ppf = self._pick_function('ppf',self.taper,self.accelerating)
+
+    def _tf(self,mf,taper):
+        factor = (self.n + 1) / self.n if taper else 1
+        tf1 = factor / (1 - self.j) / self.scale_value
+        return tf1 * mf**(1 - self.jf)
+
+    def _average_time(self,taper,accelerating):
+        if accelerating:
+            def accel_weight(mf,taper=False):
+                return 1e6 * self.tau * (1 - np.exp(-self._tf(mf,taper=taper) / self.tau / 1e6))
+            ret = self.imf.weight_average(accel_weight,taper)
         else:
-            def num_func(x):
-                return self.imf(x)*x**(self.j-self.jf-1)
+            ret = self.imf.weight_average(self._tf,taper)
+        return ret
 
-            def integrate(lolim):
-                integral = scipy.integrate.quad(num_func, lolim, self.mmax, **kwargs)[0]
-                return integral
+    def pdf(self,x):
+        return self._pdf(x,extrapolate=False)
 
-            numerator = np.vectorize(integrate)(np.where(self.mmin <
-                                                         luminosity,
-                                                         luminosity,
-                                                         self.mmin))
+    def cdf(self,x):
+	return self._cdf(x,extrapolate=False)
 
-        result = (1-self.j) * luminosity**(1-self.j) * numerator / self.denominator
-        if integral_form:
-            warnings.warn("The 'integral form' of the Chabrier PMF is not correctly normalized; "
-                          "it is just PMF(m) * m")
-            return result * self.normfactor * luminosity
-            raise ValueError("Integral version not yet computed")
-        else:
-            return result * self.normfactor
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
+
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.l1),self.cdf(self.l2),size=N)
+        return self.ppf(samp)
+
+    @property
+    def taper(self):
+        return self._taper
+
+    @taper.setter
+    def taper(self,x):
+        self._taper = x
+        self._update_functions()
+        self.interp_idx = int(3 * self._taper)
+
+    @property
+    def accelerating(self):
+        return self._accelerating
+
+    @accelerating.setter
+    def accelerating(self,x):
+        self._accelerating = x
+        self._update_functions()
