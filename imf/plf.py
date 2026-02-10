@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.integrate
-from scipy.interpolate import RegularGridInterpolator
+from scipy.integrate import quad
+from scipy.interpolate import PchipInterpolator,RegularGridInterpolator
 from astropy.table import Table
 
 import os
@@ -8,10 +8,8 @@ import warnings
 from glob import glob
 loc = os.path.dirname(__file__)
 
-from .imf import MassFunction, ChabrierPowerLaw
+from .imf import MassFunction
 from .distributions import Distribution
-
-chabrierpowerlaw = ChabrierPowerLaw()
 
 hist_values = {'is' : (0, 0, 1.54e-6, 10, 1.5),
                'tc' : (0.5, 0.75, 4.9e-6, 0.1, 0.75),
@@ -36,6 +34,9 @@ class PLF(MassFunction):
     corresponding to a supplied IMF and accretion history 
     using the formalism of Offner/McKee (2011). 
 
+    Currently not implemented due to algorithmic issues
+    with interpolation.
+
     Parameters
     ----------
     imf: MassFunction
@@ -44,6 +45,10 @@ class PLF(MassFunction):
         Lower limit to luminosity in $L_\odot$ (default = 0.01)
     lmax: float
         Upper limit to luminosity in $L_\odot$ (default = 100)
+    history: str
+        Accretion history of stars; accepts 'is' (isotherma sphere),
+        'tc' (turbulent core), and 'ca' (competitive accretion) 
+        (default = 'is')
     f_epi: float
         The fraction of mass accreted in episodic bursts (default = 0.25)
     n: float
@@ -339,7 +344,7 @@ class dist_plf(Distribution):
                     return 0
 
             def integral(lolim,mass_,**kwargs):
-                return scipy.integrate.quad(integrand,mmin,mmax,args=(lum_),**kwargs)[0]
+                return quad(integrand,mmin,mmax,args=(lum_),**kwargs)[0]
 
             ret = np.vectorize(integral)(lum,self.imf.mmin,self.imf.mmax)
             return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PLF is always >= 0
