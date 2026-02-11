@@ -6,7 +6,7 @@ from imf.pmf import ChabrierPMF_IS, ChabrierPMF_TC, ChabrierPMF_CA, ChabrierPMF_
 from imf.pmf import KroupaPMF_IS, KroupaPMF_TC, KroupaPMF_CA, KroupaPMF_2CTC
 
 from os import system
-system('mkdir -p plots')
+os.mkdir('plots', exist_ok=True)
 
 pl.rc('font', size=16)
 pl.rc('lines', linewidth=2)
