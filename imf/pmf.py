@@ -269,6 +269,11 @@ class dist_pmf(Distribution):
         self.accelerating = False
 
     def _make_bases(self,taper,accelerating):
+        """
+        Construct interpolators for the PDF/CDF/PPF underlying
+        a PMF for a particular combination of tapered accretion
+        and accelerating star formation.
+        """
         def pmf(mass,taper,accelerating):
             avg_time = self._average_time(taper,accelerating)
 
@@ -315,6 +320,10 @@ class dist_pmf(Distribution):
                 PchipInterpolator(cdf,self._points))
 
     def _calculate(self,mode):
+        """
+        Calculate the PDF/CDF/PPF as needed. "mode" determines
+        which versions are recalculated.
+        """
         not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
         if not_ok:
             raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, scale_value)')
@@ -394,7 +403,7 @@ class dist_pmf(Distribution):
     @accelerating.setter
     def accelerating(self,x):
         self._accelerating = x
-	self._update_functions()
+        self._update_functions()
         
 hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
                   'ca' : (2/3, 1., 3.2)}
@@ -648,6 +657,11 @@ class dist_pmf_2c(Distribution):
         self.accelerating = False
 
     def _make_bases(self,taper,accelerating):
+        """
+        Construct interpolators for the PDF/CDF/PPF underlying
+        a PMF for a particular combination of tapered accretion
+        and accelerating star formation.
+        """
         def pmf(mass,taper,accelerating):
             avg_time = self._average_time(taper,accelerating)
 
@@ -699,6 +713,10 @@ class dist_pmf_2c(Distribution):
                 PchipInterpolator(cdf,self._points))
 
     def _calculate(self,mode):
+        """
+        Calculate the PDF/CDF/PPF as needed. "mode" determines
+        which versions are recalculated.
+        """
         not_ok = (self.j is None) | (self.jf is None) | (self.R_mdot is None)
         if not_ok:
             raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, R_mdot)')

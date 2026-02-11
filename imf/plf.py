@@ -34,8 +34,8 @@ class PLF(MassFunction):
     corresponding to a supplied IMF and accretion history 
     using the formalism of Offner/McKee (2011). 
 
-    Currently not implemented due to algorithmic issues
-    with interpolation.
+    Currently not implemented due to algorithmic issues with 
+    interpolation (see Section 5.1 of the companion paper).
 
     Parameters
     ----------
@@ -46,7 +46,7 @@ class PLF(MassFunction):
     lmax: float
         Upper limit to luminosity in $L_\odot$ (default = 100)
     history: str
-        Accretion history of stars; accepts 'is' (isotherma sphere),
+        Accretion history of stars; accepts 'is' (isothermal sphere),
         'tc' (turbulent core), and 'ca' (competitive accretion) 
         (default = 'is')
     f_epi: float
@@ -68,7 +68,7 @@ class PLF(MassFunction):
                  n=1,tau=1,
                  proto_trackdir=f'{loc}/data/K12_protoev_tables'):
 
-        raise NotImplementedError
+        raise NotImplementedError('PLFs are currently disabled due to interpolation issues')
         
         self._imf = imf
         self.imf.normalize()
@@ -105,7 +105,16 @@ class PLF(MassFunction):
         else:
             return self.distr.pdf(lum) * self.normfactor
 
+    def mass_weighted(self,x,
+                      taper=False,
+                      accelerating=False):
+        return self(x,taper=taper,accelerating=accelerating) * x
+        
     def _make_interps(self,trackdir,**kwargs):
+        """
+        Set up interpolators for L and dL/dm by reading 
+        evolutionary track data
+        """
         interps = []
         for taper in (False,True):
             table = Table.read(f'{trackdir}/{get_fname(self.history,taper=taper)}_val_table.fits')
@@ -129,11 +138,6 @@ class PLF(MassFunction):
             warnings.warn('IMF mmin/mmax is outside the range of values covered by evolutionary tracks; '
                           'stars outside this range will not contribute to the PLF')
         return interps
-        
-    def mass_weighted(self,x,
-                      taper=False,
-                      accelerating=False):
-        return self(x,taper=taper,accelerating=accelerating) * x
 
     def tf(self,mf,taper=False):
         """
@@ -262,15 +266,15 @@ class dist_plf(Distribution):
     """
     Manages the PDF/CDF for a PLF.
 
-    Currently not implemented due to algorithmic issues
-    with interpolation.    
+    Currently not implemented due to algorithmic issues with 
+    interpolation (see Section 5.1 of the companion paper).    
     """
     def __init__(self,imf,l1,l2,
                  j,jf,scale_value,
-	         n,tau,
+                 n,tau,
                  interps):
 
-        raise NotImplementedError
+        raise NotImplementedError('PLFs are currently disabled due to interpolation issues')
 
         self.imf = imf
         self.l1 = l1
@@ -292,6 +296,11 @@ class dist_plf(Distribution):
         self._calculate('all')
 
     def _make_bases(self,taper,accelerating):
+        """
+        Construct interpolators for the PDF/CDF/PPF underlying 
+        a PLF for a particular combination of tapered accretion 
+        and accelerating star formation.
+        """
         def plf(lum,taper,accelerating):
             avg_time = self._average_time(taper,accelerating)
 
@@ -362,6 +371,10 @@ class dist_plf(Distribution):
                 PchipInterpolator(cdf[start:end+1],cdf_points[start:end+1]))
 
     def _calculate(self,mode):
+        """
+        Calculate the PDF/CDF/PPF as needed. "mode" determines
+        which versions are recalculated.
+        """
         not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
 
         keys = ['pdf','cdf','ppf']
