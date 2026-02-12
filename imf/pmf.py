@@ -116,6 +116,46 @@ class PMF(MassFunction):
                       accelerating=False):
         return self(x,taper=taper,accelerating=accelerating) * x
 
+    def integrate(self,mlow,mhigh,
+                  taper=False,
+                  accelerating=False,
+                  **kwargs):
+        def func(x):
+            return self(x,taper=taper,accelerating=accelerating)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def m_integrate(self,mlow,mhigh,
+                    taper=False,
+                    accelerating=False,
+                    **kwargs):
+        def func(x):
+            return self.mass_weighted(x,taper=taper,accelerating=accelerating)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def log_integrate(self,mlow,mhigh,
+                      taper=False,
+                      accelerating=False,
+                      **kwargs):
+        def logform(x):
+            return self(x,taper=taper,accelerating=accelerating) / x
+
+        return quad(logform,mlow,mhigh,**kwargs)
+
+    #PMFs are normalized by construction if the underlying IMF is normalized
+    def normalize(self):
+        pass
+
+    def weight_average(self,func,
+                       taper=False,
+                       accelerating=False,
+                       *args,**kwargs):
+        def weighted_func(x):
+            return self(x,taper=taper,accelerating=accelerating) * func(x,*args)
+        
+        return quad(weighted_func,self.mmin,self.mmax,**kwargs)
+        
     def tf(self,mf,taper=False):
         """
         Returns the expected formation time of a star with
