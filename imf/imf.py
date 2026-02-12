@@ -38,7 +38,7 @@ class MassFunction(object):
     def mass_weighted(self, m, **kwargs):
         return self(m, integral_form=False, **kwargs) * m
 
-    def integrate(self, mlow, mhigh):
+    def integrate(self, mlow, mhigh, **kwargs):
         """
         Integrate the mass function over some range
         """
@@ -77,14 +77,14 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
-    def weight_average(self, func, *args, **kwargs):
+    def weight_average(self, func, *args):
         """
         Integrate a function of stellar mass f(m) over the IMF
         """
         def weighted_func(x):
             return self(x) * func(x,*args)
 
-        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
+        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
 
     @property
     def mmin(self):
