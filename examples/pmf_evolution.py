@@ -1,3 +1,6 @@
+#plot the PMF for accelerating star formation over various timescales
+#in comparison to the underlying IMF in both linear/log forms
+
 import pylab as pl
 import numpy as np
 import os

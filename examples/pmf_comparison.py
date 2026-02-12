@@ -1,3 +1,6 @@
+#make plots illustrating the shape of various PMFs in comparison
+#to the underlying IMF in both linear/log forms
+
 import numpy as np
 import pylab as pl
 
