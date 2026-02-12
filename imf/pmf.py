@@ -450,7 +450,7 @@ class dist_pmf(Distribution):
 hist_values_2C = {'tc' : (0.5, 0.75, 3.6),
                   'ca' : (2/3, 1., 3.2)}
 
-class PMF_2C(MassFunction):
+class PMF_2C(PMF):
     r"""
     Calculates a two-component (i.e. blended accretion) PMF.
 
@@ -515,71 +515,6 @@ class PMF_2C(MassFunction):
                                  self.R_mdot,self.m_is,
                                  self.n,self.tau)
         self.normfactor = 1
-
-    def __call__(self,mass,
-                 integral_form=False,
-                 taper=False,
-                 accelerating=False,
-                 **kwargs):
-
-        self.distr.taper = taper
-        self.distr.accelerating = accelerating
-        
-        if integral_form:
-            return self.distr.cdf(mass) * self.normfactor
-        else:
-            return self.distr.pdf(mass) * self.normfactor
-
-    def mass_weighted(self,x,
-                      taper=False,
-                      accelerating=False):
-        return self(x,taper=taper,accelerating=accelerating) * x
-
-    def tf(self,mf,taper=False):
-        """
-        Returns the expected formation time of a star with
-        final mass mf following the accretion history
-        underlying the PMF.
-        """
-        return self.distr._tf(mf,taper)
-
-    def average_time(self,taper=False,accelerating=False):
-        """
-        Returns the IMF-averaged star formation time of the
-        PMF.
-        """
-        return self.distr._average_time(taper,accelerating)
-        
-    @property
-    def imf(self):
-        return self._imf
-
-    @imf.setter
-    def imf(self,x):
-        self._imf = x
-        self._imf.normalize()
-        self.distr.imf = self._imf
-        self.distr.calculate('all')
-
-    @property
-    def mmin(self):
-        return self._mmin
-
-    @mmin.setter
-    def mmin(self,x):
-        self._mmin = x
-        self.distr.mmin = x
-        self.distr._calculate('all')
-            
-    @property
-    def mmax(self):
-        return self._mmax
-
-    @mmax.setter
-    def mmax(self,x):
-        self._mmax = x
-        self.distr.mmax = x
-        self.distr._calculate('all')
 
     @property
     def history(self):
@@ -651,28 +586,6 @@ class PMF_2C(MassFunction):
 
         self.distr.m_is = self.m_is
         self.distr._calculate('all')
-        
-    @property
-    def n(self):
-        return self._n
-
-    @n.setter
-    def n(self,x):
-        if x <= 0:
-            raise ValueError('n must be > 0')
-        self._n = x
-        self.distr.n = x
-        self.distr._calculate('taper')
-
-    @property
-    def tau(self):
-        return self._tau
-
-    @tau.setter
-    def tau(self,x):
-        self._tau = x
-        self.distr.tau = x
-        self.distr._calculate('accelerating')
 
 class dist_pmf_2c(dist_pmf):
     """
