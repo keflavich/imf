@@ -265,8 +265,9 @@ class dist_pmf(Distribution):
         self._points = np.geomspace(min(self.m1,1e-3),self.m2,200)
         self._func_dict = None
         self._calculate('all')
-        self.taper = False
-        self.accelerating = False
+
+        self._taper = False
+        self._accelerating = False
 
     def _make_bases(self,taper,accelerating):
         """
@@ -315,9 +316,10 @@ class dist_pmf(Distribution):
         base = pmf(self._points,taper,accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        zero_arg = np.max(np.nonzero(np.diff(cdf))) + 1
         return (PchipInterpolator(self._points,pdf),
                 PchipInterpolator(self._points,cdf),
-                PchipInterpolator(cdf,self._points))
+                PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
 
     def _calculate(self,mode):
         """
@@ -632,7 +634,7 @@ class PMF_2C(MassFunction):
         self.distr.tau = x
         self.distr._calculate('accelerating')
 
-class dist_pmf_2c(Distribution):
+class dist_pmf_2c(dist_pmf):
     """
     Manages the PDF/CDF for two-component PMFs.
     """
@@ -653,8 +655,8 @@ class dist_pmf_2c(Distribution):
         self._points = np.geomspace(min(self.m1,1e-3),self.m2,200)
         self._func_dict = None
         self._calculate('all')
-        self.taper = False
-        self.accelerating = False
+        self._taper = False
+        self._accelerating = False
 
     def _make_bases(self,taper,accelerating):
         """
@@ -700,7 +702,7 @@ class dist_pmf_2c(Distribution):
                 return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
 
             def integral(lolim,mass_,**kwargs):
-                return scipy.integrate.quad(integrand,lolim,self.m2,args=(mass_),**kwargs)[0]
+                return quad(integrand,lolim,self.m2,args=(mass_),**kwargs)[0]
 
             ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1),mass)
             return np.where(ret / avg_time > 0, ret / avg_time, 0) #ensure the PMF is always >= 0
@@ -710,7 +712,7 @@ class dist_pmf_2c(Distribution):
         cdf = cumulative_trapezoid(pdf,self._points,initial=0)
         return (PchipInterpolator(self._points,pdf),
                 PchipInterpolator(self._points,cdf),
-                PchipInterpolator(cdf,self._points))
+                PchipInterpolator(cdf[np.nonzero(pdf)],self._points[np.nonzero(pdf)]))
 
     def _calculate(self,mode):
         """

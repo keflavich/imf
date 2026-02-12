@@ -361,14 +361,12 @@ class dist_plf(Distribution):
         base = plf(self._points,taper,accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf,self._points,initial=0)
-        cdf = np.concatenate((cdf,[max(cdf)]))
-        cdf_points = np.concatenate(([min(self._points)],(self._points[1:]+self._points[:-1])/2,[self.l2]))
         nonzero_args = np.nonzero(np.diff(cdf))[0]
         start = np.min(nonzero_args)
         end = np.max(nonzero_args) + 1
         return (PchipInterpolator(self._points,pdf),
-                PchipInterpolator(cdf_points,cdf),
-                PchipInterpolator(cdf[start:end+1],cdf_points[start:end+1]))
+                PchipInterpolator(self._points,cdf),
+                PchipInterpolator(cdf[start:end+1],self._points[start:end+1]))
 
     def _calculate(self,mode):
         """

@@ -90,10 +90,17 @@ class MassFunction(object):
     def mmin(self):
         return self._mmin
 
+    @mmin.setter
+    def mmin(self,x):
+        self._mmin = x
+
     @property
     def mmax(self):
         return self._mmax
 
+    @mmax.setter
+    def mmax(self,x):
+        self._mmax = x
 
 
 class Salpeter(MassFunction):
