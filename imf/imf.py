@@ -38,11 +38,11 @@ class MassFunction(object):
     def mass_weighted(self, m, **kwargs):
         return self(m, integral_form=False, **kwargs) * m
 
-    def integrate(self, mlow, mhigh, **kwargs):
+    def integrate(self, mlow, mhigh):
         """
         Integrate the mass function over some range
         """
-        return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
+        return scipy.integrate.quad(self, mlow, mhigh)
 
     def m_integrate(self, mlow, mhigh, **kwargs):
         """
