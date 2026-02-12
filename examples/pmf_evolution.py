@@ -1,30 +1,27 @@
-import imf.imf, imf.pmf, imp
-from imf.pmf import ChabrierPMF_AcceleratingSF_IS, ChabrierPMF_AcceleratingSF_TC, ChabrierPMF_AcceleratingSF_CA#, ChabrierPMF_AcceleratingSF_2CTC
 import pylab as pl
 import numpy as np
-imp.reload(imf.imf)
-imp.reload(imf.pmf)
-imp.reload(imf.imf)
-imp.reload(imf.pmf)
+import os
+plotdir = 'plots/pmf'
+os.makedirs(plotdir,exist_ok=True)
+
+import imf.imf,imf.pmf
+from imf.pmf import PMF,PMF_2C
 
 mmin = 0.033
+chabrier = imf.chabrier2005
+chabrier.mmin = mmin
 
 for mmax in (3, 120):
 
-    print("Normalizing.")
-    ChabrierPMF_AcceleratingSF_IS.mmax = mmax
-    ChabrierPMF_AcceleratingSF_TC.mmax = mmax
-    ChabrierPMF_AcceleratingSF_CA.mmax = mmax
-    #ChabrierPMF_AcceleratingSF_2CTC.mmax = mmax
+    print(f'Beginning mmax = {mmax}.')
 
-    ChabrierPMF_AcceleratingSF_IS.normalize(log=True, mmin=mmin, mmax=mmax)
-    ChabrierPMF_AcceleratingSF_TC.normalize(log=True, mmin=mmin, mmax=mmax)
-    ChabrierPMF_AcceleratingSF_CA.normalize(log=True, mmin=mmin, mmax=mmax)
-    #ChabrierPMF_AcceleratingSF_2CTC.normalize(log=True, mmin=mmin, mmax=mmax)
+    chabrier.mmax = mmax
+    chabrier.normalize()
 
-
-    chabrierpowerlaw = imf.ChabrierPowerLaw()
-    chabrierpowerlaw.normalize(log=True, mmin=mmin, mmax=mmax)
+    c_is = PMF(chabrier,history='is')
+    c_tc = PMF(chabrier,history='tc')
+    c_ca = PMF(chabrier,history='ca')
+    c_2c = PMF_2C(chabrier,history='tc')
 
     print("Now plotting.")
     masses = np.logspace(np.log10(mmin), np.log10(mmax), 100)
@@ -35,17 +32,25 @@ for mmax in (3, 120):
         fig1.clf()
         ax = fig1.gca()
         ax.set_title("Accelerating SF McKee/Offner + Chabrier PMF")
-        ax.loglog(masses, chabrierpowerlaw.__getattribute__(fname)(masses), label="IMF", color='k')
+        ax.loglog(masses, chabrier.__getattribute__(fname)(masses), label="IMF", color='k')
         for tau, lw in zip((0.1, 1.0, 10.0), (1,2,3,)):
-            ax.loglog(masses, ChabrierPMF_AcceleratingSF_IS.__getattribute__(fname)(masses, tau=tau), label="IS", color='r', linewidth=lw, linestyle=':')
-            ax.loglog(masses, ChabrierPMF_AcceleratingSF_TC.__getattribute__(fname)(masses, tau=tau), label="TC", color='g', linewidth=lw, linestyle='-.')
-            ax.loglog(masses, ChabrierPMF_AcceleratingSF_CA.__getattribute__(fname)(masses, tau=tau), label="CA", color='y', linewidth=lw, linestyle='-.')
-        #ax.loglog(masses, ChabrierPMF_AcceleratingSF_2CTC.__getattribute__(fname)(masses), label="2CTC", color='b', linestyle='--')
+            c_is.tau = tau
+            ax.loglog(masses, c_is.__getattribute__(fname)(masses,accelerating=True), label="IS", color='r', linewidth=lw, linestyle=':')
+            c_tc.tau = tau
+            ax.loglog(masses, c_tc.__getattribute__(fname)(masses,accelerating=True), label="TC", color='g', linewidth=lw, linestyle='-.')
+            c_ca.tau = tau
+            ax.loglog(masses, c_ca.__getattribute__(fname)(masses,accelerating=True), label="CA", color='y', linewidth=lw, linestyle='-.')
+            c_2c.tau = tau
+            ax.loglog(masses, c_2c.__getattribute__(fname)(masses,accelerating=True), label="2CTC", color='b', linestyle='--')
         ax.set_xlabel("(Proto)Stellar Mass (M$_\odot$)")
         ax.set_ylabel("m P(m)" if mass_weighted else "Normalized P(M)")
-        ax.axis([mmin, mmax, 1e-4, 1])
+        if mass_weighted:
+            ax.set_yscale('linear')
+            ax.set_ylim(0,0.4)
+        else:
+            ax.axis([mmin, mmax, 1e-4, 1])
 
         pl.legend(loc='best')
-        pl.savefig('acceleratingSF_pmf_chabrier{0}_mmax{1}.png'
-                   .format("_integral" if mass_weighted else "", int(mmax)),
+        pl.savefig(f'{plotdir}/'+
+                   'acceleratingSF_pmf_chabrier{0}_mmax{1}.pdf'.format("_integral" if mass_weighted else "", int(mmax)),
                    bbox_inches='tight')
