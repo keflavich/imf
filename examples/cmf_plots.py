@@ -7,7 +7,7 @@ import os
 from imf.cmf import PN_CMF,HC_CMF
 from imf import ChabrierPowerLaw
 
-def test_pn11(tnow=1,nbins=50,nreal=5):
+def plot_pn11(tnow=1,nbins=50,nreal=5):
     
     ml = 0.01
     mu = 120
@@ -140,7 +140,7 @@ def test_pn11(tnow=1,nbins=50,nreal=5):
     plt.legend()
     plt.savefig('plots/cmf_test/fig4.pdf',dpi=300,bbox_inches='tight')
 
-def test_hc13():
+def plot_hc13():
     masses = np.logspace(-2,2)
     sizes = np.array([0.5,2,5,20]) * u.pc
     ncls = [5,4,3,2]
@@ -182,9 +182,9 @@ def test_hc13():
         plt.savefig(f'plots/cmf_test/HC_baro_mag_{R.value}.pdf',dpi=300,bbox_inches='tight')
 
 def main():
-    os.mkdir('plots/cmf_test',exist_ok=True)
-    test_pn11(nbins=50)
-    test_hc13()
+    os.makedirs('plots/cmf',exist_ok=True)
+    plot_pn11(nbins=50)
+    plot_hc13()
 
 if __name__ == '__main__':
     main()
