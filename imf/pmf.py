@@ -144,6 +144,7 @@ class PMF(MassFunction):
         return quad(logform,mlow,mhigh,**kwargs)
 
     #PMFs are normalized by construction if the underlying IMF is normalized
+    #(which it is)
     def normalize(self):
         pass
 

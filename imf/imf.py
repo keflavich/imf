@@ -77,14 +77,14 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
-    def weight_average(self, func, *args):
+    def weight_average(self, func, *args, **kwargs):
         """
         Integrate a function of stellar mass f(m) over the IMF
         """
         def weighted_func(x):
             return self(x) * func(x,*args)
 
-        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax)[0]
+        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
 
     @property
     def mmin(self):
@@ -661,7 +661,7 @@ def make_cluster(mcluster,
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
     Parameters
-    ==========
+    ----------
     mcluster : float
         The target cluster mass.
     massfunc : string or MassFunction
