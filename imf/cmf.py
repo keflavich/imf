@@ -21,7 +21,7 @@ class PN_CMF(MassFunction):
     default_mmin = 0.01
     default_mmax = 120
     
-    def __init__(self,mmin=default_mmin,mmax=default_mmax,
+    def __init__(self,mmin=None,mmax=None,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, eff=0.26, beta=0.4, b=1.8,
@@ -150,7 +150,7 @@ class PN_CMF(MassFunction):
             tnow = self.distr.time
         if visible_only is None:
             visible_only = self.distr.visible
-        
+
         return self(x,tnow=tnow,cores=cores,visible_only=visible_only) * x
 
     def integrate(self,mlow,mhigh,
@@ -159,7 +159,7 @@ class PN_CMF(MassFunction):
                   **kwargs):
         if tnow	is None:
             tnow = self.distr.time
-	if visible_only	is None:
+        if visible_only	is None:
             visible_only = self.distr.visible
 
         def func(x):
@@ -182,7 +182,7 @@ class PN_CMF(MassFunction):
                       **kwargs):
         if tnow	is None:
             tnow = self.distr.time
-	if visible_only	is None:
+        if visible_only	is None:
             visible_only = self.distr.visible
 
         def logform(x):
