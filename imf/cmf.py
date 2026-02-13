@@ -60,9 +60,9 @@ class PN_CMF(MassFunction):
             Mean molecular weight of gas (default = 2.33)
         """
         if mmin is None:
-            mmin = 0.01
+            mmin = default_mmin
         if mmax is None:
-            mmax = 120
+            mmax = default_mmax
         
         self._tcross = (L0 / v0).to(u.Myr)
         m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
@@ -142,6 +142,71 @@ class PN_CMF(MassFunction):
             return self.normfactor * self.distr.cdf(m)
         else:
             return self.normfactor * self.distr.pdf(m)
+
+    def mass_weighted(self,x,
+                      cores='prestellar',
+                      tnow=None,visible_only=None):
+        if tnow is None:
+            tnow = self.distr.time
+        if visible_only is None:
+            visible_only = self.distr.visible
+        
+        return self(x,tnow=tnow,cores=cores,visible_only=visible_only) * x
+
+    def integrate(self,mlow,mhigh,
+                  cores='prestellar',
+                  tnow=None,visible_only=None,
+                  **kwargs):
+        if tnow	is None:
+            tnow = self.distr.time
+	if visible_only	is None:
+            visible_only = self.distr.visible
+
+        def func(x):
+            return self(x,tnow=tnow,cores=cores,visible_only=visible_only)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def m_integrate(self,mlow,mhigh,
+                    cores='prestellar',
+                    tnow=None,visible_only=None,
+                    **kwargs):        
+        def func(x):
+            return self.mass_weighted(x,cores=cores,tnow=tnow,visible_only=visible_only)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def log_integrate(self,mlow,mhigh,
+                      cores='prestellar',
+                      tnow=None,visible_only=None,
+                      **kwargs):
+        if tnow	is None:
+            tnow = self.distr.time
+	if visible_only	is None:
+            visible_only = self.distr.visible
+
+        def logform(x):
+            return self(x,tnow=tnow,cores=cores,visible_only=visible_only) / x
+
+        return quad(logform,mlow,mhigh,**kwargs)
+
+    #PN CMFs are normalized by default
+    def normalize(self):
+        pass
+
+    def weight_average(self,func,
+                       cores='prestellar',
+                       tnow=None,visible_only=None,
+                       *args,**kwargs):
+        if tnow	is None:
+            tnow = self.distr.time
+        if visible_only	is None:
+            visible_only = self.distr.visible
+        
+        def weighted_func(x):
+            return self(x,tnow=tnow,cores=cores,visible_only=visible_only) * func(x,*args)
+
+        return quad(weighted_func,self.mmin,self.mmax,**kwargs)
 
     def mtot(self):
         r"""
