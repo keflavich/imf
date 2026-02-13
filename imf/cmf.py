@@ -4,7 +4,7 @@ from astropy import units as u
 from astropy import constants
 import scipy
 from scipy.optimize import root_scalar
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid,quad
 from scipy.interpolate import PchipInterpolator
 
 from . import imf
@@ -422,6 +422,46 @@ class HC_CMF(MassFunction):
         else:
             return self.normfactor * self.distr.pdf(m)
 
+    def mass_weighted(self,x,
+                      time_dep=True):
+        return self(x,time_dep=time_dep) * x
+
+    def integrate(self,mlow,mhigh,
+                  time_dep=False,
+                  **kwargs):
+        def func(x):
+            return self(x,time_dep=time_dep)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def m_integrate(self,mlow,mhigh,
+                    time_dep=False,
+                    **kwargs):
+        def func(x):
+            return self.mass_weighted(x,time_dep=time_dep)
+
+        return quad(func,mlow,mhigh,**kwargs)
+
+    def log_integrate(self,mlow,mhigh,
+                      time_dep=False,
+                      **kwargs):
+        def logform(x):
+            return self(x,time_dep=time_dep) / x
+
+        return quad(logform,mlow,mhigh,**kwargs)
+
+    #HC CMFs are normalized by construction
+    def normalize(self):
+        pass
+
+    def weight_average(self,func,
+                       time_dep=False,
+                       *args,**kwargs):
+        def weighted_func(x):
+            return self(x,time_dep=time_dep) * func(x,*args)
+
+        return quad(weighted_func,self.mmin,self.mmax,**kwargs)
+        
     @property
     def mtot(self):
         r"""
@@ -538,7 +578,7 @@ class dist_hc(Distribution):
         #add support from magnetic field
         mag_coef = 1 if self.include_B else 0
         gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom gauss unit to work in cgs
-        B0 = self.B0.to(u.G).value * gauss # transform to custom gauss
+        B0 = self.B0.to(u.G).value * gauss
         Va_sq = (B0**2 / (24 * np.pi * self.rho0) / Cs**2).to(u.dimensionless_unscaled)
 
         #use EOS/support to define M and dM/dR
