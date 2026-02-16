@@ -2,6 +2,7 @@ import numpy as np
 import os
 import json
 from imf import imf
+#from imf.lum import lum_of_cluster #update imports and calls when integrated
 import pylab as pl
 import matplotlib
 from astropy.utils.console import ProgressBar
