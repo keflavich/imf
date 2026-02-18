@@ -355,73 +355,73 @@ class ChabrierPowerLaw(MassFunction):
             return self.distr.pdf(x)
 
 
-
 class Schechter(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        raise NotImplementedError("Schechter function needs to be refactored")
-        super().__init__(mmin=mmin, mmax=mmax)
-
-    def __call__(self, m, A=1, beta=2, m0=100, integral_form=False):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35,m0=100):
         """
-        A Schechter function with arbitrary defaults
-        (integral may not be correct - exponent hasn't been dealt with at all)
-        
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
-
-        $$ A m^{-\\beta} e^{-m/m_0} $$
+        Create a Schechter-like mass function; a power law
+        with a high-mass exponential cutoff.
 
         Parameters
         ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            A: float
-                Arbitrary amplitude of the Schechter function
-            beta: float
-                Power law exponent
-            m0: float
-                Characteristic mass (mass at which exponential decay takes over)
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
+        alpha: float
+            Power law slope (default = -2.35)
+        m0: float
+            Characteristic mass for exponential decay (default = 100)
         """
-        if integral_form:
-            beta -= 1
-        return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
+        super().__init__(mmin=mmin, mmax=mmax)
+        self.alpha = alpha
+        self.m0 = m0
 
+        self.distr = distributions.CutoffPowerLaw(-self.alpha,self.mmin,self.mmax,self.m0)
+        self.normalize()
+
+    def __call__(self, mass, integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
+
+    
 class ModifiedSchechter(Schechter):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        self.schechter = super().__init__(mmin=mmin, mmax=mmax)
-
-    def __call__(self, m, m1, **kwargs):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35,ml=0.5,mu=100):
         """
-        A Schechter function with a low-level exponential cutoff
-
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
+        A Schechter-like mass function with an additional
+        low-lever exponential cutoff.
 
         Parameters
         ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            m1: float
-                Characteristic minimum mass (exponential decay below this mass)
-            ** See schecter for other parameters **
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
+        alpha: float
+            Power law slope (default = -2.35)
+        ml: float
+            Characteristic mass for the low-level cutoff
+            (default = 0.5)
+        mu: float
+            Characteristic mass for the high-level cutoff
+            (default = 100)
         """
-        return self.schechter(m, **kwargs) * np.exp(-m1 / m) * (m > self.mmin) * (m < self.mmax)
+        super().__init__(mmin=mmin, mmax=mmax)
+        self.alpha = alpha
+        self.ml = ml
+        self.mu = mu
+
+        self.distr = distributions.ModifiedCutoffPowerLaw(-self.alpha,
+                                                          self.mmin,self.mmax,
+                                                          self.ml,self.mu)
+        self.normalize()
+
+    def __call__(self, mass, integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
 
 try:
     import scipy
