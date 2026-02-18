@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats
 from scipy.integrate import quad
 from scipy.interpolate import PchipInterpolator
+from scipy.special import expn
 
 class Distribution:
     """ The main class describing the distributions, to be inherited"""
@@ -247,6 +248,72 @@ class BrokenPowerLaw:
         return ret.reshape(x.shape)
 
 
+class CutoffPowerLaw(PowerLaw):
+    """Power law with exponential cutoff.
+    
+    documentation
+    """
+    def __init__(self, slope, m1, m2, mc):
+        super().__init__(slope,m1,m2)
+        self.mc = mc
+
+    def pdf(self,x):
+        sup = super().pdf
+        func = lambda x: sup(x) * np.exp(-x / self.mc)
+        return func(x)
+
+    def cdf(self,x):
+        func = lambda x: -x**(1 + self.slope) * expn(-self.slope, x / self.mc)
+        low = func(self.m1)
+        
+        span = self._span(func)
+        norm = quad(self.pdf,self.m1,self.m2)[0]
+        return (func(x) - low) * norm / span
+
+    def ppf(self,x):
+        points = np.geomspace(self.m1,self.m2,100)
+        cdf = self.cdf(points)
+        interp = PchipInterpolator(cdf/max(cdf),points)
+        return interp(x,extrapolate=False)
+
+    def _span(self,f):
+        """
+        Return difference of function evaluated at both extremes
+        """
+        f1 = f(self.m1)
+        f2 = f(self.m2)
+        return f2 - f1
+
+class ModifiedCutoffPowerLaw(PowerLaw):
+    """Power law with exponential cutoff on both ends.
+
+    documentation
+    """
+    def __init__(self, slope, m1, m2,
+                 mc1, mc2):
+        super().__init__(slope,m1,m2)
+        self.mc1 = mc1
+        self.mc2 = mc2
+
+    def pdf(self,x):
+        sup = super().pdf
+        func = lambda x: sup(x) * np.exp(-self.mc1 / x) * np.exp(-x / self.mc2)
+        return func(x)
+
+    def cdf(self,x):
+        def integrate(x_):
+            ret = quad(self.pdf,self.m1,x_)[0]
+            return ret
+
+        return np.vectorize(integrate)(x)
+
+    def ppf(self,x):
+        points = np.geomspace(self.m1,self.m2,100)
+        cdf = self.cdf(points)
+        interp = PchipInterpolator(cdf/max(cdf),points)
+        return interp(x,extrapolate=False)
+
+    
 class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
