@@ -266,23 +266,14 @@ class CutoffPowerLaw(PowerLaw):
         func = lambda x: -x**(1 + self.slope) * expn(-self.slope, x / self.mc)
         low = func(self.m1)
         
-        span = self._span(func)
         norm = quad(self.pdf,self.m1,self.m2)[0]
-        return (func(x) - low) * norm / span
+        return (func(x) - low) * norm / (func(self.m2) - func(self.m1))
 
     def ppf(self,x):
         points = np.geomspace(self.m1,self.m2,100)
         cdf = self.cdf(points)
         interp = PchipInterpolator(cdf/max(cdf),points)
         return interp(x,extrapolate=False)
-
-    def _span(self,f):
-        """
-        Return difference of function evaluated at both extremes
-        """
-        f1 = f(self.m1)
-        f2 = f(self.m2)
-        return f2 - f1
 
 class ModifiedCutoffPowerLaw(PowerLaw):
     """Power law with exponential cutoff on both ends.
