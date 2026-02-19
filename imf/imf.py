@@ -356,7 +356,7 @@ class ChabrierPowerLaw(MassFunction):
 
 
 class Schechter(MassFunction):
-    default_mmin = 0
+    default_mmin = 0.03
     default_mmax = np.inf
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
@@ -387,7 +387,7 @@ class Schechter(MassFunction):
 
     
 class ModifiedSchechter(Schechter):
-    default_mmin = 0
+    default_mmin = 0.03
     default_mmax = np.inf
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
@@ -423,36 +423,6 @@ class ModifiedSchechter(Schechter):
         else:
             return self.normfactor * self.distr.pdf(mass)
 
-try:
-    import scipy
-
-    def schechter_cdf(m, A=1, beta=2, m0=100, mmin=10, mmax=None, npts=1e4):
-        """
-        Return the CDF value of a given mass for a set mmin, mmax
-        mmax will default to 10 m0 if not specified
-
-        Analytic integral of the Schechter function:
-        http://www.wolframalpha.com/input/?i=integral%28x^-a+exp%28-x%2Fm%29+dx%29
-        """
-        if mmax is None:
-            mmax = 10 * m0
-
-        # integrate the CDF from the minimum to maximum
-        posint = -mmax**(1 - beta) * scipy.special.expn(beta, mmax / m0)
-        negint = -mmin**(1 - beta) * scipy.special.expn(beta, mmin / m0)
-        tot = posint - negint
-
-        # normalize by the integral
-        ret = (-m**(1 - beta) * scipy.special.expn(beta, m / m0) -
-               negint) / tot
-
-        return ret
-
-    def sh_cdf_func(**kwargs):
-        return lambda x: schechter_cdf(x, **kwargs)
-except ImportError:
-    pass
-
 # these are global objects
 salpeter = Salpeter()
 kroupa = Kroupa()
@@ -466,9 +436,7 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierpowerlaw': ChabrierPowerLaw,
                  'chabrier': ChabrierPowerLaw,
                 }
-#                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
 reverse_mf_dict = {v: k for k, v in massfunctions.items()}
-# salpeter and schechter selections are arbitrary
 expectedmass_cache = {}
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
