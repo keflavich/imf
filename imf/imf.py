@@ -13,6 +13,8 @@ from scipy.stats import norm
 from astropy import units as u
 from . import distributions
 
+import warnings
+
 class MassFunction(object):
     """
     Generic Mass Function class
@@ -357,7 +359,7 @@ class ChabrierPowerLaw(MassFunction):
 
 class Schechter(MassFunction):
     default_mmin = 0.03
-    default_mmax = np.inf
+    default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
                  alpha=2.35,m0=100):
@@ -373,6 +375,8 @@ class Schechter(MassFunction):
             Characteristic mass for exponential decay (default = 100)
         """
         super().__init__(mmin=mmin, mmax=mmax)
+        if ~np.logical_and(np.isfinite(mmin),np.isfinite(self.mmax)):
+            warnings.warn('function uses interpolation; non-finite mass bounds prevent random sampling')
         self.alpha = alpha
         self.m0 = m0
 
@@ -388,7 +392,7 @@ class Schechter(MassFunction):
     
 class ModifiedSchechter(Schechter):
     default_mmin = 0.03
-    default_mmax = np.inf
+    default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
                  alpha=2.35,ml=0.5,mu=100):
