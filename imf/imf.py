@@ -377,7 +377,7 @@ class PadoanTF(MassFunction):
 
     def __init__(self,mmin=default_mmin,mmax=default_mmax,
                  b=1.8,T0=10,n0=5e2,
-                 sigma=None,mach=10):
+                 sigma=None,mach=10,npts=200):
         """        
         Parameters
         ----------
@@ -392,6 +392,9 @@ class PadoanTF(MassFunction):
         mach: float
             Mach number of the turbulent flow. Used to calculate sigma 
             if sigma is None
+        npts: int
+            Number of points at which to evaluate the function for
+            interpolation (default = 200)
         """
 
         if sigma is None and mach is None:
@@ -400,7 +403,7 @@ class PadoanTF(MassFunction):
         self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
         
         self.distr = distributions.PadoanTF(mmin,mmax,
-                                            b,T0,n0,init_sigma)
+                                            b,T0,n0,init_sigma,npts)
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):

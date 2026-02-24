@@ -253,7 +253,8 @@ class PadoanTF(Distribution):
     turbulent fragmentation IMF
     """
     def __init__(self,m1,m2,
-                 b,T0,n0,sigma):
+                 b,T0,n0,sigma,
+                 npts):
 
         self.m1 = m1
         self.m2 = m2
@@ -262,7 +263,7 @@ class PadoanTF(Distribution):
         self.n0 = n0
         self.sigma = sigma
 
-        self._points = np.geomspace(self.m1,self.m2,200)
+        self._points = np.geomspace(self.m1,self.m2,npts)
 
         self._calculate()
 
