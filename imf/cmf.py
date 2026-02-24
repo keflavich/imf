@@ -275,6 +275,10 @@ class dist_pn(Distribution):
         self._func_dict = {key: None for key in keys}
         
     def _core_masses(self,tnow,visible,cores):
+        """
+        Returns the current masses of cores meeting particular
+        conditions
+        """
         age = tnow * self.tcross - self.birthdays
         isBorn = age > 0
         isPrestellar = age < self.tbe + self.tff
@@ -303,6 +307,10 @@ class dist_pn(Distribution):
         return core_masses
 
     def _calculate(self):
+        """
+        Constructs the PDF/CDF/PPF from the generated core
+        population
+        """
         keys = ['prestellar','stellar','all']
 
         for key in keys:
@@ -636,6 +644,9 @@ class dist_hc(Distribution):
         self._calculate()
     
     def _calculate(self):
+        """
+        Calculates the PDF/CDF/PPF
+        """
         #use EOS to set thermal Cs (for Mj/Lj/Mstar)        
         cs_mod = 1 if self.eos == 'isothermal' else self.gamma1
         Cs = self.Cs# * cs_mod #papers suggest gamma should go here, but not in the HC IDL code
