@@ -251,11 +251,18 @@ class BrokenPowerLaw:
 class CutoffPowerLaw(PowerLaw):
     """Power law with exponential cutoff.
     
-    documentation
+    Parameters
+    ----------
+    mc: float
+        Characteristic mass for the exponential cutoff
+    npts: int
+        Number of evenly log-spaced points at which to evaluate
+        the CDF in order to interpolate the PPF
     """
-    def __init__(self, slope, m1, m2, mc):
+    def __init__(self, slope, m1, m2, mc, npts):
         super().__init__(slope,m1,m2)
         self.mc = mc
+        self.npts = npts
 
     def pdf(self,x):
         sup = super().pdf
@@ -270,7 +277,7 @@ class CutoffPowerLaw(PowerLaw):
         return (func(x) - low) * norm / (func(self.m2) - func(self.m1))
 
     def ppf(self,x):
-        points = np.geomspace(self.m1,self.m2,100)
+        points = np.geomspace(self.m1,self.m2,self.npts)
         cdf = self.cdf(points)
         interp = PchipInterpolator(cdf/max(cdf),points)
         return interp(x,extrapolate=False)
@@ -278,13 +285,22 @@ class CutoffPowerLaw(PowerLaw):
 class ModifiedCutoffPowerLaw(PowerLaw):
     """Power law with exponential cutoff on both ends.
 
-    documentation
+    Parameters
+    ----------
+    mc1: float
+        Characteristic mass for the low-mass cutoff
+    mc2: float
+        Characteristic mass for the high-mass cutoff
+    npts:
+        Number of evenly log-spaced points at which to evaluate
+        the CDF in order to interpolate the PPF
     """
     def __init__(self, slope, m1, m2,
-                 mc1, mc2):
+                 mc1, mc2, npts):
         super().__init__(slope,m1,m2)
         self.mc1 = mc1
         self.mc2 = mc2
+        self.npts = npts
 
     def pdf(self,x):
         sup = super().pdf
@@ -299,7 +315,7 @@ class ModifiedCutoffPowerLaw(PowerLaw):
         return np.vectorize(integrate)(x)
 
     def ppf(self,x):
-        points = np.geomspace(self.m1,self.m2,100)
+        points = np.geomspace(self.m1,self.m2,self.npts)
         cdf = self.cdf(points)
         interp = PchipInterpolator(cdf/max(cdf),points)
         return interp(x,extrapolate=False)

@@ -362,7 +362,7 @@ class Schechter(MassFunction):
     default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
-                 alpha=2.35,m0=100):
+                 alpha=2.35,m0=100,npts=200):
         """
         Create a Schechter-like mass function; a power law
         with a high-mass exponential cutoff.
@@ -373,6 +373,8 @@ class Schechter(MassFunction):
             Power law slope (default = -2.35)
         m0: float
             Characteristic mass for exponential decay (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
         """
         super().__init__(mmin=mmin, mmax=mmax)
         if ~np.logical_and(np.isfinite(mmin),np.isfinite(self.mmax)):
@@ -395,7 +397,7 @@ class ModifiedSchechter(Schechter):
     default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
-                 alpha=2.35,ml=0.5,mu=100):
+                 alpha=2.35,ml=0.5,mu=100,npts=200):
         """
         A Schechter-like mass function with an additional
         low-lever exponential cutoff.
@@ -410,6 +412,8 @@ class ModifiedSchechter(Schechter):
         mu: float
             Characteristic mass for the high-level cutoff
             (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
         """
         super().__init__(mmin=mmin, mmax=mmax)
         self.alpha = alpha
@@ -1013,11 +1017,11 @@ class KoenConvolvedPowerLaw(MassFunction):
     sigma: float
         Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
     npts: int
-        Number of evenly log-spaced points at which to evaluate the function
-        (function calls interpolate between these). Defaults to 200.
+        Number of points at which to evaluate the function for interpolation
+        (default = 200)
     quad_sub_limit: int
         Limit of the number of subdivisions allowed for scipy.integrate.quad,
-        which handles integration. Defaults to scipy's default of 50.
+        which handles integration (default = 50)
     """
     default_mmin = 0
     default_mmax = np.inf
