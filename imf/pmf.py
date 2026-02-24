@@ -67,12 +67,15 @@ class PMF(MassFunction):
         Exponent governing the tapering factor (default = 1)
     tau: float
         Time constant for accelerating star formation, in Myr (default = 1)
+    npts: int
+        Number of points at which to evaluate the PMF for interpolation
+        (default = 200)
     """
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history='is',
                  j=None,jf=None,scale_value=None,
-                 n=1,tau=1):
+                 n=1,tau=1,npts=200):
         self.distr = None
         
         self._imf = imf
@@ -94,7 +97,7 @@ class PMF(MassFunction):
         
         self.distr = dist_pmf(self.imf,self.mmin,self.mmax,
                               self.j,self.jf,self.scale_value,
-                              self.n,self.tau)
+                              self.n,self.tau,npts)
         self.normfactor = 1
         
     def __call__(self,mass,
@@ -293,7 +296,7 @@ class dist_pmf(Distribution):
     """
     def __init__(self,imf,m1,m2,
 	         j,jf,scale_value,
-                 n,tau):
+                 n,tau,npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
@@ -303,7 +306,7 @@ class dist_pmf(Distribution):
         self.n = n
         self.tau = tau
 
-        self._points = np.geomspace(min(self.m1,1e-3),self.m2,200)
+        self._points = np.geomspace(min(self.m1,1e-3),self.m2,npts)
         self._func_dict = None
         self._calculate('all')
 
@@ -483,13 +486,16 @@ class PMF_2C(PMF):
         Exponent governing the tapering factor (default = 1)
     tau: float
         Time constant for accelerating star formation, in Myr (default = 1)
+    npts: int
+        Number of points at which to evaluate the PMF for interpolation
+        (default = 200)
     """
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history='tc',
                  j=None,jf=None,
                  R_mdot=None,T=10,
-                 n=1,tau=1):
+                 n=1,tau=1,npts=200):
         self.distr = None
         
         self._imf = imf
@@ -514,7 +520,7 @@ class PMF_2C(PMF):
         self.distr = dist_pmf_2c(self.imf,self.mmin,self.mmax,
                                  self.j,self.jf,
                                  self.R_mdot,self.m_is,
-                                 self.n,self.tau)
+                                 self.n,self.tau,npts)
         self.normfactor = 1
 
     @property
@@ -595,7 +601,7 @@ class dist_pmf_2c(dist_pmf):
     def __init__(self,imf,m1,m2,
                  j,jf,
                  R_mdot,m_is,
-                 n,tau):
+                 n,tau,npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
@@ -606,7 +612,7 @@ class dist_pmf_2c(dist_pmf):
         self.n = n
         self.tau = tau
 
-        self._points = np.geomspace(min(self.m1,1e-3),self.m2,200)
+        self._points = np.geomspace(min(self.m1,1e-3),self.m2,npts)
         self._func_dict = None
         self._calculate('all')
         self._taper = False
