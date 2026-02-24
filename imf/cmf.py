@@ -25,39 +25,43 @@ class PN_CMF(MassFunction):
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, eff=0.26, beta=0.4, b=1.8,
-                 T_mean=7*u.K, mu=2.33):
+                 T_mean=7*u.K, mu=2.33, bins='auto'):
         """
         Parameters
         ----------
-        mmin : float
+        mmin: float
             Minimum permissible core mass
-        mmax : float
+        mmax: float
             Maximum permissible core mass
-        T0 : K (or equivalent)
+        T0: K (or equivalent)
             Mean temperature of the parent cloud (default = 10 K)
-        L0 : pc (or equivalent)
+        L0: pc (or equivalent)
             Cloud size (default = 10 pc)
-        v0 : km s^-1 (or equivalent)
+        v0: km s^-1 (or equivalent)
             RMS velocity of the parent cloud at R = 1 pc
             (default = 0.8 km s^-1)
-        rho0 : g cm^-3 (or equivalent)
+        rho0: g cm^-3 (or equivalent)
             Mean mass density of gas in the parent cloud
             (default = 2e-21 g cm^-3)
-        massfunc : MassFunction
+        massfunc: MassFunction
             Mass function determining the final masses of cores.
             Defaults to a PadoanTF instance with the properties
             of the parent cloud
-        eff : float
+        eff: float
             Efficiency of core formation. The core mass budget is
             eff * cloud mass (default = 0.26)
-        beta : float
+        beta: float
             Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
-        b : float
+        b: float
             Spectral index of the turbulence power spectrum (default = 1.8)
-        T_mean : K (or equivalent)
+        T_mean: K (or equivalent)
             Mean core temperature (default = 7 K)
-        mu : float
+        mu: float
             Mean molecular weight of gas (default = 2.33)
+        bins: int or str
+            Number of histogram bins (in log space) or type of estimator to 
+            use for bin width; accepts the same strings as numpy histograms
+            (default = 'auto')
         """
         if mmin is None:
             mmin = default_mmin
@@ -102,7 +106,8 @@ class PN_CMF(MassFunction):
 
         self.distr = dist_pn(mmin,mmax,
                              self.maccr,self.taccr,self.mbe,
-                             self.rho,self.tcross,self.birthdays)
+                             self.rho,self.tcross,self.birthdays,
+                             bins)
         self.normfactor = 1
 
     def __call__(self,m,
@@ -255,7 +260,7 @@ class dist_pn(Distribution):
     """
     def __init__(self,m1,m2,
                  maccr,taccr,mbe,rho,
-                 tcross,birthdays):
+                 tcross,birthdays,bins):
         
         self.m1 = m1
         self.m2 = m2
@@ -265,6 +270,7 @@ class dist_pn(Distribution):
         self.tff = ((3 * np.pi / (32 * constants.G * rho))**0.5).to(u.s)
         self.mmax = (self.maccr * ((self.tbe + self.tff) / self.taccr)**3).to(u.M_sun)
         self.belowBE = self.maccr < mbe
+        self.bins = bins
 
         self.tcross = tcross
         self.birthdays = birthdays
@@ -316,7 +322,7 @@ class dist_pn(Distribution):
         for key in keys:
             core_masses = self._core_masses(self.time,self.visible,key)
             
-            edges = 10**np.histogram_bin_edges(np.log10(core_masses.value)) * u.M_sun
+            edges = 10**np.histogram_bin_edges(np.log10(core_masses.value),bins=self.bins) * u.M_sun
             N,edges = np.histogram(core_masses,bins=edges)
             centers = (edges[:-1] + edges[1:]) / 2
             
@@ -387,70 +393,73 @@ class HC_CMF(MassFunction):
                  eos='isothermal',gamma1=0.7,
                  gamma2=1.1,rho_crit=1e-18*u.g/u.cm**3,m=3,
                  include_B=False,B0=10*u.uG,gammab=0.1,
-                 time_dep=True):
+                 npts=200):
         """
         Generalized core mass function following the formalism of
         Hennebelle/Chabrier 2008/2009/2013.
         
         Parameters
         ----------
-        mmin : float
+        mmin: float
             Minimum permissible core mass
-        mmax : float
+        mmax: float
             Maximum permissible core mass
-        clump_size : pc (or equivalent)
+        clump_size: pc (or equivalent)
             Radius of the parent clump (default = 1 pc)
-        n_cl : float
+        n_cl: float
             Clump density normalization at 1 pc. Number density is
             n_cl * 1e3 (default = 5)
-        mu : float
+        mu: float
             Mean molecular weight of gas (default = 2.33)
-        Cs0 : km s^-1 (or equivalent)
+        Cs0: km s^-1 (or equivalent)
             Average isothermal sound speed for a cloud with 
             number density 10^4 cm^-3 (default = 0.2 km s^-1)
-        T0 : K (or equivalent)
+        T0: K (or equivalent)
             Mean temperature of the parent clump. Used to calculate
             sound speed if none is provided (default = 10 K)
-        v0 : km s^-1 (or equivalent)
+        v0: km s^-1 (or equivalent)
             RMS velocity of the parent clump at R = 1 pc 
             (default = 0.8 km s^-1)
-        eta : None or float
+        eta: None or float
             Exponent governing the behavior of dispersion velocity with scale
-        n_pow : float
+        n_pow: float
             Index of 3D velocity power spectrum. Used to derive eta 
             if no eta is provided (default = 3.8)
-        b_forcing : float
+        b_forcing: float
             Forcing parameter of turbulence (default = 0.4)
-        eos : str
+        eos: str
             String specifying which equation of state to use for gas 
             in the parent clump. Accepts 'isothermal', 'polytropic', 
             and 'barotropic'; see papers for implementation details
             (default = 'isothermal')
-        gamma1 : float
+        gamma1: float
             Exponent in a non-isothermal EOS. The sole exponent in a 
             polytropic case and the lower-density exponent in a
             barotropic case. Only used if eos != 'isothermal' (default = 0.7)
-        gamma2 : float
+        gamma2: float
             High-density exponent in a barotropic EOS. Only used if 
             eos == 'barotropic' (default = 1.1)
-        rho_crit : g cm^-3 (or equivalent)
+        rho_crit: g cm^-3 (or equivalent)
             Critical density in a barotropic EOS (i.e. where the piecewise
             halves meet). Only used if eos == 'barotropic' 
             (default = 1e-18 g cm^-3) 
-        m : float
+        m: float
             Exponent governing the combination of the piecewise components
             of a barotropic EOS; higher = less blending. Only used if 
             eos == 'barotropic' (default = 3)
-        include_B : bool
+        include_B: bool
             Whether or not to include support from a magnetic field in
             CMF calculation. (default = False)
-        B0 : gauss (or equivalent)
+        B0: gauss (or equivalent)
             Mean magnetic field strength. Only used if include_B is True
             (default = 10 microgauss)
-        gammab : float
+        gammab: float
             Exponent governing the relationship between magnetic field
             strength and gas density. Only used if include_B is True
             (default = 0.1)
+        npts: int
+            Number of points at which to evaluate the CMF for interpolation
+            (default = 200)
         """
         
         if eta is None:
@@ -612,7 +621,7 @@ class dist_hc(Distribution):
                  clump_size, rho0, Cs,
                  v0, eta, b_forcing,
                  eos, gamma1, gamma2, rho_crit, m,
-                 include_B, B0, gammab):
+                 include_B, B0, gammab, npts):
 
         self.m1 = m1
         self.m2 = m2
@@ -637,7 +646,7 @@ class dist_hc(Distribution):
         self.B0 = B0
         self.gammab = gammab
 
-        self._points = np.geomspace(self.m1,self.m2)
+        self._points = np.geomspace(self.m1,self.m2,npts)
         keys = ['pdf','cdf','ppf']
         self._func_dict = {key: [] for key in keys}
 
