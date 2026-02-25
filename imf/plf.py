@@ -55,6 +55,12 @@ class PLF(MassFunction):
         Exponent governing the tapering factor (default = 1)
     tau: float
         Time constant for accelerating star formation, in Myr (default = 1)
+    n_lpts: int
+        Number of points at which to evaluate the function for interpolation
+        (default = 200)
+    n_mpts: int
+        Number of points at which to evaluate the luminosity-to-mass 
+        mapping for interpolation (default = 50)
     proto_trackdir: str
         The location of the files containing the protostellar evolutionary
         track information. Points to files in imf generated using a 
@@ -66,6 +72,7 @@ class PLF(MassFunction):
                  history='is',
                  f_epi=0.25,
                  n=1,tau=1,
+                 n_lpts=None,n_mpts=None,
                  proto_trackdir=f'{loc}/data/K12_protoev_tables'):
 
         raise NotImplementedError('PLFs are currently disabled due to interpolation issues')
@@ -87,9 +94,10 @@ class PLF(MassFunction):
         self._interps = self._make_interps(self._trackdir,**kwargs)
         
         self.distr = dist_plf(self.imf,self.lmin,self.lmax,
-                              self.j,self.jf,self.scale_value,
+                              self.j_exp,self.jf_exp,self.scale_value,
                               self.n,self.tau,
-                              self.interps)
+                              self.interps,
+                              n_lpts,n_mpts)
         self.normfactor = 1
         
     def __call__(self,lum,
@@ -195,13 +203,13 @@ class PLF(MassFunction):
             raise ValueError("history must be one of 'is'/'tc'/'ca'")
         
         self._history = x
-        self._j = hist_values[x][0]
-        self._jf = hist_values[x][1]
+        self._j_exp = hist_values[x][0]
+        self._jf_exp = hist_values[x][1]
         self._scale_value = hist_values[x][2]
 
         if self.distr is not None:
-            self.distr.j = self.j
-            self.distr.jf = self.jf
+            self.distr.j_exp = self.j_exp
+            self.distr.jf_exp = self.jf_exp
             self.distr.scale_value = self.scale_value
             self.distr.interps = self._make_interps(self._trackdir)
             self.distr._calculate('all')
@@ -225,12 +233,12 @@ class PLF(MassFunction):
         return self.lmax
 
     @property
-    def j(self):
-        return self._j
+    def j_exp(self):
+        return self._j_exp
 
     @property
-    def jf(self):
-        return self._jf
+    def jf_exp(self):
+        return self._jf_exp
 
     @property
     def scale_value(self):
@@ -270,8 +278,9 @@ class dist_plf(Distribution):
     interpolation (see Section 5.1 of the companion paper).    
     """
     def __init__(self,imf,l1,l2,
-                 j,jf,scale_value,
+                 j_exp,jf_exp,scale_value,
                  n,tau,
+                 n_lpts,n_mpts,
                  interps):
 
         raise NotImplementedError('PLFs are currently disabled due to interpolation issues')
@@ -279,15 +288,15 @@ class dist_plf(Distribution):
         self.imf = imf
         self.l1 = l1
         self.l2 = l2
-        self.j = j
-        self.jf = jf
+        self.j_exp = j_exp
+        self.jf_exp = jf_exp
         self.scale_value = scale_value
         self.n = n
         self.tau = tau
-
+        self.n_mpts = n_mpts
         self.interps = interps
 
-        self._points = np.geomspace(self.l1,self.l2,100)
+        self._points = np.geomspace(self.l1,self.l2,n_lpts)
         self._func_dict = None
         self._taper = False
         self._accelerating = False
@@ -307,8 +316,8 @@ class dist_plf(Distribution):
             def get_unknowns(mf,lum_):
                 interp_l = self.interps[self.interp_idx]
 
-                masses = np.geomspace(0.1,mf) # in-bounds mass points for a 1D interpolation, beginning at the point where the code initializes a protostar 
-                m_of_l = PchipInterpolator(interp_l((np.ones(len(masses))* mf, masses)),masses)
+                masses = np.geomspace(0.1,mf,self.n_mpts) # in-bounds mass points for a 1D interpolation, beginning at the point where the code initializes a protostar 
+                m_of_l = PchipInterpolator(interp_l((np.ones(len(masses))*mf, masses)),masses)
                 ret_m = m_of_l(lum_)
 
                 interp_grad = self.interps[self.interp_idx+1]
@@ -317,7 +326,7 @@ class dist_plf(Distribution):
                 return ret_m, ret_l
 
             def m_dot(mf,mass_):
-                return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
+                return self.scale_value * (mass_ / mf)**self.j_exp * mf**self.jf_exp
 
             def integrand(mf,lum_):
 
@@ -327,7 +336,7 @@ class dist_plf(Distribution):
                     tf = self._tf(mf,taper)
                     def root_t(t,mf,mass_):
                         term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
-                        term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                        term2 = mass_**(1 - self.j_exp) / self.scale_value / (1 - self.j_exp) / mf**(self.jf_exp - self.j_exp)
                         prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
                         prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
                         return term1 - term2, prime_term1 - prime_term2
@@ -343,7 +352,7 @@ class dist_plf(Distribution):
                 else:
                     t_factor = 1
                     if accelerating:
-                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                        tm = mass_**(1 - self.j_exp) / mf**(self.jf_exp - self.j_exp) / self.scale_value / (1 - self.j_exp)
                 a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
 
                 ret = self.imf(mf) * mass_ / m_dot(mf,mass_) * a_factor / t_factor / l_factor
@@ -373,7 +382,7 @@ class dist_plf(Distribution):
         Calculate the PDF/CDF/PPF as needed. "mode" determines
         which versions are recalculated.
         """
-        not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
+        not_ok = (self.j_exp is None) | (self.jf_exp is None) | (self.scale_value is None)
 
         keys = ['pdf','cdf','ppf']
         if mode == 'all':
@@ -381,23 +390,23 @@ class dist_plf(Distribution):
             modes = [(0,0),(1,0),(0,1),(1,1)]
             for m in modes:
                 bases = self._make_bases(*m)
-                for i,key in enumerate(keys):
-                    func_dict[key].append(bases[i])
+                for ii,key in enumerate(keys):
+                    func_dict[key].append(bases[ii])
             self._func_dict = func_dict
 
         elif mode == 'taper':
             modes = [(1,0),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
-                for j,key in enumerate(keys):
-                    self._func_dict[key][2*i+1] = bases[j]
+                for jj,key in enumerate(keys):
+                    self._func_dict[key][2*ii+1] = bases[jj]
 
         elif mode == 'accelerating':
             modes = [(0,1),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
-                for j,key in enumerate(keys):
-                    self._func_dict[key][i+2] = bases[j]
+                for jj,key in enumerate(keys):
+                    self._func_dict[key][ii+2] = bases[jj]
 
     def _pick_function(self,functype,taper,accelerating):
         return self._func_dict[functype][int(taper+2*accelerating)]
@@ -409,8 +418,8 @@ class dist_plf(Distribution):
 
     def _tf(self,mf,taper):
         factor = (self.n + 1) / self.n if taper else 1
-        tf1 = factor / (1 - self.j) / self.scale_value
-        return tf1 * mf**(1 - self.jf)
+        tf1 = factor / (1 - self.j_exp) / self.scale_value
+        return tf1 * mf**(1 - self.jf_exp)
 
     def _average_time(self,taper,accelerating):
         if accelerating:

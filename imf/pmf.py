@@ -54,10 +54,10 @@ class PMF(MassFunction):
         'tc' (turbulent core), and 'ca' (competitive accretion). If
         None, custom values can be input for j, jf, and scale_value
         (default = 'is')
-    j: float
+    j_exp: float
         Value setting the scaling of accretion rate with current mass
         (default = None)
-    jf: float
+    jf_exp: float
         Value setting the scaling of accretion rate with final mass
         (default = None)
     scale_value: float
@@ -74,7 +74,7 @@ class PMF(MassFunction):
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history='is',
-                 j=None,jf=None,scale_value=None,
+                 j_exp=None,jf_exp=None,scale_value=None,
                  n=1,tau=1,npts=200):
         self.distr = None
         
@@ -87,8 +87,8 @@ class PMF(MassFunction):
         self.history = history
 
         if self.history is None:
-            self._j = j
-            self._jf = jf
+            self._j_exp = j_exp
+            self._jf_exp = jf_exp
         
         self.scale_value = scale_value
 
@@ -219,38 +219,38 @@ class PMF(MassFunction):
                 raise ValueError("history must be one of 'is'/'tc'/'ca'")
         
             self._history = x
-            self._j = hist_values[x][0]
-            self._jf = hist_values[x][1]
+            self._j_exp = hist_values[x][0]
+            self._jf_exp = hist_values[x][1]
             self._scale_value = hist_values[x][2]
 
             if self.distr is not None:
-                self.distr.j = self.j
-                self.distr.jf = self.jf
+                self.distr.j_exp = self.j_exp
+                self.distr.jf_exp = self.jf_exp
                 self.distr.scale_value = self.scale_value
                 self.distr._calculate('all')
             
     @property
-    def j(self):
-        return self._j
+    def j_exp(self):
+        return self._j_exp
 
-    @j.setter
-    def j(self,x):
+    @j_exp.setter
+    def j_exp(self,x):
         if self.history in hist_values.keys():
-            raise ValueError('j cannot take on alternate values for a defined history')
-        self._j = x
-        self.distr.j = x
+            raise ValueError('j_exp cannot take on alternate values for a defined history')
+        self._j_exp = x
+        self.distr.j_exp = x
         self.distr._calculate('all')
 
     @property
-    def jf(self):
-        return self._jf
+    def jf_exp(self):
+        return self._jf_exp
 
-    @jf.setter
-    def jf(self,x):
+    @jf_exp.setter
+    def jf_exp(self,x):
         if self.history	in hist_values.keys():
-            raise ValueError('jf cannot take on alternate values for a defined history')
-        self._jf = x
-        self.distr.jf = x
+            raise ValueError('jf_exp cannot take on alternate values for a defined history')
+        self._jf_exp = x
+        self.distr.jf_exp = x
         self.distr._calculate('all')
 
     @property
@@ -295,13 +295,13 @@ class dist_pmf(Distribution):
     Manages the PDF/CDF for a PMF.
     """
     def __init__(self,imf,m1,m2,
-	         j,jf,scale_value,
+                 j_exp,jf_exp,scale_value,
                  n,tau,npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
-        self.j = j
-        self.jf = jf
+        self.j_exp = j_exp
+        self.jf_exp = jf_exp
         self.scale_value = scale_value
         self.n = n
         self.tau = tau
@@ -323,14 +323,14 @@ class dist_pmf(Distribution):
             avg_time = self._average_time(taper,accelerating)
 
             def m_dot(mf,mass_):
-                return self.scale_value * (mass_ / mf)**self.j * mf**self.jf
+                return self.scale_value * (mass_ / mf)**self.j_exp * mf**self.jf_exp
 
             def integrand(mf,mass_):
                 if taper:
                     tf = self._tf(mf,taper)
                     def root_t(t,mf,mass_):
                         term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
-                        term2 = mass_**(1 - self.j) / self.scale_value / (1 - self.j) / mf**(self.jf - self.j)
+                        term2 = mass_**(1 - self.j_exp) / self.scale_value / (1 - self.j_exp) / mf**(self.jf_exp - self.j_exp)
                         prime_term1 = 1 - (t / tf)**self.n / (self.n + 1)
                         prime_term2 = self.n / (self.n + 1) * (t / tf)**self.n
                         return term1 - term2, prime_term1 - prime_term2
@@ -346,7 +346,7 @@ class dist_pmf(Distribution):
                 else:
                     t_factor = 1
                     if accelerating:
-                        tm = mass_**(1 - self.j) / mf**(self.jf - self.j) / self.scale_value / (1 - self.j)
+                        tm = mass_**(1 - self.j_exp) / mf**(self.jf_exp - self.j_exp) / self.scale_value / (1 - self.j_exp)
                 a_factor = np.exp(-tm / self.tau / 1e6) if accelerating else 1
 
                 return self.imf(mf) * mass_ / m_dot(mf,mass_) / t_factor * a_factor
@@ -370,9 +370,9 @@ class dist_pmf(Distribution):
         Calculate the PDF/CDF/PPF as needed. "mode" determines
         which versions are recalculated.
         """
-        not_ok = (self.j is None) | (self.jf is None) | (self.scale_value is None)
+        not_ok = (self.j_exp is None) | (self.jf_exp is None) | (self.scale_value is None)
         if not_ok:
-            raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, scale_value)')
+            raise ValueError('Cannot calculate a PMF without a history or all of (j_exp, jf_exp, scale_value)')
 
         keys = ['pdf','cdf','ppf']
         if mode == 'all':
@@ -380,23 +380,23 @@ class dist_pmf(Distribution):
             modes = [(0,0),(1,0),(0,1),(1,1)]
             for m in modes:
                 bases = self._make_bases(*m)
-                for i,key in enumerate(keys):
-                    func_dict[key].append(bases[i])
+                for ii,key in enumerate(keys):
+                    func_dict[key].append(bases[ii])
             self._func_dict = func_dict
 
         elif mode == 'taper':
             modes = [(1,0),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
-                for j,key in enumerate(keys):
-                    self._func_dict[key][2*i+1] = bases[j]
+                for jj,key in enumerate(keys):
+                    self._func_dict[key][2*ii+1] = bases[jj]
 
         elif mode == 'accelerating':
             modes = [(0,1),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
                 for j,key in enumerate(keys):
-                    self._func_dict[key][i+2] = bases[j]
+                    self._func_dict[key][ii+2] = bases[jj]
 
     def _pick_function(self,functype,taper,accelerating):
         return self._func_dict[functype][int(taper+2*accelerating)]
@@ -408,8 +408,8 @@ class dist_pmf(Distribution):
 
     def _tf(self,mf,taper):
         factor = (self.n + 1) / self.n if taper else 1
-        tf1 = factor / (1 - self.j) / self.scale_value
-        return tf1 * mf**(1 - self.jf)
+        tf1 = factor / (1 - self.j_exp) / self.scale_value
+        return tf1 * mf**(1 - self.jf_exp)
 
     def _average_time(self,taper,accelerating):
         if accelerating:
@@ -470,10 +470,10 @@ class PMF_2C(PMF):
         Accretion history of stars; accepts 'tc' (turbulent core),
         and 'ca' (competitive accretion). If None, custom values
         can be input for j, jf, and R_mdot (default = 'tc')
-    j: float
+    j_exp: float
         Value setting the scaling of the non-IS accretion rate
         with current mass (default = None)
-    jf: float
+    jf_exp: float
         Value setting the scaling of the non-IS accretion rate 
         with final mass (default = None)  
     R_mdot: float
@@ -493,7 +493,7 @@ class PMF_2C(PMF):
     def __init__(self,imf,
                  mmin=None,mmax=None,
                  history='tc',
-                 j=None,jf=None,
+                 j_exp=None,jf_exp=None,
                  R_mdot=None,T=10,
                  n=1,tau=1,npts=200):
         self.distr = None
@@ -507,8 +507,8 @@ class PMF_2C(PMF):
         self.history = history
 
         if self.history is None:
-            self._j = j
-            self._jf = jf
+            self._j_exp = j_exp
+            self._jf_exp = jf_exp
             self._R_mdot = R_mdot
 
         self._n = n
@@ -518,7 +518,7 @@ class PMF_2C(PMF):
         self.m_is = scaling('is',self.T)
         
         self.distr = dist_pmf_2c(self.imf,self.mmin,self.mmax,
-                                 self.j,self.jf,
+                                 self.j_exp,self.jf_exp,
                                  self.R_mdot,self.m_is,
                                  self.n,self.tau,npts)
         self.normfactor = 1
@@ -536,38 +536,38 @@ class PMF_2C(PMF):
                 raise ValueError("history must be one of 'tc'/'ca'")
         
             self._history = x
-            self._j = hist_values_2C[x][0]
-            self._jf = hist_values_2C[x][1]
+            self._j_exp = hist_values_2C[x][0]
+            self._jf_exp = hist_values_2C[x][1]
             self._R_mdot = hist_values_2C[x][2]
 
             if self.distr is not None:
-                self.distr.j = self.j
-                self.distr.jf = self.jf
+                self.distr.j_exp = self.j_exp
+                self.distr.jf_exp = self.jf_exp
                 self.distr.R_mdot = self.R_mdot
                 self.distr._calculate('all')
             
     @property
-    def j(self):
-        return self._j
+    def j_exp(self):
+        return self._j_exp
 
-    @j.setter
-    def j(self,x):
+    @j_exp.setter
+    def j_exp(self,x):
         if self.history in hist_values_2C.keys():
-            raise ValueError('j cannot take on alternate values for a defined history')
-        self._j = x
-        self.distr.j = x
+            raise ValueError('j_exp cannot take on alternate values for a defined history')
+        self._j_exp = x
+        self.distr.j_exp = x
         self.distr._calculate('all')
 
     @property
-    def jf(self):
-        return self._jf
+    def jf_exp(self):
+        return self._jf_exp
 
-    @jf.setter
-    def jf(self,x):
+    @jf_exp.setter
+    def jf_exp(self,x):
         if self.history	in hist_values_2C.keys():
-            raise ValueError('jf cannot take on alternate values for a defined history')
-        self._jf = x
-        self.distr.jf = x
+            raise ValueError('jf_exp cannot take on alternate values for a defined history')
+        self._jf_exp = x
+        self.distr.jf_exp = x
         self.distr._calculate('all')
 
     @property
@@ -599,14 +599,14 @@ class dist_pmf_2c(dist_pmf):
     Manages the PDF/CDF for two-component PMFs.
     """
     def __init__(self,imf,m1,m2,
-                 j,jf,
+                 j_exp,jf_exp,
                  R_mdot,m_is,
                  n,tau,npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
-        self.j = j
-        self.jf = jf
+        self.j_exp = j_exp
+        self.jf_exp = jf_exp
         self.R_mdot = R_mdot
         self.m_is = m_is
         self.n = n
@@ -629,13 +629,13 @@ class dist_pmf_2c(dist_pmf):
 
             def m_dot(mf,mass_):
                 return self.m_is * np.sqrt(1 + self.R_mdot**2 *
-                                           (mass_ / mf)**(2 * self.j) *
-                                           mf**(2 * self.jf))
+                                           (mass_ / mf)**(2 * self.j_exp) *
+                                           mf**(2 * self.jf_exp))
 
             def integrand(mf,mass_):
                 def base_tm(mf,mass_):
-                    return mass_ / self.m_is * hyp2f1(0.5,0.5/self.j,1+0.5/self.j,
-                                                      -(self.R_mdot*(mass_/mf)**self.j*mf**self.jf)**2)
+                    return mass_ / self.m_is * hyp2f1(0.5,0.5/self.j_exp,1+0.5/self.j_exp,
+                                                      -(self.R_mdot*(mass_/mf)**self.j_exp*mf**self.jf_exp)**2)
 
                 if taper:
                     tf = self._tf(mf,taper)
@@ -679,9 +679,9 @@ class dist_pmf_2c(dist_pmf):
         Calculate the PDF/CDF/PPF as needed. "mode" determines
         which versions are recalculated.
         """
-        not_ok = (self.j is None) | (self.jf is None) | (self.R_mdot is None)
+        not_ok = (self.j_exp is None) | (self.jf_exp is None) | (self.R_mdot is None)
         if not_ok:
-            raise ValueError('Cannot calculate a PMF without a history or all of (j, jf, R_mdot)')
+            raise ValueError('Cannot calculate a PMF without a history or all of (j_exp, jf_exp, R_mdot)')
 
         keys = ['pdf','cdf','ppf']
         if mode == 'all':
@@ -689,27 +689,27 @@ class dist_pmf_2c(dist_pmf):
             modes = [(0,0),(1,0),(0,1),(1,1)]
             for m in modes:
                 bases = self._make_bases(*m)
-                for i,key in enumerate(keys):
-                    func_dict[key].append(bases[i])
+                for ii,key in enumerate(keys):
+                    func_dict[key].append(bases[ii])
             self._func_dict = func_dict
 
         elif mode == 'taper':
             modes = [(1,0),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
-                for j,key in enumerate(keys):
-                    self._func_dict[key][2*i+1] = bases[j]
+                for jj,key in enumerate(keys):
+                    self._func_dict[key][2*ii+1] = bases[jj]
 
         elif mode == 'accelerating':
             modes = [(0,1),(1,1)]
-            for i,m in enumerate(modes):
+            for ii,m in enumerate(modes):
                 bases = self._make_bases(*m)
                 for j,key in enumerate(keys):
-                    self._func_dict[key][i+2] = bases[j]
+                    self._func_dict[key][ii+2] = bases[jj]
 
     def _tf(self,mf,taper):
         factor = (self.n + 1) / self.n if taper else 1
-        body = mf / self.m_is * hyp2f1(0.5,0.5/self.j,
-                                       1+0.5/self.j,
-                                       -(self.R_mdot * mf**self.jf)**2)
+        body = mf / self.m_is * hyp2f1(0.5,0.5/self.j_exp,
+                                       1+0.5/self.j_exp,
+                                       -(self.R_mdot * mf**self.jf_exp)**2)
         return factor * body
