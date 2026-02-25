@@ -378,23 +378,23 @@ class dist_pmf(Distribution):
         if mode == 'all':
             func_dict = {key: [] for key in keys}
             modes = [(0,0),(1,0),(0,1),(1,1)]
-            for m in modes:
-                bases = self._make_bases(*m)
+            for mm in modes:
+                bases = self._make_bases(*mm)
                 for ii,key in enumerate(keys):
                     func_dict[key].append(bases[ii])
             self._func_dict = func_dict
 
         elif mode == 'taper':
             modes = [(1,0),(1,1)]
-            for ii,m in enumerate(modes):
-                bases = self._make_bases(*m)
+            for ii,mm in enumerate(modes):
+                bases = self._make_bases(*mm)
                 for jj,key in enumerate(keys):
                     self._func_dict[key][2*ii+1] = bases[jj]
 
         elif mode == 'accelerating':
             modes = [(0,1),(1,1)]
-            for ii,m in enumerate(modes):
-                bases = self._make_bases(*m)
+            for ii,mm in enumerate(modes):
+                bases = self._make_bases(*mm)
                 for j,key in enumerate(keys):
                     self._func_dict[key][ii+2] = bases[jj]
 
@@ -687,23 +687,23 @@ class dist_pmf_2c(dist_pmf):
         if mode == 'all':
             func_dict = {key: [] for key in keys}
             modes = [(0,0),(1,0),(0,1),(1,1)]
-            for m in modes:
-                bases = self._make_bases(*m)
+            for mm in modes:
+                bases = self._make_bases(*mm)
                 for ii,key in enumerate(keys):
                     func_dict[key].append(bases[ii])
             self._func_dict = func_dict
 
         elif mode == 'taper':
             modes = [(1,0),(1,1)]
-            for ii,m in enumerate(modes):
-                bases = self._make_bases(*m)
+            for ii,mm in enumerate(modes):
+                bases = self._make_bases(*mm)
                 for jj,key in enumerate(keys):
                     self._func_dict[key][2*ii+1] = bases[jj]
 
         elif mode == 'accelerating':
             modes = [(0,1),(1,1)]
-            for ii,m in enumerate(modes):
-                bases = self._make_bases(*m)
+            for ii,mm in enumerate(modes):
+                bases = self._make_bases(*mm)
                 for j,key in enumerate(keys):
                     self._func_dict[key][ii+2] = bases[jj]
 
