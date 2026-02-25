@@ -259,10 +259,11 @@ class CutoffPowerLaw(PowerLaw):
         Number of evenly log-spaced points at which to evaluate
         the CDF in order to interpolate the PPF
     """
-    def __init__(self, slope, m1, m2, mc, npts):
+    def __init__(self, slope, m1, m2, mc,
+                 npts=None):
         super().__init__(slope,m1,m2)
         self.mc = mc
-        self.npts = npts
+        self.npts = 200 if npts is None else npts
 
     def pdf(self,x):
         sup = super().pdf
@@ -296,11 +297,12 @@ class ModifiedCutoffPowerLaw(PowerLaw):
         the CDF in order to interpolate the PPF
     """
     def __init__(self, slope, m1, m2,
-                 mc1, mc2, npts):
+                 mc1, mc2,
+                 npts=None):
         super().__init__(slope,m1,m2)
         self.mc1 = mc1
         self.mc2 = mc2
-        self.npts = npts
+        self.npts = 200 if npts is None else npts
 
     def pdf(self,x):
         sup = super().pdf
@@ -343,11 +345,14 @@ class KoenConvolvedPowerLaw(Distribution):
         Number of evenly log-spaced points at which the distribution 
         will be evaluated.
     """
-    def __init__(self,m1,m2,gamma,sigma,npts):
+    def __init__(self,m1,m2,gamma,sigma,npts=None):
         self.m1 = m1
         self.m2 = m2
         self.gamma = gamma
         self.sigma = sigma
+        if npts is None:
+            npts = 200
+            
         self.points = self._make_points(npts)
         self._pdf = self._pre_integrate(False)
         self._pdf_interpolator = PchipInterpolator(self.points,self._pdf)

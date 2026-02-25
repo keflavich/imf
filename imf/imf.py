@@ -362,7 +362,7 @@ class Schechter(MassFunction):
     default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
-                 alpha=2.35,m0=100,npts=200):
+                 alpha=2.35,m0=100,npts=None):
         """
         Create a Schechter-like mass function; a power law
         with a high-mass exponential cutoff.
@@ -382,7 +382,8 @@ class Schechter(MassFunction):
         self.alpha = alpha
         self.m0 = m0
 
-        self.distr = distributions.CutoffPowerLaw(-self.alpha,self.mmin,self.mmax,self.m0)
+        self.distr = distributions.CutoffPowerLaw(-self.alpha,self.mmin,self.mmax,self.m0,
+                                                  npts=npts)
         self.normalize()
 
     def __call__(self, mass, integral_form=False):
@@ -397,7 +398,7 @@ class ModifiedSchechter(Schechter):
     default_mmax = 200
 
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
-                 alpha=2.35,ml=0.5,mu=100,npts=200):
+                 alpha=2.35,ml=0.5,mu=100,npts=None):
         """
         A Schechter-like mass function with an additional
         low-lever exponential cutoff.
@@ -422,7 +423,8 @@ class ModifiedSchechter(Schechter):
 
         self.distr = distributions.ModifiedCutoffPowerLaw(-self.alpha,
                                                           self.mmin,self.mmax,
-                                                          self.ml,self.mu)
+                                                          self.ml,self.mu,
+                                                          npts=npts)
         self.normalize()
 
     def __call__(self, mass, integral_form=False):
