@@ -373,11 +373,11 @@ class PadoanTF(MassFunction):
     emerging from turbulent fragmentation theory.
     """
     default_mmin = 0.01
-    default_mmax = np.inf
+    default_mmax = 200
 
     def __init__(self,mmin=default_mmin,mmax=default_mmax,
                  b=1.8,T0=10,n0=5e2,
-                 sigma=None,mach=10,npts=200):
+                 sigma=None,mach=10,npts=None):
         """        
         Parameters
         ----------
@@ -396,14 +396,16 @@ class PadoanTF(MassFunction):
             Number of points at which to evaluate the function for
             interpolation (default = 200)
         """
-
+        if ~np.logical_and(np.isfinite(mmin),np.isfinite(mmax)):
+            raise ValueError("PN IMF uses interpolation; mmin and mmax must be finite")
         if sigma is None and mach is None:
             raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
         init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
         self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
         
         self.distr = distributions.PadoanTF(mmin,mmax,
-                                            b,T0,n0,init_sigma,npts)
+                                            b,T0,n0,init_sigma,
+                                            npts=npts)
         self.normfactor = 1
 
     def __call__(self, m, integral_form=False):

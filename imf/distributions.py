@@ -254,7 +254,7 @@ class PadoanTF(Distribution):
     """
     def __init__(self,m1,m2,
                  b,T0,n0,sigma,
-                 npts):
+                 npts=None):
 
         self.m1 = m1
         self.m2 = m2
@@ -262,6 +262,8 @@ class PadoanTF(Distribution):
         self.T0 = T0
         self.n0 = n0
         self.sigma = sigma
+        if npts is None:
+            npts = 200
 
         self._points = np.geomspace(self.m1,self.m2,npts)
 
@@ -285,15 +287,11 @@ class PadoanTF(Distribution):
         pdf = base / self._points #convert to dN/dm
         pdf /= np.trapezoid(pdf,x=self._points) #normalize
         cdf = cumulative_trapezoid(pdf,self._points,initial=0)
-        cdf = np.concatenate((cdf,[max(cdf)]))
-        cdf_points = np.concatenate(([min(self._points)],
-                                     (self._points[1:]+self._points[:-1])/2,
-                                     [self.m2]))
         zero_arg = np.argmin(np.diff(cdf))
 
         self._pdf = PchipInterpolator(self._points,pdf)
-        self._cdf = PchipInterpolator(cdf_points,cdf)
-        self._ppf = PchipInterpolator(cdf[:zero_arg+1],cdf_points[:zero_arg+1])
+        self._cdf = PchipInterpolator(self._points,cdf)
+        self._ppf = PchipInterpolator(cdf,self._points)
     
     def pdf(self,x):
         return self._pdf(x,extrapolate=False)
