@@ -35,7 +35,8 @@ class PLF(MassFunction):
     using the formalism of Offner/McKee (2011). 
 
     Currently not implemented due to algorithmic issues with 
-    interpolation (see Section 5.1 of the companion paper).
+    interpolation (see Appendix A of the companion paper,
+    Richardson+ 2026).
 
     Parameters
     ----------
