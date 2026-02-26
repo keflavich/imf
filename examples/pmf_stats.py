@@ -1,75 +1,56 @@
-import imf.imf, imf.pmf, imp
-imp.reload(imf.imf)
-imp.reload(imf.pmf)
-imp.reload(imf.imf)
-imp.reload(imf.pmf)
-from imf.pmf import ChabrierPMF_IS, ChabrierPMF_TC, ChabrierPMF_CA, ChabrierPMF_2CTC
-from imf.pmf import KroupaPMF_IS, KroupaPMF_TC, KroupaPMF_CA, KroupaPMF_2CTC
-from imf.pmf import McKeeOffner_AcceleratingSF_PMF, ChabrierPMF_AcceleratingSF_IS, ChabrierPMF_AcceleratingSF_TC, ChabrierPMF_AcceleratingSF_CA#, ChabrierPMF_AcceleratingSF_2CTC
-import pylab as pl
 import numpy as np
+
+import imf.imf,imf.pmf
+from imf import chabrier2005,Kroupa
+from imf.pmf import PMF,PMF_2C
+
+def stats(mf,desc,**kwargs):
+    total = mf.m_integrate(mmin, mmax, **kwargs)[0]
+    gt10 = mf.m_integrate(10, mmax, **kwargs)[0]
+    print(f'Mass fraction M>10 ({desc}) = {gt10/total}')
+
+def accel_stats(mf,desc):
+    for tau in taus:
+        mf.tau = tau
+        stats(mf,f'{desc}_accel, tau = {tau}',accelerating=True)
 
 mmin = 0.033
 mmax = 120
 
-print("Normalizing.")
-ChabrierPMF_IS.mmax = mmax
-ChabrierPMF_TC.mmax = mmax
-ChabrierPMF_CA.mmax = mmax
-ChabrierPMF_2CTC.mmax = mmax
+taus = [0.1,0.5,1,2]
 
-ChabrierPMF_IS.normalize(log=False, mmin=mmin, mmax=mmax)
-ChabrierPMF_TC.normalize(log=False, mmin=mmin, mmax=mmax)
-ChabrierPMF_CA.normalize(log=False, mmin=mmin, mmax=mmax)
-ChabrierPMF_2CTC.normalize(log=False, mmin=mmin, mmax=mmax)
+chabrier = chabrier2005
+chabrier.mmin = mmin
+chabrier.mmax = mmax
+chabrier.normalize()
 
-ChabrierPMF_AcceleratingSF_IS.mmax = mmax
-ChabrierPMF_AcceleratingSF_TC.mmax = mmax
-ChabrierPMF_AcceleratingSF_CA.mmax = mmax
-#ChabrierPMF_AcceleratingSF_2CTC.mmax = mmax
+kroupa = Kroupa(mmin=mmin,mmax=mmax)
+kroupa.normalize()
 
-ChabrierPMF_AcceleratingSF_IS.normalize(log=True, mmin=mmin, mmax=mmax)
-ChabrierPMF_AcceleratingSF_TC.normalize(log=True, mmin=mmin, mmax=mmax)
-ChabrierPMF_AcceleratingSF_CA.normalize(log=True, mmin=mmin, mmax=mmax)
-#ChabrierPMF_AcceleratingSF_2CTC.normalize(log=True, mmin=mmin, mmax=mmax)
+stats(chabrier,'chabrier')
+pmf = PMF(chabrier,history='is')
+stats(pmf,'chabrier_is')
+accel_stats(pmf,'chabrier_is')
+pmf.history = 'tc'
+stats(pmf,'chabrier_tc')
+accel_stats(pmf,'chabrier_tc')
+pmf.history = 'ca'
+stats(pmf,'chabrier_ca')
+accel_stats(pmf,'chabrier_ca')
+pmf = PMF_2C(chabrier,history='tc')
+stats(pmf,'chabrier_2ctc')
+accel_stats(pmf,'chabrier_2ctc')
 
-
-
-KroupaPMF_IS.mmax = mmax
-KroupaPMF_TC.mmax = mmax
-KroupaPMF_CA.mmax = mmax
-KroupaPMF_2CTC.mmax = mmax
-
-KroupaPMF_IS.normalize(log=False, mmin=mmin, mmax=mmax)
-KroupaPMF_TC.normalize(log=False, mmin=mmin, mmax=mmax)
-KroupaPMF_CA.normalize(log=False, mmin=mmin, mmax=mmax)
-KroupaPMF_2CTC.normalize(log=False, mmin=mmin, mmax=mmax)
-
-chabrierpowerlaw = imf.ChabrierPowerLaw()
-chabrierpowerlaw.normalize(log=False, mmin=mmin, mmax=mmax)
-kroupa = imf.Kroupa()
-kroupa.normalize(log=False, mmin=mmin, mmax=mmax)
-
-print("Done normalizing")
-
-mfs = {'ChabrierPMF_IS': ChabrierPMF_IS,
-       'ChabrierPMF_TC': ChabrierPMF_TC,
-       'ChabrierPMF_CA': ChabrierPMF_CA,
-       'ChabrierPMF_2CTC': ChabrierPMF_2CTC,
-       'ChabrierIMF': chabrierpowerlaw,
-       'KroupaPMF_IS': KroupaPMF_IS,
-       'KroupaPMF_TC': KroupaPMF_TC,
-       'KroupaPMF_CA': KroupaPMF_CA,
-       'KroupaPMF_2CTC': KroupaPMF_2CTC,
-       'KroupaIMF': kroupa,
-      }
-
-for tau in (0.1, 0.5, 1.0, 2.0):
-    mfs['ChabrierPMF_AcceleratingSF_IS_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=0, jf=0, tau=tau, mmax=mmax)
-    mfs['ChabrierPMF_AcceleratingSF_TC_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=0.5, jf=0.75, tau=tau, mmax=mmax)
-    mfs['ChabrierPMF_AcceleratingSF_CA_tau{0}'.format(tau)] = McKeeOffner_AcceleratingSF_PMF(j=2/3., jf=1.0, tau=tau, mmax=mmax)
-
-for mf in sorted(mfs):
-    total = mfs[mf].m_integrate(mmin, mmax)[0]
-    gt10 = mfs[mf].m_integrate(10, mmax)[0]
-    print("Mass fraction for {1} M>10 = {0:0.3f}".format(gt10/total, mf))
+stats(kroupa,'kroupa')
+pmf = PMF(kroupa,history='is')
+stats(pmf,'kroupa_is')
+accel_stats(pmf,'kroupa_is')
+pmf.history = 'tc'
+stats(pmf,'kroupa_tc')
+accel_stats(pmf,'kroupa_tc')
+pmf.history = 'ca'
+stats(pmf,'kroupa_ca')
+accel_stats(pmf,'kroupa_ca')
+pmf = PMF_2C(kroupa,history='tc')
+stats(pmf,'kroupa_2ctc')
+accel_stats(pmf,'kroupa_2ctc')

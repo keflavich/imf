@@ -77,14 +77,30 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
+    def weight_average(self, func, *args, **kwargs):
+        """
+        Integrate a function of stellar mass f(m) over the IMF
+        """
+        def weighted_func(x):
+            return self(x) * func(x,*args)
+
+        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
+
     @property
     def mmin(self):
         return self._mmin
+
+    @mmin.setter
+    def mmin(self,x):
+        self._mmin = x
 
     @property
     def mmax(self):
         return self._mmax
 
+    @mmax.setter
+    def mmax(self,x):
+        self._mmax = x
 
 
 class Salpeter(MassFunction):
@@ -278,7 +294,7 @@ class ChabrierLogNormal(MassFunction):
 
         self.multiplier = leading_constant
         self.lognormal_width = lognormal_width
-
+        self.normfactor = 1
         self.distr = distributions.TruncatedLogNormal(mu=lognormal_center,
                                                       sig=self.lognormal_width,
                                                       m1=self.mmin,
@@ -286,9 +302,9 @@ class ChabrierLogNormal(MassFunction):
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(mass) * self.multiplier
+            return self.distr.cdf(mass) * self.multiplier * self.normfactor
         else:
-            return self.distr.pdf(mass) * self.multiplier
+            return self.distr.pdf(mass) * self.multiplier * self.normfactor
 
 
 class ChabrierPowerLaw(MassFunction):
@@ -340,6 +356,7 @@ class ChabrierPowerLaw(MassFunction):
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
+        self.normfactor = 1
         self.distr = distributions.CompositeDistribution([
             distributions.TruncatedLogNormal(self._lognormal_center,
                                              self._lognormal_width,
@@ -350,9 +367,9 @@ class ChabrierPowerLaw(MassFunction):
 
     def __call__(self, x, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(x)
+            return self.distr.cdf(x) * self.normfactor
         else:
-            return self.distr.pdf(x)
+            return self.distr.pdf(x) * self.normfactor
 
 
 
@@ -644,7 +661,7 @@ def make_cluster(mcluster,
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
     Parameters
-    ==========
+    ----------
     mcluster : float
         The target cluster mass.
     massfunc : string or MassFunction
@@ -930,9 +947,9 @@ class KoenConvolvedPowerLaw(MassFunction):
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self._normfactor*self.distr.cdf(m)
+            return self.distr.cdf(m) * self.normfactor
         else:
-            return self._normfactor*self.distr.pdf(m)
+            return self.distr.pdf(m) * self.normfactor
     
     def integrate(self, mlow, mhigh, **kwargs):
         """
