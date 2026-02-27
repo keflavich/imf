@@ -1,7 +1,7 @@
 import numpy as np
 
 from .imf import make_cluster
-from .imf import lum_of_star #change this import to luminosity once everything is integrated
+from .lum import lum_of_star
 
 def color_from_mass(mass, outtype=float):
     """

@@ -1,5 +1,5 @@
-from imf.imf import make_cluster
-from imf.imf import lum_of_cluster #update this after integration
+from imf import make_cluster
+from imf.lum import lum_of_cluster
 from imf.visualization import color_of_cluster
 import numpy as np
 

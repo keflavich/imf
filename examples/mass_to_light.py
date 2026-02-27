@@ -5,8 +5,8 @@ import pylab as pl
 import matplotlib
 from astropy.utils.console import ProgressBar
 
-from imf import imf,lum_of_cluster # move lum_of_cluster to imf.lum after integration
-#from imf.lum import lum_of_cluster
+from imf import imf
+from imf.lum import lum_of_cluster
 
 pl.rc('font', size=16)
 
