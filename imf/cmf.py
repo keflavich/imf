@@ -24,7 +24,8 @@ class PN_CMF(MassFunction):
     def __init__(self,mmin=None,mmax=None,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
-                 massfunc=None, eff=0.26, beta=0.4, b=1.8,
+                 massfunc=None, sampling=None, stop_criterion=None,
+                 eff=0.26, beta=0.4, b=1.8,
                  T_mean=7*u.K, mu=2.33, bins='auto'):
         """
         Parameters
@@ -47,6 +48,13 @@ class PN_CMF(MassFunction):
             Mass function determining the final masses of cores.
             Defaults to a PadoanTF instance with the properties
             of the parent cloud
+        sampling: str
+            Method to use for sampling the provided mass function.
+            Accepts "random" or "optimal". If None, defaults to random
+            sampling.
+        stop_criterion: str
+            Stop criterion for random sampling; accepts the same arguments
+            as imf.make_cluster. If None, defaults to "nearest".
         eff: float
             Efficiency of core formation. The core mass budget is
             eff * cloud mass (default = 0.26)
@@ -67,6 +75,10 @@ class PN_CMF(MassFunction):
             mmin = default_mmin
         if mmax is None:
             mmax = default_mmax
+        if sampling is None:
+            sampling = 'random'
+        if stop_criterion is None:
+            stop_criterion = 'nearest'
         
         self._tcross = (L0 / v0).to(u.Myr)
         m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
@@ -84,6 +96,8 @@ class PN_CMF(MassFunction):
                                       sigma=s) if massfunc is None else massfunc
         self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
                                        massfunc=self.massfunc,
+                                       sampling=sampling,
+                                       stop_criterion=stop_criterion,
                                        silent=True) * u.M_sun
         
         # loc is s**2/2 instead of -s**2/2 because this is the _mass-weighted_ log-normal density PDF
