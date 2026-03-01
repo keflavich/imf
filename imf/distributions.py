@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-from scipy.integrate import quad
+from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 
 class Distribution:
@@ -283,6 +283,66 @@ class BrokenPowerLaw:
         if any(isnan):
             ret[isnan] = np.nan
         return ret.reshape(x.shape)
+
+    
+class PadoanTF(Distribution):
+    """
+    Manages the PDF/CDF for a Padoan/Nordlund (2002)
+    turbulent fragmentation IMF
+    """
+    def __init__(self,m1,m2,
+                 b,T0,n0,sigma,
+                 npts=None):
+
+        self.m1 = m1
+        self.m2 = m2
+        self.b = b
+        self.T0 = T0
+        self.n0 = n0
+        self.sigma = sigma
+        if npts is None:
+            npts = 200
+
+        self._points = np.geomspace(self.m1,self.m2,npts)
+
+        self._calculate()
+
+    def _calculate(self):
+        av_mj = 1.2 * (self.T0 / 10)**(3/2) * (self.n0 / 1e3)**(-1/2)
+        A = 2 * np.log(av_mj) + self.sigma**2 / 2
+
+        #Jeans mass distribution (derived in Padoan+ 1997)
+        #this is the linear form for the sake of integration
+        def p_mj(mj):
+            return av_mj**2 / mj**3 * scipy.stats.norm.pdf(np.log(mj),
+                                                           loc=A/2,
+                                                           scale=self.sigma/2)
+
+        def integrate(mass):
+            return quad(p_mj,0,mass)[0]
+
+        base = self._points**(-3 / (4 - self.b)) * np.vectorize(integrate)(self._points)
+        pdf = base / self._points #convert to dN/dm
+        pdf /= np.trapezoid(pdf,x=self._points) #normalize
+        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        zero_arg = np.argmin(np.diff(cdf))
+
+        self._pdf = PchipInterpolator(self._points,pdf)
+        self._cdf = PchipInterpolator(self._points,cdf)
+        self._ppf = PchipInterpolator(cdf,self._points)
+    
+    def pdf(self,x):
+        return self._pdf(x,extrapolate=False)
+
+    def cdf(self,x):
+        return self._cdf(x,extrapolate=False)
+
+    def ppf(self,x):
+        return self._ppf(x,extrapolate=False)
+
+    def rvs(self,N):
+        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+        return self.ppf(samp)
 
 
 class KoenConvolvedPowerLaw(Distribution):

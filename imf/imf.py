@@ -15,11 +15,18 @@ from . import distributions
 
 class MassFunction(object):
     """
-    Generic Mass Function class
-
-    (this is mostly meant to be subclassed by other functions, not used itself)
+    Generic class establishing basic operations for mass functions.
+    Intended for subclassing.
     """
     def __init__(self, mmin=None, mmax=None):
+        """
+        Parameters
+        ----------
+        mmin: float or None
+            Minimum stellar mass
+        mmax: float or None
+            Maximum stellar mass
+        """
         self._mmin = self.default_mmin if mmin is None else mmin
         self._mmax = self.default_mmax if mmax is None else mmax
 
@@ -111,6 +118,11 @@ class Salpeter(MassFunction):
         """
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
+
+        Parameters
+        ----------
+        alpha: float
+            The exponent of the power law (default = 2.35)
         """
         super().__init__(mmin=mmin, mmax=mmax)
 
@@ -371,8 +383,119 @@ class ChabrierPowerLaw(MassFunction):
         else:
             return self.distr.pdf(x) * self.normfactor
 
+        
+class PadoanTF(MassFunction):
+    """
+    IMF implementing the form derived in Padoan & Nordlund (2002)
+    emerging from turbulent fragmentation theory.
+    """
+    default_mmin = 0.01
+    default_mmax = 200
 
+    def __init__(self,mmin=default_mmin,mmax=default_mmax,
+                 b=1.8,T0=10,n0=5e2,
+                 sigma=None,mach=10,npts=None):
+        """        
+        Parameters
+        ----------
+        b: float
+            Spectral index of the turbulence power spectrum (default = 1.8)
+        T0: float
+            Average gas temperature in K (default = 10)
+        n0: float
+            Average gas number density in cm^-3 (default = 5e2)
+        sigma: float or None
+            Standard deviation of the log of gas density
+        mach: float
+            Mach number of the turbulent flow. Used to calculate sigma 
+            if sigma is None
+        npts: int
+            Number of points at which to evaluate the function for
+            interpolation (default = 200)
+        """
+        if ~np.logical_and(np.isfinite(mmin),np.isfinite(mmax)):
+            raise ValueError("PN IMF uses interpolation; mmin and mmax must be finite")
+        if sigma is None and mach is None:
+            raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
+        init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
+        self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
+        
+        self.distr = distributions.PadoanTF(mmin,mmax,
+                                            b,T0,n0,init_sigma,
+                                            npts=npts)
+        self.normfactor = 1
 
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self.distr.cdf(m)
+        else:
+            return self.distr.pdf(m)
+
+    @property
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self,x):
+        self.distr.m1 = x
+        self.distr._calculate()
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self,x):
+        self.distr.m2 = x
+        self.distr._calculate()
+
+    @property
+    def b(self):
+        return self.distr.b
+
+    @b.setter
+    def b(self,x):
+        self.distr.b = x
+        self.distr._calculate()
+
+    @property
+    def T0(self):
+        return self.distr.T0
+
+    @T0.setter
+    def T0(self,x):
+        self.distr.T0 = x
+        self.distr._calculate()
+
+    @property
+    def n0(self):
+        return self.distr.n0
+
+    @n0.setter
+    def n0(self,x):
+        self.distr.n0 = x
+        self.distr._calculate()
+
+    @property
+    def sigma(self):
+        return self.distr.sigma
+
+    def set_sigma(self,x,update_mach=True):
+        self.distr.sigma = x
+        self.distr._calculate()
+        if update_mach:
+            self._mach = 2 * np.sqrt(np.exp(x**2) - 1)
+
+    @property
+    def mach(self):
+        return self._mach
+
+    def set_mach(self,x,update_sigma=True):
+        self._mach = x
+        if update_sigma:
+            self.sigma = np.sqrt(np.log(1 + (self._mach / 2)**2))
+            self.distr._calculate()
+        
 class Schechter(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
@@ -574,7 +697,7 @@ def _prefactor(max_star,massfunc):
     """
     Returns the multiplier required for an IMF to have at most one star above m_max.
     """
-    return 1/massfunc.integrate(max_star,massfunc.mmax)[0]
+    return 1 / massfunc.integrate(max_star,massfunc.mmax)[0]
 
 def _M_cluster(m,massfunc):
     """
@@ -582,23 +705,23 @@ def _M_cluster(m,massfunc):
     largest star has mass m.
     """
     k = _prefactor(m,massfunc)
-    return k*massfunc.m_integrate(massfunc.mmin,m)[0]+m
+    return k * massfunc.m_integrate(massfunc.mmin,m)[0] + m
 
 def _max_star(m,M_res,massfunc):
     """
     Returns the most massive star capable of forming in a cluster of mass M_res
     according to the m_max/M_cluster relation. Formatted for use with root finding.
     """
-    return M_res-_M_cluster(m,massfunc)
+    return M_res - _M_cluster(m,massfunc)
 
 def _max_star_prime(m,M_res,massfunc):
     """
     Returns the derivative of _max_star at mass m. Used for Newton's method in
     the case of an infinite upper bound on the provided mass function.
     """
-    term1 = _prefactor(m,massfunc)**2*massfunc(m)*massfunc.m_integrate(massfunc.mmin,m)[0]
-    term2 = m*massfunc(m)*_prefactor(m,massfunc)
-    return -term1-term2-1
+    term1 = _prefactor(m,massfunc)**2 * massfunc(m) * massfunc.m_integrate(massfunc.mmin,m)[0]
+    term2 = m * massfunc(m) * _prefactor(m,massfunc)
+    return -term1 - term2 - 1
 
 def _get_next_m(m,last_m,k,massfunc):
     """
@@ -618,9 +741,8 @@ def _opt_sample(M_res,massfunc,tolerance):
     finMax = np.isfinite(mmax)
 
     #finding all the component stars requires a cutoff--ensure there is one
-    if not np.isfinite(np.log(mmin)):
-        if not np.isfinite(np.log(tolerance)):
-            raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
+    if not np.logical_or(np.isfinite(np.log(mmin)),np.isfinite(np.log(tolerance))):
+        raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
 
     if finMax:
         #bracket from min to ALMOST max (max gives an undefined prefactor)
@@ -631,17 +753,19 @@ def _opt_sample(M_res,massfunc,tolerance):
     k = _prefactor(sol.root,massfunc)
     M_tot = sol.root
     star_masses = [sol.root]
+    m_i = sol.root
 
     while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
         try:
-            sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
-                              bracket=[mmin,star_masses[-1]])
+            m_i_plus = root_scalar(lambda x: k * massfunc.integrate(x,m_i)[0]-1,
+                                   bracket=[mmin,m_i]).root
         except(ValueError):
             print(f'Reached provided lower mass bound; stopping')
             break
-        m = sol.root    
+        m = k * massfunc.m_integrate(m_i_plus,m_i)[0]
         star_masses.append(m)
         M_tot += m
+        m_i = m_i_plus
     
     return np.array(star_masses),M_tot
 
@@ -943,13 +1067,13 @@ class KoenConvolvedPowerLaw(MassFunction):
         self._quad_sub_limit = quad_sub_limit
         self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
                                                          self.gamma,self.sigma,npts)
-        self._normfactor = 1. / self.distr.cdf(self.mmax)
+        self.normfactor = 1. / self.distr.cdf(self.mmax)
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self.distr.cdf(m) * self.normfactor
+            return self.normfactor * self.distr.cdf(m)
         else:
-            return self.distr.pdf(m) * self.normfactor
+            return self.normfactor * self.distr.pdf(m)
     
     def integrate(self, mlow, mhigh, **kwargs):
         """
@@ -989,10 +1113,6 @@ class KoenConvolvedPowerLaw(MassFunction):
     def quad_sub_limit(self,x):
         self._quad_sub_limit = x
 
-    @property
-    def normfactor(self):
-        return self._normfactor
-
 class SpotKoenConvolvedPowerLaw(MassFunction):
     """
     Implementation of Koen/Kondlo 2009 error-convolved powerlaw,
@@ -1013,7 +1133,7 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         super().__init__(mmin, mmax)
         self.sigma = sigma
         self.gamma = gamma
-        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
+        self.normfactor = 1 / self._integrate(self.mmax,integral_form=True)
 
     def _coef(self, integral_form):
         if integral_form:
