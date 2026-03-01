@@ -495,7 +495,7 @@ class HC_CMF(MassFunction):
 
         # scale sound speed according to EOS
         if Cs0 is None:
-            Cs0 = np.sqrt(constants.k_B * T / mu / constants.m_p)
+            Cs0 = np.sqrt(constants.k_B * T0 / mu / constants.m_p)
         Cs = Cs0.to(u.km/u.s) * np.sqrt((n0.value / 1e4)**(cs_mod-1))
 
         self.distr = dist_hc(mmin, mmax,
