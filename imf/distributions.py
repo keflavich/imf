@@ -6,7 +6,7 @@ from scipy.special import expn
 
 
 class Distribution:
-    """ 
+    """
     Class establishing the statistical distribution
     underlying an IMF. Intended for subclassing.
     """
@@ -68,7 +68,7 @@ class LogNormal(Distribution):
 
 class TruncatedLogNormal:
     def __init__(self, mu, sig, m1, m2):
-        """ 
+        """
         Standard log-normal truncated in the interval m1,m2.
 
         Parameters
@@ -113,7 +113,7 @@ class TruncatedLogNormal:
 
 class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
-        """ 
+        """
         Power law over an interval.
 
         Parameters
@@ -430,9 +430,9 @@ class ModifiedCutoffPowerLaw(PowerLaw):
 class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
-    A power law convolved with a normal distribution as described 
+    A power law convolved with a normal distribution as described
     in Koen & Kondlo (2009). This implementation calculates the PDF
-    and CDF of the distribution at evenly log-spaced points and 
+    and CDF of the distribution at evenly log-spaced points and
     interpolates between the results.
 
     Parameters
@@ -446,7 +446,7 @@ class KoenConvolvedPowerLaw(Distribution):
     sigma: float
         Width of the Gaussian to be convolved
     npts: float
-        Number of points at which the distribution 
+        Number of points at which the distribution
         will be evaluated
     """
 

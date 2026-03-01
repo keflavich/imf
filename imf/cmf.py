@@ -68,7 +68,7 @@ class PN_CMF(MassFunction):
         mu: float
             Mean molecular weight of gas (default = 2.33)
         bins: int or str
-            Number of histogram bins (in log space) or type of estimator to 
+            Number of histogram bins (in log space) or type of estimator to
             use for bin width; accepts the same strings as numpy histograms
             (default = 'auto')
         """
@@ -137,8 +137,8 @@ class PN_CMF(MassFunction):
             Time at which to evaluate the CMF, in units of crossing times
             (default = 1)
         cores : str
-            Which type(s) of cores to use for CMF calculation. Can be 
-            'prestellar', 'stellar', or 'all' (default = 'prestellar') 
+            Which type(s) of cores to use for CMF calculation. Can be
+            'prestellar', 'stellar', or 'all' (default = 'prestellar')
         visible_only : bool
             Limits cores used in CMF calculations to those expected to be
             observable (default = True)
@@ -177,9 +177,9 @@ class PN_CMF(MassFunction):
                   cores='prestellar',
                   tnow=None, visible_only=None,
                   **kwargs):
-        if tnow	is None:
+        if tnow is None:
             tnow = self.distr.time
-        if visible_only	is None:
+        if visible_only is None:
             visible_only = self.distr.visible
 
         def func(x):
@@ -200,9 +200,9 @@ class PN_CMF(MassFunction):
                       cores='prestellar',
                       tnow=None, visible_only=None,
                       **kwargs):
-        if tnow	is None:
+        if tnow is None:
             tnow = self.distr.time
-        if visible_only	is None:
+        if visible_only is None:
             visible_only = self.distr.visible
 
         def logform(x):
@@ -218,9 +218,9 @@ class PN_CMF(MassFunction):
                        cores='prestellar',
                        tnow=None, visible_only=None,
                        *args, **kwargs):
-        if tnow	is None:
+        if tnow is None:
             tnow = self.distr.time
-        if visible_only	is None:
+        if visible_only is None:
             visible_only = self.distr.visible
 
         def weighted_func(x):
@@ -271,7 +271,7 @@ class PN_CMF(MassFunction):
 
 class dist_pn(Distribution):
     """
-    Manages the PDF/CDF for a population of cores generated 
+    Manages the PDF/CDF for a population of cores generated
     through Padoan/Nordlund (2011) turbulent fragmentation
     """
 
@@ -430,40 +430,40 @@ class HC_CMF(MassFunction):
         mu: float
             Mean molecular weight of gas (default = 2.33)
         Cs0: km s^-1 (or equivalent)
-            Average isothermal sound speed for a cloud with 
+            Average isothermal sound speed for a cloud with
             number density 10^4 cm^-3 (default = 0.2 km s^-1)
         T0: K (or equivalent)
             Mean temperature of the parent clump. Used to calculate
             sound speed if none is provided (default = 10 K)
         v0: km s^-1 (or equivalent)
-            RMS velocity of the parent clump at R = 1 pc 
+            RMS velocity of the parent clump at R = 1 pc
             (default = 0.8 km s^-1)
         eta: None or float
             Exponent governing the behavior of dispersion velocity with scale
         n_pow: float
-            Index of 3D velocity power spectrum. Used to derive eta 
+            Index of 3D velocity power spectrum. Used to derive eta
             if no eta is provided (default = 3.8)
         b_forcing: float
             Forcing parameter of turbulence (default = 0.4)
         eos: str
-            String specifying which equation of state to use for gas 
-            in the parent clump. Accepts 'isothermal', 'polytropic', 
+            String specifying which equation of state to use for gas
+            in the parent clump. Accepts 'isothermal', 'polytropic',
             and 'barotropic'; see papers for implementation details
             (default = 'isothermal')
         gamma1: float
-            Exponent in a non-isothermal EOS. The sole exponent in a 
+            Exponent in a non-isothermal EOS. The sole exponent in a
             polytropic case and the lower-density exponent in a
             barotropic case. Only used if eos != 'isothermal' (default = 0.7)
         gamma2: float
-            High-density exponent in a barotropic EOS. Only used if 
+            High-density exponent in a barotropic EOS. Only used if
             eos == 'barotropic' (default = 1.1)
         rho_crit: g cm^-3 (or equivalent)
             Critical density in a barotropic EOS (i.e. where the piecewise
-            halves meet). Only used if eos == 'barotropic' 
-            (default = 1e-18 g cm^-3) 
+            halves meet). Only used if eos == 'barotropic'
+            (default = 1e-18 g cm^-3)
         m: float
             Exponent governing the combination of the piecewise components
-            of a barotropic EOS; higher = less blending. Only used if 
+            of a barotropic EOS; higher = less blending. Only used if
             eos == 'barotropic' (default = 3)
         include_B: bool
             Whether or not to include support from a magnetic field in
@@ -512,7 +512,7 @@ class HC_CMF(MassFunction):
         """
         time_dep : bool
             If true, use the time-dependent CMF of HC13; otherwise,
-            use the time-independent form of HC08/09 (default = True) 
+            use the time-independent form of HC08/09 (default = True)
         """
 
         self.distr.time_dep = time_dep
@@ -632,7 +632,7 @@ class HC_CMF(MassFunction):
 
 class dist_hc(Distribution):
     """
-    Manages the PDF/CDF for a CMF generated according to the 
+    Manages the PDF/CDF for a CMF generated according to the
     Hennebelle/Chabrier turbulent fragmentation formalism
     """
 

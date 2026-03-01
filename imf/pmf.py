@@ -14,7 +14,7 @@ hist_values = {'is': (0, 0, 1.54e-6, 10, 1.5),
 
 def scaling(history, value=None):
     r"""
-    Calculates the final untapered accretion rate for a star 
+    Calculates the final untapered accretion rate for a star
     of unit mass (in $M_\odot$ / yr) for the accretion histories
     implemented in McKee/Offner (2010).
 
@@ -41,7 +41,7 @@ class PMF(MassFunction):
     r"""
     Calculates the Protostellar Luminosity Function (PMF)
     corresponding to a supplied IMF and accretion history
-    using the formalism of McKee/Offner (2010). 
+    using the formalism of McKee/Offner (2010).
 
     Parameters
     ----------
@@ -250,7 +250,7 @@ class PMF(MassFunction):
 
     @jf_exp.setter
     def jf_exp(self, x):
-        if self.history	in hist_values.keys():
+        if self.history in hist_values.keys():
             raise ValueError('jf_exp cannot take on alternate values for a defined history')
         self._jf_exp = x
         self.distr.jf_exp = x
@@ -481,13 +481,13 @@ class PMF_2C(PMF):
         Value setting the scaling of the non-IS accretion rate
         with current mass (default = None)
     jf_exp: float
-        Value setting the scaling of the non-IS accretion rate 
-        with final mass (default = None)  
+        Value setting the scaling of the non-IS accretion rate
+        with final mass (default = None)
     R_mdot: float
         Ratio of the characteristic accretion rate of the blended history
         and IS accretion (default = None)
     T: float
-        Average gas temperature, in K. Sets the scaling for 
+        Average gas temperature, in K. Sets the scaling for
         IS accretion (default = 10)
     n: float
         Exponent governing the tapering factor (default = 1)
@@ -572,7 +572,7 @@ class PMF_2C(PMF):
 
     @jf_exp.setter
     def jf_exp(self, x):
-        if self.history	in hist_values_2C.keys():
+        if self.history in hist_values_2C.keys():
             raise ValueError('jf_exp cannot take on alternate values for a defined history')
         self._jf_exp = x
         self.distr.jf_exp = x

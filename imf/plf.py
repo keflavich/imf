@@ -33,11 +33,11 @@ def get_fname(history, n_comp=1, taper=False):
 
 class PLF(MassFunction):
     r"""
-    Calculates the Protostellar Luminosity Function (PLF) 
-    corresponding to a supplied IMF and accretion history 
-    using the formalism of Offner/McKee (2011). 
+    Calculates the Protostellar Luminosity Function (PLF)
+    corresponding to a supplied IMF and accretion history
+    using the formalism of Offner/McKee (2011).
 
-    Currently not implemented due to algorithmic issues with 
+    Currently not implemented due to algorithmic issues with
     interpolation (see Appendix A of the companion paper,
     Richardson+ 2026).
 
@@ -51,7 +51,7 @@ class PLF(MassFunction):
         Upper limit to luminosity in $L_\odot$ (default = 100)
     history: str
         Accretion history of stars; accepts 'is' (isothermal sphere),
-        'tc' (turbulent core), and 'ca' (competitive accretion) 
+        'tc' (turbulent core), and 'ca' (competitive accretion)
         (default = 'is')
     f_epi: float
         The fraction of mass accreted in episodic bursts (default = 0.25)
@@ -63,12 +63,12 @@ class PLF(MassFunction):
         Number of points at which to evaluate the function for interpolation
         (default = 200)
     n_mpts: int
-        Number of points at which to evaluate the luminosity-to-mass 
+        Number of points at which to evaluate the luminosity-to-mass
         mapping for interpolation (default = 50)
     proto_trackdir: str
         The location of the files containing the protostellar evolutionary
-        track information. Points to files in imf generated using a 
-        modified Klassen+ (2012) code by default, but will accept files 
+        track information. Points to files in imf generated using a
+        modified Klassen+ (2012) code by default, but will accept files
         with the same format
     """
 
@@ -125,7 +125,7 @@ class PLF(MassFunction):
 
     def _make_interps(self, trackdir, **kwargs):
         """
-        Set up interpolators for L and dL/dm by reading 
+        Set up interpolators for L and dL/dm by reading
         evolutionary track data
         """
         interps = []
@@ -280,8 +280,8 @@ class dist_plf(Distribution):
     """
     Manages the PDF/CDF for a PLF.
 
-    Currently not implemented due to algorithmic issues with 
-    interpolation (see Section 5.1 of the companion paper).    
+    Currently not implemented due to algorithmic issues with
+    interpolation (see Section 5.1 of the companion paper).
     """
 
     def __init__(self, imf, l1, l2,
@@ -313,8 +313,8 @@ class dist_plf(Distribution):
 
     def _make_bases(self, taper, accelerating):
         """
-        Construct interpolators for the PDF/CDF/PPF underlying 
-        a PLF for a particular combination of tapered accretion 
+        Construct interpolators for the PDF/CDF/PPF underlying
+        a PLF for a particular combination of tapered accretion
         and accelerating star formation.
         """
         def plf(lum, taper, accelerating):
