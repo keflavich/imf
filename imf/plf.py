@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import quad
+from scipy.integrate import quad, cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator, RegularGridInterpolator
 from astropy.table import Table
 
@@ -78,7 +78,9 @@ class PLF(MassFunction):
                  f_epi=0.25,
                  n=1, tau=1,
                  n_lpts=None, n_mpts=None,
-                 proto_trackdir=f'{loc}/data/K12_protoev_tables'):
+                 proto_trackdir=f'{loc}/data/K12_protoev_tables',
+                 **kwargs
+                 ):
 
         raise NotImplementedError('PLFs are currently disabled due to interpolation issues')
 
