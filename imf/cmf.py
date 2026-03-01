@@ -4,12 +4,13 @@ from astropy import units as u
 from astropy import constants
 import scipy
 from scipy.optimize import root_scalar
-from scipy.integrate import cumulative_trapezoid,quad
+from scipy.integrate import cumulative_trapezoid, quad
 from scipy.interpolate import PchipInterpolator
 
 from . import imf
 from .distributions import Distribution
 from .imf import MassFunction
+
 
 class PN_CMF(MassFunction):
     """
@@ -20,8 +21,8 @@ class PN_CMF(MassFunction):
     """
     default_mmin = 0.01
     default_mmax = 120
-    
-    def __init__(self,mmin=None,mmax=None,
+
+    def __init__(self, mmin=None, mmax=None,
                  T0=10*u.K, L0=10*u.pc,
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, sampling=None, stop_criterion=None,
@@ -79,27 +80,27 @@ class PN_CMF(MassFunction):
             sampling = 'random'
         if stop_criterion is None:
             stop_criterion = 'nearest'
-        
+
         self._tcross = (L0 / v0).to(u.Myr)
-        m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun) #total cloud mass
+        m0 = (4 / 3 * np.pi * L0**3 * rho0).to(u.M_sun)  # total cloud mass
 
         # Mach number defined on largest scale (assumed)
         MS0 = (v0 / ((constants.k_B * T0 / (mu * constants.m_p))**0.5).to(u.km/u.s)).value
 
         # implementing eqn 1
-        sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2. #stdev of density [eqn 3]
-        s = np.sqrt(np.log(1 + sigma_rho**2)) #lognormal shape
+        sigma_rho = MS0 / np.sqrt((1 + beta**-1)) / 2.  # stdev of density [eqn 3]
+        s = np.sqrt(np.log(1 + sigma_rho**2))  # lognormal shape
 
         n0 = (rho0 / constants.m_p / mu).to(u.cm**-3).value
-        self._massfunc = imf.PadoanTF(mmin=mmin,mmax=mmax,
-                                      T0=T0.value,n0=n0,b=b,
+        self._massfunc = imf.PadoanTF(mmin=mmin, mmax=mmax,
+                                      T0=T0.value, n0=n0, b=b,
                                       sigma=s) if massfunc is None else massfunc
         self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
                                        massfunc=self.massfunc,
                                        sampling=sampling,
                                        stop_criterion=stop_criterion,
                                        silent=True) * u.M_sun
-        
+
         # loc is s**2/2 instead of -s**2/2 because this is the _mass-weighted_ log-normal density PDF
         # (this is only weakly hinted at in PN11 by the words "converted to mass fraction" just before eqn 1)
         # see e.g. Hopkins 2013 eqn 4 for the mass-weighted definitions
@@ -107,9 +108,9 @@ class PN_CMF(MassFunction):
                                       scale=s,
                                       size=len(self.maccr))
         x = np.exp(ln_rho)
-        self._rho = x * rho0 #densities around each core
-        
-        self._birthdays = np.random.random(len(self.maccr)) * self.tcross #core birthdays (assuming flat formation over crossing time)
+        self._rho = x * rho0  # densities around each core
+
+        self._birthdays = np.random.random(len(self.maccr)) * self.tcross  # core birthdays (assuming flat formation over crossing time)
 
         a = (b - 1) / 2
         self._taccr = (self.tcross * sigma_rho**((4 - 4 * a) / (3 - 2 * a)) *
@@ -118,13 +119,13 @@ class PN_CMF(MassFunction):
         c_s = ((constants.k_B * T_mean / (mu * constants.m_p))**0.5).to(u.km/u.s)
         self._mbe = (1.182 * c_s**3 / (constants.G**1.5 * self.rho**0.5)).to(u.M_sun)
 
-        self.distr = dist_pn(mmin,mmax,
-                             self.maccr,self.taccr,self.mbe,
-                             self.rho,self.tcross,self.birthdays,
+        self.distr = dist_pn(mmin, mmax,
+                             self.maccr, self.taccr, self.mbe,
+                             self.rho, self.tcross, self.birthdays,
                              bins)
         self.normfactor = 1
 
-    def __call__(self,m,
+    def __call__(self, m,
                  tnow=1,
                  cores='prestellar',
                  visible_only=True,
@@ -141,17 +142,17 @@ class PN_CMF(MassFunction):
         visible_only : bool
             Limits cores used in CMF calculations to those expected to be
             observable (default = True)
-        """            
+        """
 
         recalc = np.logical_or(tnow != self.distr.time,
                                visible_only != self.distr.visible)
-        
+
         if recalc:
             self.distr.time = tnow
             self.distr.visible = visible_only
             self.distr._calculate()
 
-        core_types = ['prestellar','stellar','all']
+        core_types = ['prestellar', 'stellar', 'all']
         if cores in core_types:
             self.distr.cores = cores
         else:
@@ -162,19 +163,19 @@ class PN_CMF(MassFunction):
         else:
             return self.normfactor * self.distr.pdf(m)
 
-    def mass_weighted(self,x,
+    def mass_weighted(self, x,
                       cores='prestellar',
-                      tnow=None,visible_only=None):
+                      tnow=None, visible_only=None):
         if tnow is None:
             tnow = self.distr.time
         if visible_only is None:
             visible_only = self.distr.visible
 
-        return self(x,tnow=tnow,cores=cores,visible_only=visible_only) * x
+        return self(x, tnow=tnow, cores=cores, visible_only=visible_only) * x
 
-    def integrate(self,mlow,mhigh,
+    def integrate(self, mlow, mhigh,
                   cores='prestellar',
-                  tnow=None,visible_only=None,
+                  tnow=None, visible_only=None,
                   **kwargs):
         if tnow	is None:
             tnow = self.distr.time
@@ -182,22 +183,22 @@ class PN_CMF(MassFunction):
             visible_only = self.distr.visible
 
         def func(x):
-            return self(x,tnow=tnow,cores=cores,visible_only=visible_only)
+            return self(x, tnow=tnow, cores=cores, visible_only=visible_only)
 
-        return quad(func,mlow,mhigh,**kwargs)
+        return quad(func, mlow, mhigh, **kwargs)
 
-    def m_integrate(self,mlow,mhigh,
+    def m_integrate(self, mlow, mhigh,
                     cores='prestellar',
-                    tnow=None,visible_only=None,
-                    **kwargs):        
+                    tnow=None, visible_only=None,
+                    **kwargs):
         def func(x):
-            return self.mass_weighted(x,cores=cores,tnow=tnow,visible_only=visible_only)
+            return self.mass_weighted(x, cores=cores, tnow=tnow, visible_only=visible_only)
 
-        return quad(func,mlow,mhigh,**kwargs)
+        return quad(func, mlow, mhigh, **kwargs)
 
-    def log_integrate(self,mlow,mhigh,
+    def log_integrate(self, mlow, mhigh,
                       cores='prestellar',
-                      tnow=None,visible_only=None,
+                      tnow=None, visible_only=None,
                       **kwargs):
         if tnow	is None:
             tnow = self.distr.time
@@ -205,27 +206,27 @@ class PN_CMF(MassFunction):
             visible_only = self.distr.visible
 
         def logform(x):
-            return self(x,tnow=tnow,cores=cores,visible_only=visible_only) / x
+            return self(x, tnow=tnow, cores=cores, visible_only=visible_only) / x
 
-        return quad(logform,mlow,mhigh,**kwargs)
+        return quad(logform, mlow, mhigh, **kwargs)
 
-    #PN CMFs are normalized by default
+    # PN CMFs are normalized by default
     def normalize(self):
         pass
 
-    def weight_average(self,func,
+    def weight_average(self, func,
                        cores='prestellar',
-                       tnow=None,visible_only=None,
-                       *args,**kwargs):
+                       tnow=None, visible_only=None,
+                       *args, **kwargs):
         if tnow	is None:
             tnow = self.distr.time
         if visible_only	is None:
             visible_only = self.distr.visible
-        
-        def weighted_func(x):
-            return self(x,tnow=tnow,cores=cores,visible_only=visible_only) * func(x,*args)
 
-        return quad(weighted_func,self.mmin,self.mmax,**kwargs)
+        def weighted_func(x):
+            return self(x, tnow=tnow, cores=cores, visible_only=visible_only) * func(x, *args)
+
+        return quad(weighted_func, self.mmin, self.mmax, **kwargs)
 
     def mtot(self):
         r"""
@@ -233,16 +234,16 @@ class PN_CMF(MassFunction):
         """
         return sum(self.maccr)
 
-    def get_masses(self,tnow=1,cores='prestellar',visible_only=True):
+    def get_masses(self, tnow=1, cores='prestellar', visible_only=True):
         r"""
         Returns the masses of cores meeting the specifications (in $M_\odot$)
         """
-        return self.distr._core_masses(tnow,visible_only,cores)
-        
+        return self.distr._core_masses(tnow, visible_only, cores)
+
     @property
     def tcross(self):
         return self._tcross
-    
+
     @property
     def maccr(self):
         return self._maccr
@@ -266,16 +267,18 @@ class PN_CMF(MassFunction):
     @property
     def massfunc(self):
         return self._massfunc
-    
+
+
 class dist_pn(Distribution):
     """
     Manages the PDF/CDF for a population of cores generated 
     through Padoan/Nordlund (2011) turbulent fragmentation
     """
-    def __init__(self,m1,m2,
-                 maccr,taccr,mbe,rho,
-                 tcross,birthdays,bins):
-        
+
+    def __init__(self, m1, m2,
+                 maccr, taccr, mbe, rho,
+                 tcross, birthdays, bins):
+
         self.m1 = m1
         self.m2 = m2
         self.maccr = maccr
@@ -291,10 +294,10 @@ class dist_pn(Distribution):
         self.time = None
         self.visible = True
 
-        keys = ['prestellar','stellar','all']
+        keys = ['prestellar', 'stellar', 'all']
         self._func_dict = {key: None for key in keys}
-        
-    def _core_masses(self,tnow,visible,cores):
+
+    def _core_masses(self, tnow, visible, cores):
         """
         Returns the current masses of cores meeting particular
         conditions
@@ -302,28 +305,28 @@ class dist_pn(Distribution):
         age = tnow * self.tcross - self.birthdays
         isBorn = age > 0
         isPrestellar = age < self.tbe + self.tff
-        isStellar = np.logical_and(~isPrestellar,~self.belowBE)
+        isStellar = np.logical_and(~isPrestellar, ~self.belowBE)
         isForming = age < self.taccr
 
         mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
-        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr] #cap current mass to final sampled mass
+        mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]  # cap current mass to final sampled mass
 
         if visible:
-            cut = np.logical_and(isBorn,isForming)
+            cut = np.logical_and(isBorn, isForming)
             if cores == 'prestellar':
-                cut = np.logical_and(cut,isPrestellar)
+                cut = np.logical_and(cut, isPrestellar)
             elif cores == 'stellar':
-                cut = np.logical_and(cut,isStellar)
+                cut = np.logical_and(cut, isStellar)
         else:
             if cores == 'prestellar':
-                cut = np.logical_and(isBorn,~isStellar)
+                cut = np.logical_and(isBorn, ~isStellar)
             elif cores == 'stellar':
-                cut = np.logical_and(isBorn,isStellar)
+                cut = np.logical_and(isBorn, isStellar)
             else:
                 cut = np.ones(len(mnow)).astype(bool)
 
         core_masses = mnow[cut]
-        core_masses = core_masses[core_masses.value > self.m1] #only consider cores above minimum provided core mass
+        core_masses = core_masses[core_masses.value > self.m1]  # only consider cores above minimum provided core mass
         return core_masses
 
     def _calculate(self):
@@ -331,41 +334,41 @@ class dist_pn(Distribution):
         Constructs the PDF/CDF/PPF from the generated core
         population
         """
-        keys = ['prestellar','stellar','all']
+        keys = ['prestellar', 'stellar', 'all']
 
         for key in keys:
-            core_masses = self._core_masses(self.time,self.visible,key)
-            
-            edges = 10**np.histogram_bin_edges(np.log10(core_masses.value),bins=self.bins) * u.M_sun
-            N,edges = np.histogram(core_masses,bins=edges)
+            core_masses = self._core_masses(self.time, self.visible, key)
+
+            edges = 10**np.histogram_bin_edges(np.log10(core_masses.value), bins=self.bins) * u.M_sun
+            N, edges = np.histogram(core_masses, bins=edges)
             centers = (edges[:-1] + edges[1:]) / 2
-            
-            #construct function dictionary
-            norm = np.trapezoid(N,x=centers)
-            cdf = cumulative_trapezoid(N/norm,centers,initial=0)
 
-            functions = [PchipInterpolator(centers,N/norm),
-                         PchipInterpolator(centers,cdf),
-                         PchipInterpolator(cdf,centers)]
+            # construct function dictionary
+            norm = np.trapezoid(N, x=centers)
+            cdf = cumulative_trapezoid(N/norm, centers, initial=0)
+
+            functions = [PchipInterpolator(centers, N/norm),
+                         PchipInterpolator(centers, cdf),
+                         PchipInterpolator(cdf, centers)]
             self._func_dict[key] = functions
-        
-    def pdf(self,x):
-        return self._pdf(x,extrapolate=False)
 
-    def cdf(self,x):
-        return self._cdf(x,extrapolate=False)
+    def pdf(self, x):
+        return self._pdf(x, extrapolate=False)
 
-    def ppf(self,x):
-        return self._ppf(x,extrapolate=False)
+    def cdf(self, x):
+        return self._cdf(x, extrapolate=False)
 
-    def rvs(self,N):
-        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+    def ppf(self, x):
+        return self._ppf(x, extrapolate=False)
+
+    def rvs(self, N):
+        samp = np.random.uniform(self.cdf(self.m1), self.cdf(self.m2), size=N)
         ret = self.ppf(samp)
         return ret[np.isfinite(ret)]
 
-    def _pick_functions(self,cores):
+    def _pick_functions(self, cores):
         functions = self._func_dict[cores]
-        return functions[0],functions[1],functions[2]
+        return functions[0], functions[1], functions[2]
 
     def _update_functions(self):
         self._pdf, self._cdf, self._ppf = self._pick_functions(self.cores)
@@ -375,7 +378,7 @@ class dist_pn(Distribution):
         return self._time
 
     @time.setter
-    def time(self,x):
+    def time(self, x):
         self._time = x
 
     @property
@@ -383,35 +386,36 @@ class dist_pn(Distribution):
         return self._visible
 
     @visible.setter
-    def visible(self,x):
+    def visible(self, x):
         self._visible = x
-    
+
     @property
     def cores(self):
         return self._cores
 
     @cores.setter
-    def cores(self,x):
+    def cores(self, x):
         self._cores = x
         self._update_functions()
+
 
 class HC_CMF(MassFunction):
     default_mmin = 0.01
     default_mmax = 300
-    
-    def __init__(self,mmin=default_mmin,mmax=default_mmax,
+
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
                  clump_size=1*u.pc, n_cl=5, mu=2.33,
                  Cs0=0.2*u.km/u.s, T0=10*u.K,
                  v0=0.8*u.km/u.s, eta=None,
                  n_pow=3.8, b_forcing=0.5,
-                 eos='isothermal',gamma1=0.7,
-                 gamma2=1.1,rho_crit=1e-18*u.g/u.cm**3,m=3,
-                 include_B=False,B0=10*u.uG,gammab=0.1,
+                 eos='isothermal', gamma1=0.7,
+                 gamma2=1.1, rho_crit=1e-18*u.g/u.cm**3, m=3,
+                 include_B=False, B0=10*u.uG, gammab=0.1,
                  npts=200):
         """
         Generalized core mass function following the formalism of
         Hennebelle/Chabrier 2008/2009/2013.
-        
+
         Parameters
         ----------
         mmin: float
@@ -475,34 +479,34 @@ class HC_CMF(MassFunction):
             Number of points at which to evaluate the CMF for interpolation
             (default = 200)
         """
-        
+
         if eta is None:
             eta = (n_pow - 3) / 2
 
-        eos_types = ['isothermal','polytropic','barotropic']
+        eos_types = ['isothermal', 'polytropic', 'barotropic']
         if eos not in eos_types:
             raise ValueError(f'EOS must be one of the following: {eos_types}')
         cs_mod = gamma1 if eos != 'isothermal' else 1
-        
-        #scale density according to Larson laws
+
+        # scale density according to Larson laws
         n0 = (n_cl * 1e3 * u.cm**-3) / (clump_size.to(u.pc).value)**0.7
         rho0 = (n0 * mu * constants.m_p).to(u.g/u.cm**3)
         self._mtot = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
-        
-        #scale sound speed according to EOS
+
+        # scale sound speed according to EOS
         if Cs0 is None:
             Cs0 = np.sqrt(constants.k_B * T / mu / constants.m_p)
         Cs = Cs0.to(u.km/u.s) * np.sqrt((n0.value / 1e4)**(cs_mod-1))
 
-        self.distr = dist_hc(mmin,mmax,
-                             clump_size,rho0,Cs,
-                             v0,eta,b_forcing,
-                             eos,gamma1,gamma2,rho_crit,m,
-                             include_B,B0,gammab)
+        self.distr = dist_hc(mmin, mmax,
+                             clump_size, rho0, Cs,
+                             v0, eta, b_forcing,
+                             eos, gamma1, gamma2, rho_crit, m,
+                             include_B, B0, gammab)
 
         self.normfactor = 1
-        
-    def __call__(self,m,
+
+    def __call__(self, m,
                  integral_form=False,
                  time_dep=True):
         """
@@ -512,52 +516,52 @@ class HC_CMF(MassFunction):
         """
 
         self.distr.time_dep = time_dep
-        
+
         if integral_form:
             return self.normfactor * self.distr.cdf(m)
         else:
             return self.normfactor * self.distr.pdf(m)
 
-    def mass_weighted(self,x,
+    def mass_weighted(self, x,
                       time_dep=True):
-        return self(x,time_dep=time_dep) * x
+        return self(x, time_dep=time_dep) * x
 
-    def integrate(self,mlow,mhigh,
+    def integrate(self, mlow, mhigh,
                   time_dep=False,
                   **kwargs):
         def func(x):
-            return self(x,time_dep=time_dep)
+            return self(x, time_dep=time_dep)
 
-        return quad(func,mlow,mhigh,**kwargs)
+        return quad(func, mlow, mhigh, **kwargs)
 
-    def m_integrate(self,mlow,mhigh,
+    def m_integrate(self, mlow, mhigh,
                     time_dep=False,
                     **kwargs):
         def func(x):
-            return self.mass_weighted(x,time_dep=time_dep)
+            return self.mass_weighted(x, time_dep=time_dep)
 
-        return quad(func,mlow,mhigh,**kwargs)
+        return quad(func, mlow, mhigh, **kwargs)
 
-    def log_integrate(self,mlow,mhigh,
+    def log_integrate(self, mlow, mhigh,
                       time_dep=False,
                       **kwargs):
         def logform(x):
-            return self(x,time_dep=time_dep) / x
+            return self(x, time_dep=time_dep) / x
 
-        return quad(logform,mlow,mhigh,**kwargs)
+        return quad(logform, mlow, mhigh, **kwargs)
 
-    #HC CMFs are normalized by construction
+    # HC CMFs are normalized by construction
     def normalize(self):
         pass
 
-    def weight_average(self,func,
+    def weight_average(self, func,
                        time_dep=False,
-                       *args,**kwargs):
+                       *args, **kwargs):
         def weighted_func(x):
-            return self(x,time_dep=time_dep) * func(x,*args)
+            return self(x, time_dep=time_dep) * func(x, *args)
 
-        return quad(weighted_func,self.mmin,self.mmax,**kwargs)
-        
+        return quad(weighted_func, self.mmin, self.mmax, **kwargs)
+
     @property
     def mtot(self):
         r"""
@@ -620,17 +624,18 @@ class HC_CMF(MassFunction):
     @property
     def B0(self):
         return self.distr.B0
-        
+
     @property
     def gammab(self):
         return self.distr.gammab
-        
+
+
 class dist_hc(Distribution):
     """
     Manages the PDF/CDF for a CMF generated according to the 
     Hennebelle/Chabrier turbulent fragmentation formalism
     """
-    
+
     def __init__(self, m1, m2,
                  clump_size, rho0, Cs,
                  v0, eta, b_forcing,
@@ -660,31 +665,31 @@ class dist_hc(Distribution):
         self.B0 = B0
         self.gammab = gammab
 
-        self._points = np.geomspace(self.m1,self.m2,npts)
-        keys = ['pdf','cdf','ppf']
+        self._points = np.geomspace(self.m1, self.m2, npts)
+        keys = ['pdf', 'cdf', 'ppf']
         self._func_dict = {key: [] for key in keys}
 
         self._calculate()
-    
+
     def _calculate(self):
         """
         Calculates the PDF/CDF/PPF
         """
-        #use EOS to set thermal Cs (for Mj/Lj/Mstar)        
+        # use EOS to set thermal Cs (for Mj/Lj/Mstar)
         cs_mod = 1 if self.eos == 'isothermal' else self.gamma1
-        Cs = self.Cs# * cs_mod #papers suggest gamma should go here, but not in the HC IDL code
+        Cs = self.Cs  # * cs_mod #papers suggest gamma should go here, but not in the HC IDL code
 
-        #add support from magnetic field
+        # add support from magnetic field
         mag_coef = 1 if self.include_B else 0
-        gauss = u.g**0.5 / u.cm**0.5 / u.s # define a custom gauss unit to work in cgs
+        gauss = u.g**0.5 / u.cm**0.5 / u.s  # define a custom gauss unit to work in cgs
         B0 = self.B0.to(u.G).value * gauss
         Va_sq = (B0**2 / (24 * np.pi * self.rho0) / Cs**2).to(u.dimensionless_unscaled)
 
-        #use EOS/support to define M and dM/dR
-        #including D, the thermal and magnetic terms of M
+        # use EOS/support to define M and dM/dR
+        # including D, the thermal and magnetic terms of M
         if self.eos == 'barotropic':
             Kcrit = ((self.rho_crit / self.rho0).decompose())**(self.gamma1-self.gamma2)
-            def R_M(R_,M_):
+            def R_M(R_, M_):
                 A = (M_ / R_**3)**((self.gamma1-1)*self.m) + Kcrit**self.m * (M_ / R_**3)**((self.gamma2-1)*self.m)
                 return R_ * (A**(1/self.m) + Mstar**2 * R_**(2*self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1)) - M_
 
@@ -695,10 +700,10 @@ class dist_hc(Distribution):
                       ((self.gamma1 - 1) * rho_**((self.gamma1-1)*self.m-1) +
                        Kcrit**self.m * (self.gamma2 - 1) * rho_**((self.gamma2-1)*self.m-1)) +
                       mag_coef * (2 * self.gammab - 1) * Va_sq * rho_**(2*self.gammab-2))
-                return D, dD 
-            
+                return D, dD
+
         else:
-            def R_M(R_,M_):
+            def R_M(R_, M_):
                 return R_ * ((M_ / R_**3)**(cs_mod-1) + Mstar**2 * R_**(2 * self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1)) - M_
 
             def D_funcs(rho_):
@@ -706,88 +711,88 @@ class dist_hc(Distribution):
                 dD = (cs_mod-1) * rho_**(cs_mod-2) + mag_coef * Va_sq * (2 * self.gammab - 1) * rho_**(2*self.gammab-2)
                 return D, dD
 
-        #equations 33/34 (specifying dM/dR) of HC13 hold for all relevant definitions of D
-        def dM_dR(M_,R_):
+        # equations 33/34 (specifying dM/dR) of HC13 hold for all relevant definitions of D
+        def dM_dR(M_, R_):
             rho = M_ / R_**3
             D, dD = D_funcs(rho)
             B = D - 3 * rho * dD + (2 * self.eta + 1) * Mstar**2 * R_**(2*self.eta)
             C = 1 - R_**-2 * dD
             return B / C
 
-        #root find for R
+        # root find for R
         def get_root(M_):
-            return root_scalar(R_M,x0=1,args=(M_)).root
-        
-        #Jeans mass/length; leading coefficients are as in the IDL code
+            return root_scalar(R_M, x0=1, args=(M_)).root
+
+        # Jeans mass/length; leading coefficients are as in the IDL code
         aj = np.pi**2.5 / 6
-        Mj = (aj * Cs**3 / np.sqrt(constants.G**3 * self.rho0)).to(u.M_sun) * cs_mod**1.5 #in the IDL code, gamma is explicit for Mj/Lj
+        Mj = (aj * Cs**3 / np.sqrt(constants.G**3 * self.rho0)).to(u.M_sun) * cs_mod**1.5  # in the IDL code, gamma is explicit for Mj/Lj
         Lj = ((np.pi**0.5 / 2)**(1/3) * Cs / np.sqrt(constants.G * self.rho0)).to(u.pc) * cs_mod**0.5
         Li = self.clump_size.to(u.pc) / Lj
-        
-        #Mach number
+
+        # Mach number
         Mstar = self.v0 / Cs * (Lj.value)**self.eta / np.sqrt(3)
         Mach = np.sqrt(3) * Mstar * Li**self.eta
-        
+
         Mt = self._points / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
 
-        #calculate variance and CMF dP/dR term
+        # calculate variance and CMF dP/dR term
         sig_0 = np.log(1 + self.b_forcing**2 * Mach**2)
         sig_sq = sig_0 * (1 - (Rt / Li)**(2*self.eta))
         dsigma_dR = -self.eta / np.sqrt(sig_sq) * (sig_0 - sig_sq) / Rt
         corr = dsigma_dR / np.sqrt(sig_sq) * (delta + sig_sq / 2)
 
-        #determine maximum possible "core" mass given provided sizescale
-        mmax = root_scalar(lambda md, rd : R_M(rd,md),x0=1,args=(Li)).root * Mj
+        # determine maximum possible "core" mass given provided sizescale
+        mmax = root_scalar(lambda md, rd: R_M(rd, md), x0=1, args=(Li)).root * Mj
 
-        #calculate unscaled, dimensionless CMF
-        dM = dM_dR(Mt,Rt)
+        # calculate unscaled, dimensionless CMF
+        dM = dM_dR(Mt, Rt)
         N = (1 / Mt / dM * ((3 / Rt - dM / Mt) + corr) /
              np.sqrt(2 * np.pi * sig_sq) *
              np.exp(-(delta - sig_sq / 2)**2 / 2 / sig_sq))
 
-        #get rid of impossible entries
+        # get rid of impossible entries
         N[~np.isfinite(N)] = 0
-        N *= self._points <= min(self.m2,mmax.value)
+        N *= self._points <= min(self.m2, mmax.value)
 
-        #store time-independent PDF
-        norm = np.trapezoid(N,x=self._points)
-        cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
+        # store time-independent PDF
+        norm = np.trapezoid(N, x=self._points)
+        cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
         zero_arg = np.argmax(self._points[self._points < mmax.value])
 
-        self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
-        self._func_dict['cdf'].append(PchipInterpolator(self._points,cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
+        self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
+        self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
 
-        #store time-dependent PDF
+        # store time-dependent PDF
         N *= np.sqrt(np.exp(delta))
-        norm = np.trapezoid(N,x=self._points)
-        cdf = cumulative_trapezoid(N/norm,self._points,initial=0)
+        norm = np.trapezoid(N, x=self._points)
+        cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
 
-        self._func_dict['pdf'].append(PchipInterpolator(self._points,N/norm))
-        self._func_dict['cdf'].append(PchipInterpolator(self._points,cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1],self._points[:zero_arg+1]))
-        
-    def _pick_function(self,functype,time_dep):
+        self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
+        self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
+
+    def _pick_function(self, functype, time_dep):
         return self._func_dict[functype][int(time_dep)]
 
     def _update_functions(self):
-        self._pdf = self._pick_function('pdf',self.time_dep)
-        self._cdf = self._pick_function('cdf',self.time_dep)
-        self._ppf = self._pick_function('ppf',self.time_dep)
-        
-    def pdf(self,x):
-        return self._pdf(x,extrapolate=False)
+        self._pdf = self._pick_function('pdf', self.time_dep)
+        self._cdf = self._pick_function('cdf', self.time_dep)
+        self._ppf = self._pick_function('ppf', self.time_dep)
 
-    def cdf(self,x):
-        return self._cdf(x,extrapolate=False)
+    def pdf(self, x):
+        return self._pdf(x, extrapolate=False)
 
-    def ppf(self,x):
-        return self._ppf(x,extrapolate=False)
+    def cdf(self, x):
+        return self._cdf(x, extrapolate=False)
 
-    def rvs(self,N):
-        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+    def ppf(self, x):
+        return self._ppf(x, extrapolate=False)
+
+    def rvs(self, N):
+        samp = np.random.uniform(self.cdf(self.m1), self.cdf(self.m2), size=N)
         ret = self.ppf(samp)
         return ret[np.isfinite(ret)]
 
@@ -796,6 +801,6 @@ class dist_hc(Distribution):
         return self._time_dep
 
     @time_dep.setter
-    def time_dep(self,x):
+    def time_dep(self, x):
         self._time_dep = x
         self._update_functions()
