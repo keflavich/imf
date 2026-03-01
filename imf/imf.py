@@ -388,7 +388,7 @@ class ChabrierPowerLaw(MassFunction):
         else:
             return self.distr.pdf(x) * self.normfactor
 
-        class PadoanTF(MassFunction):
+class PadoanTF(MassFunction):
     """
     IMF implementing the form derived in Padoan & Nordlund (2002)
     emerging from turbulent fragmentation theory.
