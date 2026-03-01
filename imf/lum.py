@@ -42,8 +42,8 @@ def mass_luminosity_interpolator(name):
 
         # log lyman continuum (extrapolated)
         vgslogQe = np.concatenate([
-            np.zeros(100),  #0.03-0.43 solar mass stars produce 0 LyC photons
-            np.zeros(100),  #0.43-2.0 solar mass stars produce 0 LyC photons
+            np.zeros(100),  # 0.03-0.43 solar mass stars produce 0 LyC photons
+            np.zeros(100),  # 0.43-2.0 solar mass stars produce 0 LyC photons
             np.polyval(np.polyfit(np.log10(vgsMass[-3:]), vgslogQ[-3:], 1),
                        np.log10(np.linspace(8, 18.4, 100))),
             vgslogQ[::-1],
@@ -57,7 +57,7 @@ def mass_luminosity_interpolator(name):
 
     elif name == 'Ekstrom':
         from astroquery.vizier import Vizier
-        Vizier.ROW_LIMIT = 1e7  #effectively infinite
+        Vizier.ROW_LIMIT = 1e7  # effectively infinite
 
         # this query should cacge
         tbl = Vizier.get_catalogs('J/A+A/537/A146/iso')[0]
@@ -67,7 +67,7 @@ def mass_luminosity_interpolator(name):
         lums = tbl['logL'][match]
         mass_0 = 0.033
         lum_0 = np.log10((mass_0 / masses[0])**3.5 * 10**lums[0])
-        mass_f = 200  #extrapolate to 200 Msun...
+        mass_f = 200  # extrapolate to 200 Msun...
 
         lum_f = np.log10(10**lums[-1] * (mass_f / masses[-1])**1.35)
 

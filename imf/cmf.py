@@ -689,6 +689,7 @@ class dist_hc(Distribution):
         # including D, the thermal and magnetic terms of M
         if self.eos == 'barotropic':
             Kcrit = ((self.rho_crit / self.rho0).decompose())**(self.gamma1-self.gamma2)
+
             def R_M(R_, M_):
                 A = (M_ / R_**3)**((self.gamma1-1)*self.m) + Kcrit**self.m * (M_ / R_**3)**((self.gamma2-1)*self.m)
                 return R_ * (A**(1/self.m) + Mstar**2 * R_**(2*self.eta) + mag_coef * Va_sq * (M_ / R_**3)**(2*self.gammab-1)) - M_

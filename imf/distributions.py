@@ -490,7 +490,7 @@ class KoenConvolvedPowerLaw(Distribution):
         mirxpt = mir_x[break2]
         x1, x2 = min(xpt, mirxpt), max(xpt, mirxpt)
         x = np.append(x[x < x1], np.linspace(x1, x2,
-                                            int((x2-x1)/cutoff)))
+                                             int((x2-x1)/cutoff)))
         x = np.append(x, mir_x[mir_x > x2])
         return x
 
@@ -503,7 +503,7 @@ class KoenConvolvedPowerLaw(Distribution):
             coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
                 self.m1**-self.gamma - self.m2**-self.gamma)))
             ret = ((self.m1**-self.gamma - x**-self.gamma) * np.exp(
-            (-1 / 2) * ((y - x) / self.sigma)**2))
+                (-1 / 2) * ((y - x) / self.sigma)**2))
             return coef*ret
         else:
             # equation 3

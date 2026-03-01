@@ -333,6 +333,7 @@ class dist_pmf(Distribution):
             def integrand(mf, mass_):
                 if taper:
                     tf = self._tf(mf, taper)
+
                     def root_t(t, mf, mass_):
                         term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
                         term2 = mass_**(1 - self.j_exp) / self.scale_value / (1 - self.j_exp) / mf**(self.jf_exp - self.j_exp)
@@ -649,6 +650,7 @@ class dist_pmf_2c(dist_pmf):
 
                 if taper:
                     tf = self._tf(mf, taper)
+
                     def root_t(t, mf, mass_):
                         term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
                         term2 = base_tm(mf, mass_)

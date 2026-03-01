@@ -341,6 +341,7 @@ class dist_plf(Distribution):
 
                 if taper:
                     tf = self._tf(mf, taper)
+
                     def root_t(t, mf, mass_):
                         term1 = t * (1 - (t / tf)**self.n / (self.n + 1))
                         term2 = mass_**(1 - self.j_exp) / self.scale_value / (1 - self.j_exp) / mf**(self.jf_exp - self.j_exp)
