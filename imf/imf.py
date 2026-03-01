@@ -13,6 +13,8 @@ from scipy.stats import norm
 from astropy import units as u
 from . import distributions
 
+import warnings
+
 class MassFunction(object):
     """
     Generic Mass Function class
@@ -372,103 +374,81 @@ class ChabrierPowerLaw(MassFunction):
             return self.distr.pdf(x) * self.normfactor
 
 
-
 class Schechter(MassFunction):
-    default_mmin = 0
-    default_mmax = np.inf
+    default_mmin = 0.03
+    default_mmax = 200
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        raise NotImplementedError("Schechter function needs to be refactored")
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35,m0=100,npts=None):
+        """
+        Create a Schechter-like mass function; a power law
+        with a high-mass exponential cutoff.
+
+        Parameters
+        ----------
+        alpha: float
+            Power law slope (default = -2.35)
+        m0: float
+            Characteristic mass for exponential decay (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
+        """
         super().__init__(mmin=mmin, mmax=mmax)
+        if ~np.logical_and(np.isfinite(mmin),np.isfinite(self.mmax)):
+            warnings.warn('function uses interpolation; non-finite mass bounds prevent random sampling')
+        self.alpha = alpha
+        self.m0 = m0
 
-    def __call__(self, m, A=1, beta=2, m0=100, integral_form=False):
-        """
-        A Schechter function with arbitrary defaults
-        (integral may not be correct - exponent hasn't been dealt with at all)
-        
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
+        self.distr = distributions.CutoffPowerLaw(-self.alpha,self.mmin,self.mmax,self.m0,
+                                                  npts=npts)
+        self.normalize()
 
-        $$ A m^{-\\beta} e^{-m/m_0} $$
-
-        Parameters
-        ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            A: float
-                Arbitrary amplitude of the Schechter function
-            beta: float
-                Power law exponent
-            m0: float
-                Characteristic mass (mass at which exponential decay takes over)
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
-        """
+    def __call__(self, mass, integral_form=False):
         if integral_form:
-            beta -= 1
-        return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
 
+    
 class ModifiedSchechter(Schechter):
-    default_mmin = 0
-    default_mmax = np.inf
+    default_mmin = 0.03
+    default_mmax = 200
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        self.schechter = super().__init__(mmin=mmin, mmax=mmax)
-
-    def __call__(self, m, m1, **kwargs):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35,ml=0.5,mu=100,npts=None):
         """
-        A Schechter function with a low-level exponential cutoff
-
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
+        A Schechter-like mass function with an additional
+        low-lever exponential cutoff.
 
         Parameters
         ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            m1: float
-                Characteristic minimum mass (exponential decay below this mass)
-            ** See schecter for other parameters **
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
+        alpha: float
+            Power law slope (default = -2.35)
+        ml: float
+            Characteristic mass for the low-level cutoff
+            (default = 0.5)
+        mu: float
+            Characteristic mass for the high-level cutoff
+            (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
         """
-        return self.schechter(m, **kwargs) * np.exp(-m1 / m) * (m > self.mmin) * (m < self.mmax)
+        super().__init__(mmin=mmin, mmax=mmax)
+        self.alpha = alpha
+        self.ml = ml
+        self.mu = mu
 
-try:
-    import scipy
+        self.distr = distributions.ModifiedCutoffPowerLaw(-self.alpha,
+                                                          self.mmin,self.mmax,
+                                                          self.ml,self.mu,
+                                                          npts=npts)
+        self.normalize()
 
-    def schechter_cdf(m, A=1, beta=2, m0=100, mmin=10, mmax=None, npts=1e4):
-        """
-        Return the CDF value of a given mass for a set mmin, mmax
-        mmax will default to 10 m0 if not specified
-
-        Analytic integral of the Schechter function:
-        http://www.wolframalpha.com/input/?i=integral%28x^-a+exp%28-x%2Fm%29+dx%29
-        """
-        if mmax is None:
-            mmax = 10 * m0
-
-        # integrate the CDF from the minimum to maximum
-        posint = -mmax**(1 - beta) * scipy.special.expn(beta, mmax / m0)
-        negint = -mmin**(1 - beta) * scipy.special.expn(beta, mmin / m0)
-        tot = posint - negint
-
-        # normalize by the integral
-        ret = (-m**(1 - beta) * scipy.special.expn(beta, m / m0) -
-               negint) / tot
-
-        return ret
-
-    def sh_cdf_func(**kwargs):
-        return lambda x: schechter_cdf(x, **kwargs)
-except ImportError:
-    pass
+    def __call__(self, mass, integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
 
 # these are global objects
 salpeter = Salpeter()
@@ -483,9 +463,7 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierpowerlaw': ChabrierPowerLaw,
                  'chabrier': ChabrierPowerLaw,
                 }
-#                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
 reverse_mf_dict = {v: k for k, v in massfunctions.items()}
-# salpeter and schechter selections are arbitrary
 expectedmass_cache = {}
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
@@ -922,11 +900,11 @@ class KoenConvolvedPowerLaw(MassFunction):
     sigma: float
         Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
     npts: int
-        Number of evenly log-spaced points at which to evaluate the function
-        (function calls interpolate between these). Defaults to 200.
+        Number of points at which to evaluate the function for interpolation
+        (default = 200)
     quad_sub_limit: int
         Limit of the number of subdivisions allowed for scipy.integrate.quad,
-        which handles integration. Defaults to scipy's default of 50.
+        which handles integration (default = 50)
     """
     default_mmin = 0
     default_mmax = np.inf
