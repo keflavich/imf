@@ -10,7 +10,8 @@ from ..imf import kroupa, chabrierpowerlaw
 extra_massfunc_kwargs = {'schecter': {'m1': 1.0},
                          'modified_schecter': {'m1': 1.0},
                          'chabrierpowerlaw': {'mmid': 0.5},
-                        }
+                         }
+
 
 @pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
                          [(0.05, 5.6159, 1e-3, 1e-3),
@@ -104,6 +105,7 @@ def test_kroupa_inverses():
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa, mmax=200) - 200) < 1
     assert np.abs(imf.inverse_imf(1, massfunc=imf.Kroupa(mmax=200)) - 200) < 1
 
+
 def test_cannot_override_mmin_mmax_instance():
     with pytest.raises(ValueError) as ex:
         imf.inverse_imf(0, massfunc=imf.Kroupa(), mmin=0.01)
@@ -126,6 +128,7 @@ def test_cannot_override_mmin_mmax_instance():
 
     mf = imf.get_massfunc(imf.Kroupa, mmin=0.01)
     assert mf.mmin == 0.01
+
 
 @pytest.mark.parametrize(('inp', 'out', 'rtol', 'atol'),
                          [(0.05, 5.6159, 1e-3, 1e-3),
