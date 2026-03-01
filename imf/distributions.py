@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats
 from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
+from scipy.special import expn
 
 class Distribution:
     """ 
@@ -345,6 +346,81 @@ class PadoanTF(Distribution):
         return self.ppf(samp)
 
 
+class CutoffPowerLaw(PowerLaw):
+    """Power law with exponential cutoff.
+    
+    Parameters
+    ----------
+    mc: float
+        Characteristic mass for the exponential cutoff
+    npts: int
+        Number of evenly log-spaced points at which to evaluate
+        the CDF in order to interpolate the PPF
+    """
+    def __init__(self, slope, m1, m2, mc,
+                 npts=None):
+        super().__init__(slope,m1,m2)
+        self.mc = mc
+        self.npts = 200 if npts is None else npts
+
+    def pdf(self,x):
+        sup = super().pdf
+        func = lambda x: sup(x) * np.exp(-x / self.mc)
+        return func(x)
+
+    def cdf(self,x):
+        func = lambda x: -x**(1 + self.slope) * expn(-self.slope, x / self.mc)
+        low = func(self.m1)
+        
+        norm = quad(self.pdf,self.m1,self.m2)[0]
+        return (func(x) - low) * norm / (func(self.m2) - func(self.m1))
+
+    def ppf(self,x):
+        points = np.geomspace(self.m1,self.m2,self.npts)
+        cdf = self.cdf(points)
+        interp = PchipInterpolator(cdf/max(cdf),points)
+        return interp(x,extrapolate=False)
+
+class ModifiedCutoffPowerLaw(PowerLaw):
+    """Power law with exponential cutoff on both ends.
+
+    Parameters
+    ----------
+    mc1: float
+        Characteristic mass for the low-mass cutoff
+    mc2: float
+        Characteristic mass for the high-mass cutoff
+    npts:
+        Number of evenly log-spaced points at which to evaluate
+        the CDF in order to interpolate the PPF
+    """
+    def __init__(self, slope, m1, m2,
+                 mc1, mc2,
+                 npts=None):
+        super().__init__(slope,m1,m2)
+        self.mc1 = mc1
+        self.mc2 = mc2
+        self.npts = 200 if npts is None else npts
+
+    def pdf(self,x):
+        sup = super().pdf
+        func = lambda x: sup(x) * np.exp(-self.mc1 / x) * np.exp(-x / self.mc2)
+        return func(x)
+
+    def cdf(self,x):
+        def integrate(x_):
+            ret = quad(self.pdf,self.m1,x_)[0]
+            return ret
+
+        return np.vectorize(integrate)(x)
+
+    def ppf(self,x):
+        points = np.geomspace(self.m1,self.m2,self.npts)
+        cdf = self.cdf(points)
+        interp = PchipInterpolator(cdf/max(cdf),points)
+        return interp(x,extrapolate=False)
+
+    
 class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
@@ -367,11 +443,14 @@ class KoenConvolvedPowerLaw(Distribution):
         Number of points at which the distribution 
         will be evaluated
     """
-    def __init__(self,m1,m2,gamma,sigma,npts):
+    def __init__(self,m1,m2,gamma,sigma,npts=None):
         self.m1 = m1
         self.m2 = m2
         self.gamma = gamma
         self.sigma = sigma
+        if npts is None:
+            npts = 200
+            
         self.points = self._make_points(npts)
         self._pdf = self._pre_integrate(False)
         self._pdf_interpolator = PchipInterpolator(self.points,self._pdf)
