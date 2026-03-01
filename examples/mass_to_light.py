@@ -1,10 +1,12 @@
 import numpy as np
 import os
 import json
-from imf import imf
 import pylab as pl
 import matplotlib
 from astropy.utils.console import ProgressBar
+
+from imf import imf
+from imf.lum import lum_of_cluster
 
 pl.rc('font', size=16)
 
@@ -23,7 +25,7 @@ for stop_crit in ('nearest', 'before', 'after', 'sorted'):
             key = str(clmass) # for jsonification
             clusters[key] = imf.make_cluster(clmass, 'kroupa', mmax=150, silent=True, stop_criterion=stop_crit)
             # cluster luminosities
-            luminosities[key] = imf.lum_of_cluster(clusters[key])
+            luminosities[key] = lum_of_cluster(clusters[key])
             masses[key] = clmass
             number[key] = len(clusters[key])
             #mean_luminosities[clmass] = np.mean(luminosities[clmass])

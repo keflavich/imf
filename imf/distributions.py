@@ -4,7 +4,10 @@ from scipy.integrate import quad,cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 
 class Distribution:
-    """ The main class describing the distributions, to be inherited"""
+    """ 
+    Class establishing the statistical distribution
+    underlying an IMF. Intended for subclassing.
+    """
     def __init__(self):
         self.m1 = 0  # edges of the support of the pdf
         self.m2 = np.inf
@@ -31,10 +34,17 @@ class Distribution:
 class LogNormal(Distribution):
     def __init__(self, mu, sig):
         """
-        Define the Lognormal with distribution
-        ~ 1/x exp( -1/2 *(log(x)-log(mu))^2/sig^2)
-        I.e. the mean of log of the samples will be log(mu)
-        and the stddev of log of the samples will be sig
+        Defines a log-normal distribution: ~ 1/x *
+        exp( -1/2 *(log(x)-log(mu))^2/sig^2).
+        
+        Parameters
+        ----------
+        mu: float
+            Lognormal "mean" parameter; log(mu) is the mean of the
+            log of the samples
+        sig: float
+            Lognormal "width" parameter; log(sig) is the stdev of the
+            log of the samples
         """
         self.m1 = 0
         self.m2 = np.inf
@@ -55,7 +65,23 @@ class LogNormal(Distribution):
 
 class TruncatedLogNormal:
     def __init__(self, mu, sig, m1, m2):
-        """ Standard log-normal but truncated in the interval m1,m2 """
+        """ 
+        Standard log-normal truncated in the interval m1,m2.
+
+        Parameters
+        ----------
+        mu: float
+            Lognormal "mean" parameter; log(mu) is the mean of the
+            log of the samples
+        sig: float
+            Lognormal "width" parameter; log(sig) is the stdev of the
+            log of the samples
+        m1: float
+            Lower bound
+        m2: float
+            Upper bound
+        """
+
         self.m1 = m1
         self.m2 = m2
         self.d = scipy.stats.lognorm(s=sig, scale=mu)
@@ -84,7 +110,18 @@ class TruncatedLogNormal:
 
 class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
-        """ Power law with slope slope in the interval m1,m2 """
+        """ 
+        Power law over an interval.
+
+        Parameters
+        ----------
+        slope: float
+            Slope of the power law
+        m1: float
+            Lower bound
+        m2: float
+            Upper bound
+        """
         self.slope = slope
         self.m1 = float(m1)
         self.m2 = float(m2)
@@ -131,7 +168,8 @@ class BrokenPowerLaw:
         """
         Broken power-law with different slopes.
 
-        Arguments:
+        Parameters
+        ----------
         slopes: array
             Array of power-law slopes
         breaks: array
@@ -310,24 +348,24 @@ class PadoanTF(Distribution):
 class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
-    A power law over the mass range (m1,m2) with slope -(gamma-1) convolved with
-    a normal distribution of width sigma, as described in Koen & Kondlo 2009.
-    This implementation calculates the PDF and CDF of the distribution at npts
-    evenly log-spaced points and interpolates between the results.
+    A power law convolved with a normal distribution as described 
+    in Koen & Kondlo (2009). This implementation calculates the PDF
+    and CDF of the distribution at evenly log-spaced points and 
+    interpolates between the results.
 
     Parameters
     ----------
     m1: float
-        Lower mass bound of the power law.
+        Lower bound
     m2: float
-        Upper mass bound of the power law.
+        Upper bound
     gamma: float
-        Determines the slope of the power law in log space. Should be != 0.
+        Slope of the power law in log space
     sigma: float
-        Width of the Gaussian convolved with the power law. Should be > 0.
+        Width of the Gaussian to be convolved
     npts: float
-        Number of evenly log-spaced points at which the distribution 
-        will be evaluated.
+        Number of points at which the distribution 
+        will be evaluated
     """
     def __init__(self,m1,m2,gamma,sigma,npts):
         self.m1 = m1
@@ -389,6 +427,9 @@ class KoenConvolvedPowerLaw(Distribution):
             return coef*ret
 
     def _pre_integrate(self,integral_form):
+        """
+        Performs the integration necessary to calculate the PDF or CDF
+        """
         steps = self._mirror_steps()
         results = []
         for pt in self.points:
@@ -421,13 +462,14 @@ class KoenConvolvedPowerLaw(Distribution):
         ret = self._ppf_interpolator(x,extrapolate=False)
         return ret
 
-
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
-        """ A Composite distribution that consists of several distributions
-        that continuously join together
+        """Joined distributions
 
-        Arguments:
+        A distribution that consists of several distributions
+        that continuously join together.
+
+        Parameters
         ----------
         distrs: list of Distributions
             The list of distributions. Their supports must not overlap
@@ -435,11 +477,10 @@ class CompositeDistribution(Distribution):
 
         Example:
         --------
-        dd=distributions.CompositeDistribution([
+        dd = distributions.CompositeDistribution([
           distributions.TruncatedLogNormal(0.3,0.3,0.08,1),
           distributions.PowerLaw(-2.55,1,np.inf)])
         dd.pdf(3)
-
         """
         nsegm = len(distrs)
         self.distrs = distrs

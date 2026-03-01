@@ -84,14 +84,30 @@ class MassFunction(object):
 
         assert self.normfactor > 0
 
+    def weight_average(self, func, *args, **kwargs):
+        """
+        Integrate a function of stellar mass f(m) over the IMF
+        """
+        def weighted_func(x):
+            return self(x) * func(x,*args)
+
+        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
+
     @property
     def mmin(self):
         return self._mmin
+
+    @mmin.setter
+    def mmin(self,x):
+        self._mmin = x
 
     @property
     def mmax(self):
         return self._mmax
 
+    @mmax.setter
+    def mmax(self,x):
+        self._mmax = x
 
 
 class Salpeter(MassFunction):
@@ -290,7 +306,7 @@ class ChabrierLogNormal(MassFunction):
 
         self.multiplier = leading_constant
         self.lognormal_width = lognormal_width
-
+        self.normfactor = 1
         self.distr = distributions.TruncatedLogNormal(mu=lognormal_center,
                                                       sig=self.lognormal_width,
                                                       m1=self.mmin,
@@ -298,9 +314,9 @@ class ChabrierLogNormal(MassFunction):
 
     def __call__(self, mass, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(mass) * self.multiplier
+            return self.distr.cdf(mass) * self.multiplier * self.normfactor
         else:
-            return self.distr.pdf(mass) * self.multiplier
+            return self.distr.pdf(mass) * self.multiplier * self.normfactor
 
 
 class ChabrierPowerLaw(MassFunction):
@@ -352,6 +368,7 @@ class ChabrierPowerLaw(MassFunction):
         self._alpha = alpha
         self._lognormal_width = lognormal_width
         self._lognormal_center = lognormal_center
+        self.normfactor = 1
         self.distr = distributions.CompositeDistribution([
             distributions.TruncatedLogNormal(self._lognormal_center,
                                              self._lognormal_width,
@@ -362,9 +379,9 @@ class ChabrierPowerLaw(MassFunction):
 
     def __call__(self, x, integral_form=False, **kw):
         if integral_form:
-            return self.distr.cdf(x)
+            return self.distr.cdf(x) * self.normfactor
         else:
-            return self.distr.pdf(x)
+            return self.distr.pdf(x) * self.normfactor
 
         
 class PadoanTF(MassFunction):
@@ -768,7 +785,7 @@ def make_cluster(mcluster,
     Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
 
     Parameters
-    ==========
+    ----------
     mcluster : float
         The target cluster mass.
     massfunc : string or MassFunction
@@ -875,142 +892,6 @@ def make_cluster(mcluster,
             print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
 
     return masses
-
-
-mass_luminosity_interpolator_cache = {}
-
-
-def mass_luminosity_interpolator(name):
-    if name in mass_luminosity_interpolator_cache:
-        return mass_luminosity_interpolator_cache[name]
-    elif name == 'VGS':
-
-        # non-extrapolated
-        vgsMass = [
-            51.3, 44.2, 41.0, 38.1, 35.5, 33.1, 30.8, 28.8, 26.9, 25.1, 23.6,
-            22.1, 20.8, 19.5, 18.4
-        ]
-        vgslogL = [
-            6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695, 5.631,
-            5.566, 5.499, 5.431, 5.360, 5.287, 5.211
-        ]
-        vgslogQ = [
-            49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34, 48.16,
-            47.92, 47.63, 47.25, 46.77, 46.23, 45.69
-        ]
-        # mass extrapolated
-        vgsMe = np.concatenate([
-            np.linspace(0.03, 0.43, 100),
-            np.linspace(0.43, 2, 100),
-            np.linspace(2, 20, 100), vgsMass[::-1],
-            np.linspace(50, 150, 100)
-        ])
-        # log luminosity extrapolated
-        vgslogLe = np.concatenate([
-            np.log10(0.23 * np.linspace(0.03, 0.43, 100)**2.3),
-            np.log10(np.linspace(0.43, 2, 100)**4),
-            np.log10(1.5 * np.linspace(2, 20, 100)**3.5), vgslogL[::-1],
-            np.polyval(np.polyfit(np.log10(vgsMass[:3]), vgslogL[:3], 1),
-                       np.log10(np.linspace(50, 150, 100)))
-        ])
-        # log Q (lyman continuum) extrapolated
-        vgslogQe = np.concatenate([
-            np.zeros(100),  # 0.03-0.43 solar mass stars produce 0 LyC photons
-            np.zeros(100),  # 0.43-2.0 solar mass stars produce 0 LyC photons
-            np.polyval(np.polyfit(np.log10(vgsMass[-3:]), vgslogQ[-3:], 1),
-                       np.log10(np.linspace(8, 18.4, 100))),
-            vgslogQ[::-1],
-            np.polyval(np.polyfit(np.log10(vgsMass[:3]), vgslogQ[:3], 1),
-                       np.log10(np.linspace(50, 150, 100)))
-        ])
-
-        mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQe
-
-        return mass_luminosity_interpolator_cache[name]
-    elif name == 'Ekstrom':
-        from astroquery.vizier import Vizier
-        Vizier.ROW_LIMIT = 1e7  # effectively infinite
-
-        # this query should cache
-        tbl = Vizier.get_catalogs('J/A+A/537/A146/iso')[0]
-
-        match = tbl['logAge'] == 6.5
-        masses = tbl['Mass'][match]
-        lums = tbl['logL'][match]
-        mass_0 = 0.033
-        lum_0 = np.log10((mass_0 / masses[0])**3.5 * 10**lums[0])
-        mass_f = 200  # extrapolate to 200 Msun...
-        lum_f = np.log10(10**lums[-1] * (mass_f / masses[-1])**1.35)
-
-        masses = np.array([mass_0] + masses.tolist() + [mass_f])
-        lums = np.array([lum_0] + lums.tolist() + [lum_f])
-
-        # TODO: come up with a half-decent approximation here?  based on logTe?
-        logQ = lums - 0.5
-
-        mass_luminosity_interpolator_cache[name] = masses, lums, logQ
-
-        return mass_luminosity_interpolator_cache[name]
-    else:
-        raise ValueError("Bad grid name {0}".format(name))
-
-
-def lum_of_star(mass, grid='Ekstrom'):
-    """
-    Determine total luminosity of a star given its mass
-
-    Two grids:
-        (1) VGS:
-    Uses the Vacca, Garmany, Shull 1996 Table 5 Log Q and Mspec parameters
-
-    returns LogL in solar luminosities
-    **WARNING** Extrapolates for M not in [18.4, 50] msun
-
-    http://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
-
-    (2) Ekstrom 2012:
-    Covers 0.8 - 64 Msun, extrapolated out of that
-    """
-    masses, lums, _ = mass_luminosity_interpolator(grid)
-    return np.interp(mass, masses, lums)
-
-
-def lum_of_cluster(masses, grid='Ekstrom'):
-    """
-    Determine the log of the integrated luminosity of a cluster
-    Only M>=8msun count
-
-    masses is a list or array of masses.
-    """
-    #if max(masses) < 8: return 0
-    logL = lum_of_star(masses, grid=grid)  #[masses >= 8])
-    logLtot = np.log10((10**logL).sum())
-    return logLtot
-
-def lyc_of_star(mass, grid='VGS'):
-    """
-    Determine lyman continuum luminosity of a star given its mass
-    Uses the Vacca, Garmany, Shull 1996 Table 5 Log Q and Mspec parameters
-
-    returns LogQ
-    """
-    masses, _, logQ = mass_luminosity_interpolator(grid)
-
-    return np.interp(mass, masses, logQ)
-
-def lyc_of_cluster(masses, grid='VGS'):
-    """
-    Determine the log of the integrated lyman continuum luminosity of a cluster
-    Only M>=8msun count
-
-    masses is a list or array of masses.
-    """
-    if max(masses) < 8:
-        return 0
-    logq = lyc_of_star(masses[masses >= 8], grid=grid)
-    logqtot = np.log10((10**logq).sum())
-    return logqtot
-
 
 def color_from_mass(mass, outtype=float):
     """
