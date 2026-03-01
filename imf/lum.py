@@ -2,13 +2,14 @@ import numpy as np
 
 mass_luminosity_interpolator_cache = {}
 
+
 def mass_luminosity_interpolator(name):
     if name in mass_luminosity_interpolator_cache:
         return mass_luminosity_interpolator_cache[name]
 
     elif name == 'VGS':
 
-        #publication values
+        # publication values
         vgsMass = [
             51.3, 44.2, 41.0, 38.1, 35.5, 33.1, 30.8, 28.8, 26.9, 25.1, 23.6,
             22.1, 20.8, 19.5, 18.4
@@ -22,7 +23,7 @@ def mass_luminosity_interpolator(name):
             47.92, 47.63, 47.25, 46.77, 46.23, 45.69
         ]
 
-        #mass (extrapolated)
+        # mass (extrapolated)
         vgsMe = np.concatenate([
             np.linspace(0.03, 0.43, 100),
             np.linspace(0.43, 2, 100),
@@ -30,19 +31,19 @@ def mass_luminosity_interpolator(name):
             np.linspace(50, 150, 100)
         ])
 
-        #log luminosity (extrapolated)
+        # log luminosity (extrapolated)
         vgslogLe = np.concatenate([
             np.log10(0.23 * np.linspace(0.03, 0.43, 100)**2.3),
             np.log10(np.linspace(0.43, 2, 100)**4),
             np.log10(1.5 * np.linspace(2, 20, 100)**3.5), vgslogL[::-1],
             np.polyval(np.polyfit(np.log10(vgsMass[:3]), vgslogL[:3], 1),
-		       np.log10(np.linspace(50, 150, 100)))
+                       np.log10(np.linspace(50, 150, 100)))
         ])
 
-        #log lyman continuum (extrapolated)
+        # log lyman continuum (extrapolated)
         vgslogQe = np.concatenate([
-            np.zeros(100),  #0.03-0.43 solar mass stars produce 0 LyC photons
-            np.zeros(100),  #0.43-2.0 solar mass stars produce 0 LyC photons
+            np.zeros(100),  # 0.03-0.43 solar mass stars produce 0 LyC photons
+            np.zeros(100),  # 0.43-2.0 solar mass stars produce 0 LyC photons
             np.polyval(np.polyfit(np.log10(vgsMass[-3:]), vgslogQ[-3:], 1),
                        np.log10(np.linspace(8, 18.4, 100))),
             vgslogQ[::-1],
@@ -51,14 +52,14 @@ def mass_luminosity_interpolator(name):
         ])
 
         mass_luminosity_interpolator_cache[name] = vgsMe, vgslogLe, vgslogQe
-        
+
         return mass_luminosity_interpolator_cache[name]
 
     elif name == 'Ekstrom':
         from astroquery.vizier import Vizier
-        Vizier.ROW_LIMIT = 1e7  #effectively infinite
+        Vizier.ROW_LIMIT = 1e7  # effectively infinite
 
-        #this query should cacge
+        # this query should cacge
         tbl = Vizier.get_catalogs('J/A+A/537/A146/iso')[0]
 
         match = tbl['logAge'] == 6.5
@@ -66,14 +67,14 @@ def mass_luminosity_interpolator(name):
         lums = tbl['logL'][match]
         mass_0 = 0.033
         lum_0 = np.log10((mass_0 / masses[0])**3.5 * 10**lums[0])
-        mass_f = 200  #extrapolate to 200 Msun...
-        
+        mass_f = 200  # extrapolate to 200 Msun...
+
         lum_f = np.log10(10**lums[-1] * (mass_f / masses[-1])**1.35)
 
         masses = np.array([mass_0] + masses.tolist() + [mass_f])
         lums = np.array([lum_0] + lums.tolist() + [lum_f])
 
-        #TODO: come up with a half-decent approximation here?  based on logTe?
+        # TODO: come up with a half-decent approximation here?  based on logTe?
         logQ = lums - 0.5
 
         mass_luminosity_interpolator_cache[name] = masses, lums, logQ
@@ -83,10 +84,11 @@ def mass_luminosity_interpolator(name):
     else:
         raise ValueError("Bad grid name {0}".format(name))
 
+
 def lum_of_star(mass, grid='Ekstrom'):
     """
     Determines the log of total luminosity of a star given its mass
-    
+
     Two grids:
     (1) 'Ekstrom'
     Values come from the stellar models of Ekstrom et al. (2012).
@@ -95,22 +97,24 @@ def lum_of_star(mass, grid='Ekstrom'):
     (2) 'VGS':
     Values come from Vacca, Garmany & Shull (1996) Table 5.
     **WARNING** Extrapolates for mass outside of [18.4, 50] $M_\odot$.
-    
+
     http://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
     """
     masses, lums, _ = mass_luminosity_interpolator(grid)
     return np.interp(mass, masses, lums)
 
+
 def lum_of_cluster(masses, grid='Ekstrom'):
     r"""
     Determines the log of the integrated luminosity of a cluster
     Only stars over 8 $M_\odot$ contribute.
-    
+
     masses is a list or array of masses.
     """
-    logL = lum_of_star(masses, grid=grid)                                                   
+    logL = lum_of_star(masses, grid=grid)
     logLtot = np.log10((10**logL).sum())
     return logLtot
+
 
 def lyc_of_star(mass, grid='VGS'):
     r"""
@@ -120,6 +124,7 @@ def lyc_of_star(mass, grid='VGS'):
     masses, _, logQ = mass_luminosity_interpolator(grid)
 
     return np.interp(mass, masses, logQ)
+
 
 def lyc_of_cluster(masses, grid='VGS'):
     r"""

@@ -1,14 +1,16 @@
 import numpy as np
 import scipy.stats
-from scipy.integrate import quad,cumulative_trapezoid
+from scipy.integrate import quad, cumulative_trapezoid
 from scipy.interpolate import PchipInterpolator
 from scipy.special import expn
 
+
 class Distribution:
-    """ 
+    """
     Class establishing the statistical distribution
     underlying an IMF. Intended for subclassing.
     """
+
     def __init__(self):
         self.m1 = 0  # edges of the support of the pdf
         self.m2 = np.inf
@@ -37,7 +39,7 @@ class LogNormal(Distribution):
         """
         Defines a log-normal distribution: ~ 1/x *
         exp( -1/2 *(log(x)-log(mu))^2/sig^2).
-        
+
         Parameters
         ----------
         mu: float
@@ -66,7 +68,7 @@ class LogNormal(Distribution):
 
 class TruncatedLogNormal:
     def __init__(self, mu, sig, m1, m2):
-        """ 
+        """
         Standard log-normal truncated in the interval m1,m2.
 
         Parameters
@@ -111,7 +113,7 @@ class TruncatedLogNormal:
 
 class PowerLaw(Distribution):
     def __init__(self, slope, m1, m2):
-        """ 
+        """
         Power law over an interval.
 
         Parameters
@@ -285,14 +287,15 @@ class BrokenPowerLaw:
             ret[isnan] = np.nan
         return ret.reshape(x.shape)
 
-    
+
 class PadoanTF(Distribution):
     """
     Manages the PDF/CDF for a Padoan/Nordlund (2002)
     turbulent fragmentation IMF
     """
-    def __init__(self,m1,m2,
-                 b,T0,n0,sigma,
+
+    def __init__(self, m1, m2,
+                 b, T0, n0, sigma,
                  npts=None):
 
         self.m1 = m1
@@ -304,7 +307,7 @@ class PadoanTF(Distribution):
         if npts is None:
             npts = 200
 
-        self._points = np.geomspace(self.m1,self.m2,npts)
+        self._points = np.geomspace(self.m1, self.m2, npts)
 
         self._calculate()
 
@@ -312,43 +315,43 @@ class PadoanTF(Distribution):
         av_mj = 1.2 * (self.T0 / 10)**(3/2) * (self.n0 / 1e3)**(-1/2)
         A = 2 * np.log(av_mj) + self.sigma**2 / 2
 
-        #Jeans mass distribution (derived in Padoan+ 1997)
-        #this is the linear form for the sake of integration
+        # Jeans mass distribution (derived in Padoan+ 1997)
+        # this is the linear form for the sake of integration
         def p_mj(mj):
             return av_mj**2 / mj**3 * scipy.stats.norm.pdf(np.log(mj),
                                                            loc=A/2,
                                                            scale=self.sigma/2)
 
         def integrate(mass):
-            return quad(p_mj,0,mass)[0]
+            return quad(p_mj, 0, mass)[0]
 
         base = self._points**(-3 / (4 - self.b)) * np.vectorize(integrate)(self._points)
-        pdf = base / self._points #convert to dN/dm
-        pdf /= np.trapezoid(pdf,x=self._points) #normalize
-        cdf = cumulative_trapezoid(pdf,self._points,initial=0)
+        pdf = base / self._points  # convert to dN/dm
+        pdf /= np.trapezoid(pdf, x=self._points)  # normalize
+        cdf = cumulative_trapezoid(pdf, self._points, initial=0)
         zero_arg = np.argmin(np.diff(cdf))
 
-        self._pdf = PchipInterpolator(self._points,pdf)
-        self._cdf = PchipInterpolator(self._points,cdf)
-        self._ppf = PchipInterpolator(cdf,self._points)
-    
-    def pdf(self,x):
-        return self._pdf(x,extrapolate=False)
+        self._pdf = PchipInterpolator(self._points, pdf)
+        self._cdf = PchipInterpolator(self._points, cdf)
+        self._ppf = PchipInterpolator(cdf, self._points)
 
-    def cdf(self,x):
-        return self._cdf(x,extrapolate=False)
+    def pdf(self, x):
+        return self._pdf(x, extrapolate=False)
 
-    def ppf(self,x):
-        return self._ppf(x,extrapolate=False)
+    def cdf(self, x):
+        return self._cdf(x, extrapolate=False)
 
-    def rvs(self,N):
-        samp = np.random.uniform(self.cdf(self.m1),self.cdf(self.m2),size=N)
+    def ppf(self, x):
+        return self._ppf(x, extrapolate=False)
+
+    def rvs(self, N):
+        samp = np.random.uniform(self.cdf(self.m1), self.cdf(self.m2), size=N)
         return self.ppf(samp)
 
 
 class CutoffPowerLaw(PowerLaw):
     """Power law with exponential cutoff.
-    
+
     Parameters
     ----------
     mc: float
@@ -357,29 +360,31 @@ class CutoffPowerLaw(PowerLaw):
         Number of evenly log-spaced points at which to evaluate
         the CDF in order to interpolate the PPF
     """
+
     def __init__(self, slope, m1, m2, mc,
                  npts=None):
-        super().__init__(slope,m1,m2)
+        super().__init__(slope, m1, m2)
         self.mc = mc
         self.npts = 200 if npts is None else npts
 
-    def pdf(self,x):
+    def pdf(self, x):
         sup = super().pdf
         func = lambda x: sup(x) * np.exp(-x / self.mc)
         return func(x)
 
-    def cdf(self,x):
+    def cdf(self, x):
         func = lambda x: -x**(1 + self.slope) * expn(-self.slope, x / self.mc)
         low = func(self.m1)
-        
-        norm = quad(self.pdf,self.m1,self.m2)[0]
+
+        norm = quad(self.pdf, self.m1, self.m2)[0]
         return (func(x) - low) * norm / (func(self.m2) - func(self.m1))
 
-    def ppf(self,x):
-        points = np.geomspace(self.m1,self.m2,self.npts)
+    def ppf(self, x):
+        points = np.geomspace(self.m1, self.m2, self.npts)
         cdf = self.cdf(points)
-        interp = PchipInterpolator(cdf/max(cdf),points)
-        return interp(x,extrapolate=False)
+        interp = PchipInterpolator(cdf/max(cdf), points)
+        return interp(x, extrapolate=False)
+
 
 class ModifiedCutoffPowerLaw(PowerLaw):
     """Power law with exponential cutoff on both ends.
@@ -394,39 +399,40 @@ class ModifiedCutoffPowerLaw(PowerLaw):
         Number of evenly log-spaced points at which to evaluate
         the CDF in order to interpolate the PPF
     """
+
     def __init__(self, slope, m1, m2,
                  mc1, mc2,
                  npts=None):
-        super().__init__(slope,m1,m2)
+        super().__init__(slope, m1, m2)
         self.mc1 = mc1
         self.mc2 = mc2
         self.npts = 200 if npts is None else npts
 
-    def pdf(self,x):
+    def pdf(self, x):
         sup = super().pdf
         func = lambda x: sup(x) * np.exp(-self.mc1 / x) * np.exp(-x / self.mc2)
         return func(x)
 
-    def cdf(self,x):
+    def cdf(self, x):
         def integrate(x_):
-            ret = quad(self.pdf,self.m1,x_)[0]
+            ret = quad(self.pdf, self.m1, x_)[0]
             return ret
 
         return np.vectorize(integrate)(x)
 
-    def ppf(self,x):
-        points = np.geomspace(self.m1,self.m2,self.npts)
+    def ppf(self, x):
+        points = np.geomspace(self.m1, self.m2, self.npts)
         cdf = self.cdf(points)
-        interp = PchipInterpolator(cdf/max(cdf),points)
-        return interp(x,extrapolate=False)
+        interp = PchipInterpolator(cdf/max(cdf), points)
+        return interp(x, extrapolate=False)
 
-    
+
 class KoenConvolvedPowerLaw(Distribution):
     """Error-convolved power law.
 
-    A power law convolved with a normal distribution as described 
+    A power law convolved with a normal distribution as described
     in Koen & Kondlo (2009). This implementation calculates the PDF
-    and CDF of the distribution at evenly log-spaced points and 
+    and CDF of the distribution at evenly log-spaced points and
     interpolates between the results.
 
     Parameters
@@ -440,72 +446,73 @@ class KoenConvolvedPowerLaw(Distribution):
     sigma: float
         Width of the Gaussian to be convolved
     npts: float
-        Number of points at which the distribution 
+        Number of points at which the distribution
         will be evaluated
     """
-    def __init__(self,m1,m2,gamma,sigma,npts=None):
+
+    def __init__(self, m1, m2, gamma, sigma, npts=None):
         self.m1 = m1
         self.m2 = m2
         self.gamma = gamma
         self.sigma = sigma
         if npts is None:
             npts = 200
-            
+
         self.points = self._make_points(npts)
         self._pdf = self._pre_integrate(False)
-        self._pdf_interpolator = PchipInterpolator(self.points,self._pdf)
+        self._pdf_interpolator = PchipInterpolator(self.points, self._pdf)
         self._cdf = self._pre_integrate(True)
-        self._cdf_interpolator = PchipInterpolator(self.points,self._cdf)
-        self._ppf_interpolator = PchipInterpolator(self._cdf,self.points)
+        self._cdf_interpolator = PchipInterpolator(self.points, self._cdf)
+        self._ppf_interpolator = PchipInterpolator(self._cdf, self.points)
 
-    def _make_points(self,n_pts):
-        #points to interpolate between when calling the distribution
+    def _make_points(self, n_pts):
+        # points to interpolate between when calling the distribution
         infMax = ~np.isfinite(self.m2)
         if infMax:
-            points = np.geomspace(self.m1,1000*self.m1,n_pts-1)
-            points = np.append(points,np.inf)
+            points = np.geomspace(self.m1, 1000*self.m1, n_pts-1)
+            points = np.append(points, np.inf)
         else:
-            points = np.geomspace(self.m1,self.m2,n_pts)[:-1]
-            extras = np.linspace(self.m2-3*self.sigma,self.m2,8)
-            ext_inds = np.searchsorted(points,extras,side='left')
-            points = np.append(points,extras[ext_inds == len(points)])
+            points = np.geomspace(self.m1, self.m2, n_pts)[:-1]
+            extras = np.linspace(self.m2-3*self.sigma, self.m2, 8)
+            ext_inds = np.searchsorted(points, extras, side='left')
+            points = np.append(points, extras[ext_inds == len(points)])
         return points
 
     def _mirror_steps(self):
-        #Sub-intervals for the integration to capture small changes at both ends
-        x = np.geomspace(self.m1,self.m2,100)
+        # Sub-intervals for the integration to capture small changes at both ends
+        x = np.geomspace(self.m1, self.m2, 100)
         mir_x = self.m2-(x[::-1]-self.m1)
         dx = x[1:]-x[:-1]
-        cutoff = min(self.sigma,1) #set a ceiling dx of 1
-        break1 = np.searchsorted(dx,cutoff)
-        break2 = np.searchsorted(-dx[::-1],-cutoff)
+        cutoff = min(self.sigma, 1)  # set a ceiling dx of 1
+        break1 = np.searchsorted(dx, cutoff)
+        break2 = np.searchsorted(-dx[::-1], -cutoff)
         xpt = x[break1]
         mirxpt = mir_x[break2]
-        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
-        x = np.append(x[x < x1],np.linspace(x1,x2,
-                                            int((x2-x1)/cutoff)))
-        x = np.append(x,mir_x[mir_x > x2])
+        x1, x2 = min(xpt, mirxpt), max(xpt, mirxpt)
+        x = np.append(x[x < x1], np.linspace(x1, x2,
+                                             int((x2-x1)/cutoff)))
+        x = np.append(x, mir_x[mir_x > x2])
         return x
 
-    def _integrand(self,x,y,integral_form):
+    def _integrand(self, x, y, integral_form):
         '''
         Implements equations (3) and (5) from KK09.
         '''
         if integral_form:
-            #equation 5
+            # equation 5
             coef = (1 / (self.sigma * np.sqrt(2 * np.pi) * (
                 self.m1**-self.gamma - self.m2**-self.gamma)))
             ret = ((self.m1**-self.gamma - x**-self.gamma) * np.exp(
-            (-1 / 2) * ((y - x) / self.sigma)**2))
+                (-1 / 2) * ((y - x) / self.sigma)**2))
             return coef*ret
         else:
-            #equation 3
+            # equation 3
             coef = (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
                                   ((self.m1**-self.gamma) - (self.m2**-self.gamma))))
             ret = (x**-(self.gamma + 1)) * np.exp(-.5 * ((y - x) / self.sigma)**2)
             return coef*ret
 
-    def _pre_integrate(self,integral_form):
+    def _pre_integrate(self, integral_form):
         """
         Performs the integration necessary to calculate the PDF or CDF
         """
@@ -514,32 +521,33 @@ class KoenConvolvedPowerLaw(Distribution):
         for pt in self.points:
             chunks = []
             for i in range(len(steps)-1):
-                l,u = steps[i],steps[i+1]
-                area = quad(self._integrand,l,u,args=(pt,integral_form))[0]
+                l, u = steps[i], steps[i+1]
+                area = quad(self._integrand, l, u, args=(pt, integral_form))[0]
                 chunks.append(area)
             if integral_form:
-                results.append(np.sum(chunks)+
+                results.append(np.sum(chunks) +
                                scipy.stats.norm.cdf((pt - self.m2) / self.sigma))
             else:
                 results.append(np.sum(chunks))
         results = np.array(results)
         return results
 
-    def pdf(self,x):
-        ret = self._pdf_interpolator(x,extrapolate=False)
+    def pdf(self, x):
+        ret = self._pdf_interpolator(x, extrapolate=False)
         return ret
 
-    def cdf(self,x):
-        ret = self._cdf_interpolator(x,extrapolate=False)
+    def cdf(self, x):
+        ret = self._cdf_interpolator(x, extrapolate=False)
         return ret
-        
-    def rvs(self,N):
-        samp = np.random.uniform(min(self._cdf),max(self._cdf),size=N)
+
+    def rvs(self, N):
+        samp = np.random.uniform(min(self._cdf), max(self._cdf), size=N)
         return self.ppf(samp)
 
-    def ppf(self,x):
-        ret = self._ppf_interpolator(x,extrapolate=False)
+    def ppf(self, x):
+        ret = self._ppf_interpolator(x, extrapolate=False)
         return ret
+
 
 class CompositeDistribution(Distribution):
     def __init__(self, distrs):
