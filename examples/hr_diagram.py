@@ -99,7 +99,7 @@ pl.savefig("tem_lum_diagram.svg")#, bbox_inches='tight')
 # HR diagram (temperature-luminosity)
 pl.figure(3, figsize=(8,8)).clf()
 
-colors = [imf.color_from_mass(m) for m in subtbl['Mass']]
+colors = [color_from_mass(m) for m in subtbl['Mass']]
 #pl.gca().set_xscale('log')
 pl.gca().set_yscale('log')
 pl.scatter(10**subtbl['logTe'],
@@ -107,13 +107,13 @@ pl.scatter(10**subtbl['logTe'],
            c=colors,
            s=(subtbl['Mass'])*5)
 
-colors = [imf.color_from_mass(m) for m in masses]
+colors = [color_from_mass(m) for m in masses]
 pl.scatter(10**tems,
            10**lums,
            c=colors,
            s=masses*5)
 
-colors = [imf.color_from_mass(m) for m in hmasses]
+colors = [color_from_mass(m) for m in hmasses]
 pl.scatter(10**htems,
            10**hlums,
            c=colors,
