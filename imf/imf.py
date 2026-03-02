@@ -13,13 +13,24 @@ from scipy.stats import norm
 from astropy import units as u
 from . import distributions
 
+import warnings
+
+
 class MassFunction(object):
     """
-    Generic Mass Function class
-
-    (this is mostly meant to be subclassed by other functions, not used itself)
+    Generic class establishing basic operations for mass functions.
+    Intended for subclassing.
     """
+
     def __init__(self, mmin=None, mmax=None):
+        """
+        Parameters
+        ----------
+        mmin: float or None
+            Minimum stellar mass
+        mmax: float or None
+            Maximum stellar mass
+        """
         self._mmin = self.default_mmin if mmin is None else mmin
         self._mmax = self.default_mmax if mmax is None else mmax
 
@@ -82,7 +93,7 @@ class MassFunction(object):
         Integrate a function of stellar mass f(m) over the IMF
         """
         def weighted_func(x):
-            return self(x) * func(x,*args)
+            return self(x) * func(x, *args)
 
         return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
 
@@ -91,7 +102,7 @@ class MassFunction(object):
         return self._mmin
 
     @mmin.setter
-    def mmin(self,x):
+    def mmin(self, x):
         self._mmin = x
 
     @property
@@ -99,7 +110,7 @@ class MassFunction(object):
         return self._mmax
 
     @mmax.setter
-    def mmax(self,x):
+    def mmax(self, x):
         self._mmax = x
 
 
@@ -111,6 +122,11 @@ class Salpeter(MassFunction):
         """
         Create a default Salpeter mass function, i.e. a power-law mass function
         the Salpeter 1955 IMF: dn/dm ~ m^-2.35
+
+        Parameters
+        ----------
+        alpha: float
+            The exponent of the power law (default = 2.35)
         """
         super().__init__(mmin=mmin, mmax=mmax)
 
@@ -135,7 +151,7 @@ class BrokenPowerLaw(MassFunction):
                  mmax=default_mmax,
                  powers=[0.3, 1.3, 2.3],
                  breaks=[0.08, 0.5],
-    ):
+                 ):
         """
         Powers should be positive values for decreasing slopes
         """
@@ -193,6 +209,7 @@ class BrokenPowerLaw(MassFunction):
             ratio = distr1.pdf(self.break1) / self.distr.pdf(
                 self.break1) / self.break1
             return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
+
 
 class Kroupa(BrokenPowerLaw):
     # kroupa = BrokenPowerLaw(breaks={0.08: -0.3, 0.5: 1.3, 'last': 2.3}, mmin=0.03, mmax=120)
@@ -269,9 +286,9 @@ class ChabrierLogNormal(MassFunction):
     """
     Eqn 18 of https://ui.adsabs.harvard.edu/abs/2003PASP..115..763C/abstract
     is eqn3 of https://ui.adsabs.harvard.edu/abs/2003ApJ...586L.133C/abstract
-    
+
     \\xi = 0.086 exp (-(log m - log 0.22)^2 / (2 * 0.57**2)) 
-    
+
     This function is a pure lognormal; see ChabrierPowerLaw for the version
     with a power-law extension to high mass
 
@@ -371,104 +388,195 @@ class ChabrierPowerLaw(MassFunction):
         else:
             return self.distr.pdf(x) * self.normfactor
 
+class PadoanTF(MassFunction):
+    """
+    IMF implementing the form derived in Padoan & Nordlund (2002)
+    emerging from turbulent fragmentation theory.
+    """
+    default_mmin = 0.01
+    default_mmax = 200
+
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 b=1.8, T0=10, n0=5e2,
+                 sigma=None, mach=10, npts=None):
+        """        
+        Parameters
+        ----------
+        b: float
+            Spectral index of the turbulence power spectrum (default = 1.8)
+        T0: float
+            Average gas temperature in K (default = 10)
+        n0: float
+            Average gas number density in cm^-3 (default = 5e2)
+        sigma: float or None
+            Standard deviation of the log of gas density
+        mach: float
+            Mach number of the turbulent flow. Used to calculate sigma 
+            if sigma is None
+        npts: int
+            Number of points at which to evaluate the function for
+            interpolation (default = 200)
+        """
+        if ~np.logical_and(np.isfinite(mmin), np.isfinite(mmax)):
+            raise ValueError("PN IMF uses interpolation; mmin and mmax must be finite")
+        if sigma is None and mach is None:
+            raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
+        init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
+        self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
+
+        self.distr = distributions.PadoanTF(mmin, mmax,
+                                            b, T0, n0, init_sigma,
+                                            npts=npts)
+        self.normfactor = 1
+
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self.distr.cdf(m)
+        else:
+            return self.distr.pdf(m)
+
+    @property
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self, x):
+        self.distr.m1 = x
+        self.distr._calculate()
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self, x):
+        self.distr.m2 = x
+        self.distr._calculate()
+
+    @property
+    def b(self):
+        return self.distr.b
+
+    @b.setter
+    def b(self, x):
+        self.distr.b = x
+        self.distr._calculate()
+
+    @property
+    def T0(self):
+        return self.distr.T0
+
+    @T0.setter
+    def T0(self, x):
+        self.distr.T0 = x
+        self.distr._calculate()
+
+    @property
+    def n0(self):
+        return self.distr.n0
+
+    @n0.setter
+    def n0(self, x):
+        self.distr.n0 = x
+        self.distr._calculate()
+
+    @property
+    def sigma(self):
+        return self.distr.sigma
+
+    def set_sigma(self, x, update_mach=True):
+        self.distr.sigma = x
+        self.distr._calculate()
+        if update_mach:
+            self._mach = 2 * np.sqrt(np.exp(x**2) - 1)
+
+    @property
+    def mach(self):
+        return self._mach
+
+    def set_mach(self, x, update_sigma=True):
+        self._mach = x
+        if update_sigma:
+            self.sigma = np.sqrt(np.log(1 + (self._mach / 2)**2))
+            self.distr._calculate()
 
 
 class Schechter(MassFunction):
-    default_mmin = 0
-    default_mmax = np.inf
+    default_mmin = 0.03
+    default_mmax = 200
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        raise NotImplementedError("Schechter function needs to be refactored")
-        super().__init__(mmin=mmin, mmax=mmax)
-
-    def __call__(self, m, A=1, beta=2, m0=100, integral_form=False):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35, m0=100, npts=None):
         """
-        A Schechter function with arbitrary defaults
-        (integral may not be correct - exponent hasn't been dealt with at all)
-        
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
-
-        $$ A m^{-\\beta} e^{-m/m_0} $$
+        Create a Schechter-like mass function; a power law
+        with a high-mass exponential cutoff.
 
         Parameters
         ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            A: float
-                Arbitrary amplitude of the Schechter function
-            beta: float
-                Power law exponent
-            m0: float
-                Characteristic mass (mass at which exponential decay takes over)
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
+        alpha: float
+            Power law slope (default = -2.35)
+        m0: float
+            Characteristic mass for exponential decay (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
         """
+        super().__init__(mmin=mmin, mmax=mmax)
+        if ~np.logical_and(np.isfinite(mmin), np.isfinite(self.mmax)):
+            warnings.warn('function uses interpolation; non-finite mass bounds prevent random sampling')
+        self.alpha = alpha
+        self.m0 = m0
+
+        self.distr = distributions.CutoffPowerLaw(-self.alpha, self.mmin, self.mmax, self.m0,
+                                                  npts=npts)
+        self.normalize()
+
+    def __call__(self, mass, integral_form=False):
         if integral_form:
-            beta -= 1
-        return A * m**-beta * np.exp(-m / m0) * (m > self.mmin) * (m < self.mmax)
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
+
 
 class ModifiedSchechter(Schechter):
-    default_mmin = 0
-    default_mmax = np.inf
+    default_mmin = 0.03
+    default_mmax = 200
 
-    def __init__(self, mmin=default_mmin, mmax=default_mmax):
-        self.schechter = super().__init__(mmin=mmin, mmax=mmax)
-
-    def __call__(self, m, m1, **kwargs):
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 alpha=2.35, ml=0.5, mu=100, npts=None):
         """
-        A Schechter function with a low-level exponential cutoff
-
-        (TODO: this should be replaced with a Truncated Power Law Distribution)
+        A Schechter-like mass function with an additional
+        low-lever exponential cutoff.
 
         Parameters
         ----------
-            m: np.ndarray
-                List of masses for which to compute the Schechter function
-            m1: float
-                Characteristic minimum mass (exponential decay below this mass)
-            ** See schecter for other parameters **
-
-        Returns
-        -------
-            p(m) - the (unnormalized) probability of an object of a given mass
-            as a function of that object's mass
-            (though you could interpret mass as anything, it's just a number)
+        alpha: float
+            Power law slope (default = -2.35)
+        ml: float
+            Characteristic mass for the low-level cutoff
+            (default = 0.5)
+        mu: float
+            Characteristic mass for the high-level cutoff
+            (default = 100)
+        npts: int
+            Number of points to use for interpolation (default = 200)
         """
-        return self.schechter(m, **kwargs) * np.exp(-m1 / m) * (m > self.mmin) * (m < self.mmax)
+        super().__init__(mmin=mmin, mmax=mmax)
+        self.alpha = alpha
+        self.ml = ml
+        self.mu = mu
 
-try:
-    import scipy
+        self.distr = distributions.ModifiedCutoffPowerLaw(-self.alpha,
+                                                          self.mmin, self.mmax,
+                                                          self.ml, self.mu,
+                                                          npts=npts)
+        self.normalize()
 
-    def schechter_cdf(m, A=1, beta=2, m0=100, mmin=10, mmax=None, npts=1e4):
-        """
-        Return the CDF value of a given mass for a set mmin, mmax
-        mmax will default to 10 m0 if not specified
+    def __call__(self, mass, integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(mass)
+        else:
+            return self.normfactor * self.distr.pdf(mass)
 
-        Analytic integral of the Schechter function:
-        http://www.wolframalpha.com/input/?i=integral%28x^-a+exp%28-x%2Fm%29+dx%29
-        """
-        if mmax is None:
-            mmax = 10 * m0
-
-        # integrate the CDF from the minimum to maximum
-        posint = -mmax**(1 - beta) * scipy.special.expn(beta, mmax / m0)
-        negint = -mmin**(1 - beta) * scipy.special.expn(beta, mmin / m0)
-        tot = posint - negint
-
-        # normalize by the integral
-        ret = (-m**(1 - beta) * scipy.special.expn(beta, m / m0) -
-               negint) / tot
-
-        return ret
-
-    def sh_cdf_func(**kwargs):
-        return lambda x: schechter_cdf(x, **kwargs)
-except ImportError:
-    pass
 
 # these are global objects
 salpeter = Salpeter()
@@ -482,11 +590,10 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierlognormal': ChabrierLogNormal,
                  'chabrierpowerlaw': ChabrierPowerLaw,
                  'chabrier': ChabrierPowerLaw,
-                }
-#                 'schechter': Schechter, 'modified_schechter': ModifiedSchecter}
+                 }
 reverse_mf_dict = {v: k for k, v in massfunctions.items()}
-# salpeter and schechter selections are arbitrary
 expectedmass_cache = {}
+
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
     if isinstance(massfunc, MassFunction):
@@ -506,6 +613,7 @@ def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):
     else:
         raise ValueError("massfunc must either be a string in the set %s or a MassFunction instance"
                          % (", ".join(massfunctions.keys())))
+
 
 def get_massfunc_name(massfunc):
     if massfunc in reverse_mf_dict:
@@ -568,84 +676,92 @@ under the hood.
     else:
         raise NotImplementedError
 
-####This section contains the functions required to optimally sample a cluster####
+#### This section contains the functions required to optimally sample a cluster####
 
-def _prefactor(max_star,massfunc):
+
+def _prefactor(max_star, massfunc):
     """
     Returns the multiplier required for an IMF to have at most one star above m_max.
     """
-    return 1/massfunc.integrate(max_star,massfunc.mmax)[0]
+    return 1 / massfunc.integrate(max_star, massfunc.mmax)[0]
 
-def _M_cluster(m,massfunc):
+
+def _M_cluster(m, massfunc):
     """
     Returns the mass of a cluster distributed according to some IMF where the 
     largest star has mass m.
     """
-    k = _prefactor(m,massfunc)
-    return k*massfunc.m_integrate(massfunc.mmin,m)[0]+m
+    k = _prefactor(m, massfunc)
+    return k * massfunc.m_integrate(massfunc.mmin, m)[0] + m
 
-def _max_star(m,M_res,massfunc):
+
+def _max_star(m, M_res, massfunc):
     """
     Returns the most massive star capable of forming in a cluster of mass M_res
     according to the m_max/M_cluster relation. Formatted for use with root finding.
     """
-    return M_res-_M_cluster(m,massfunc)
+    return M_res - _M_cluster(m, massfunc)
 
-def _max_star_prime(m,M_res,massfunc):
+
+def _max_star_prime(m, M_res, massfunc):
     """
     Returns the derivative of _max_star at mass m. Used for Newton's method in
     the case of an infinite upper bound on the provided mass function.
     """
-    term1 = _prefactor(m,massfunc)**2*massfunc(m)*massfunc.m_integrate(massfunc.mmin,m)[0]
-    term2 = m*massfunc(m)*_prefactor(m,massfunc)
-    return -term1-term2-1
+    term1 = _prefactor(m, massfunc)**2 * massfunc(m) * massfunc.m_integrate(massfunc.mmin, m)[0]
+    term2 = m * massfunc(m) * _prefactor(m, massfunc)
+    return -term1 - term2 - 1
 
-def _get_next_m(m,last_m,k,massfunc):
+
+def _get_next_m(m, last_m, k, massfunc):
     """
     Returns the next smallest star in an optimally sampled cluster given the 
     previous star and overall IMF. Formatted for use with root finding.
     """
-    return k*massfunc.m_integrate(m,last_m)[0]-m
+    return k*massfunc.m_integrate(m, last_m)[0]-m
 
-def _opt_sample(M_res,massfunc,tolerance):
+
+def _opt_sample(M_res, massfunc, tolerance):
     """
     Returns a numpy array containing stellar masses that optimally sample 
     from a provided MassFunction to make a cluster with mass M_res.
     """
-    #retrieve mass bounds from provided massfunc
+    # retrieve mass bounds from provided massfunc
     mmin = massfunc.mmin
     mmax = massfunc.mmax
     finMax = np.isfinite(mmax)
 
-    #finding all the component stars requires a cutoff--ensure there is one
-    if not np.isfinite(np.log(mmin)):
-        if not np.isfinite(np.log(tolerance)):
-            raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
+    # finding all the component stars requires a cutoff--ensure there is one
+    if not np.logical_or(np.isfinite(np.log(mmin)), np.isfinite(np.log(tolerance))):
+        raise ValueError('Optimal sampling requires either mmin or tolerance to be finite and greater than zero.')
 
     if finMax:
-        #bracket from min to ALMOST max (max gives an undefined prefactor)
-        sol = root_scalar(_max_star,args=(M_res,massfunc),bracket=[mmin,0.9999*mmax])
+        # bracket from min to ALMOST max (max gives an undefined prefactor)
+        sol = root_scalar(_max_star, args=(M_res, massfunc), bracket=[mmin, 0.9999*mmax])
     else:
-        #use Newton's method
-        sol = root_scalar(_max_star,args=(M_res,massfunc),x0=10*mmin,fprime=_max_star_prime)
-    k = _prefactor(sol.root,massfunc)
+        # use Newton's method
+        sol = root_scalar(_max_star, args=(M_res, massfunc), x0=10*mmin, fprime=_max_star_prime)
+    k = _prefactor(sol.root, massfunc)
     M_tot = sol.root
     star_masses = [sol.root]
+    m_i = sol.root
 
-    while np.abs(M_res-M_tot) > np.maximum(mmin,tolerance):
+    while np.abs(M_res-M_tot) > np.maximum(mmin, tolerance):
         try:
-            sol = root_scalar(_get_next_m,args=(star_masses[-1],k,massfunc),
-                              bracket=[mmin,star_masses[-1]])
+            m_i_plus = root_scalar(lambda x: k * massfunc.integrate(x, m_i)[0]-1,
+                                   bracket=[mmin, m_i]).root
         except(ValueError):
             print(f'Reached provided lower mass bound; stopping')
             break
-        m = sol.root    
+        m = k * massfunc.m_integrate(m_i_plus, m_i)[0]
         star_masses.append(m)
         M_tot += m
-    
-    return np.array(star_masses),M_tot
+        m_i = m_i_plus
+
+    return np.array(star_masses), M_tot
 
 ##############################################################################
+
 
 def make_cluster(mcluster,
                  massfunc='kroupa',
@@ -688,10 +804,10 @@ def make_cluster(mcluster,
     # if verbose:
     #    print(("%i samples yielded a cluster mass of %g (%g requested)" %
     #          (nsamp, mtot, mcluster)))
-    
-    #catch wrong keywords early
-    ok_samplings = ['random','optimal']
-    ok_criteria = ['nearest','before','after','sorted']
+
+    # catch wrong keywords early
+    ok_samplings = ['random', 'optimal']
+    ok_criteria = ['nearest', 'before', 'after', 'sorted']
     if not sampling in ok_samplings:
         raise ValueError("Sampling should be either 'random' or 'optimal' (see documentation)")
     if (sampling == 'random') and not stop_criterion in ok_criteria:
@@ -699,17 +815,16 @@ def make_cluster(mcluster,
 
     if sampling == 'optimal':
         mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-        masses,mtot = _opt_sample(mcluster,mfc,tolerance=tolerance)
+        masses, mtot = _opt_sample(mcluster, mfc, tolerance=tolerance)
         if verbose:
             print(f'Sampled {len(masses)} new stars.')
         if not silent:
-            print(f'Total cluster mass is {np.round(mtot,3)} (limit was {int(mcluster)})')
+            print(f'Total cluster mass is {np.round(mtot, 3)} (limit was {int(mcluster)})')
 
     else:
         mcluster = u.Quantity(mcluster, u.M_sun).value
 
         mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-
 
         if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
             expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
@@ -769,6 +884,7 @@ def make_cluster(mcluster,
 
     return masses
 
+
 def color_from_mass(mass, outtype=float):
     """
     Use vendian.org colors:
@@ -797,7 +913,7 @@ def color_from_mass(mass, outtype=float):
   0.30 M8(V)        255 167 123   #ffbb7b  # my addition
     """
 
-    mcolor = { # noqa: E131
+    mcolor = {  # noqa: E131
              100: (150, 175, 255),
               50: (157, 180, 255),
               20: (162, 185, 255),
@@ -849,6 +965,7 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
     mean_color = (colors *
                   luminosities[:, None]).sum(axis=0) / luminosities.sum()
     return mean_color
+
 
 def coolplot(clustermass, massfunc=kroupa, log=True, **kwargs):
     """
@@ -922,11 +1039,11 @@ class KoenConvolvedPowerLaw(MassFunction):
     sigma: float
         Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
     npts: int
-        Number of evenly log-spaced points at which to evaluate the function
-        (function calls interpolate between these). Defaults to 200.
+        Number of points at which to evaluate the function for interpolation
+        (default = 200)
     quad_sub_limit: int
         Limit of the number of subdivisions allowed for scipy.integrate.quad,
-        which handles integration. Defaults to scipy's default of 50.
+        which handles integration (default = 50)
     """
     default_mmin = 0
     default_mmax = np.inf
@@ -934,29 +1051,29 @@ class KoenConvolvedPowerLaw(MassFunction):
     def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=50):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
-        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+        if not np.all(np.isfinite(np.log([mmin, mmax]))):
             raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
-        
+
         super().__init__(mmin, mmax)
         self._gamma = gamma
         self._sigma = sigma
         self._quad_sub_limit = quad_sub_limit
-        self.distr = distributions.KoenConvolvedPowerLaw(self.mmin,self.mmax,
-                                                         self.gamma,self.sigma,npts)
-        self._normfactor = 1. / self.distr.cdf(self.mmax)
+        self.distr = distributions.KoenConvolvedPowerLaw(self.mmin, self.mmax,
+                                                         self.gamma, self.sigma, npts)
+        self.normfactor = 1. / self.distr.cdf(self.mmax)
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self.distr.cdf(m) * self.normfactor
+            return self.normfactor * self.distr.cdf(m)
         else:
-            return self.distr.pdf(m) * self.normfactor
-    
+            return self.normfactor * self.distr.pdf(m)
+
     def integrate(self, mlow, mhigh, **kwargs):
         """
         Integrate the mass function over some range
         """
         if 'limit' not in kwargs.keys():
-            return scipy.integrate.quad(self, mlow, mhigh, 
+            return scipy.integrate.quad(self, mlow, mhigh,
                                         limit=self._quad_sub_limit, **kwargs)
         else:
             return scipy.integrate.quad(self, mlow, mhigh, **kwargs)
@@ -967,31 +1084,28 @@ class KoenConvolvedPowerLaw(MassFunction):
         tells you the fraction of mass in the specified range)
         """
         if 'limit' not in kwargs.keys():
-            return scipy.integrate.quad(self.mass_weighted, mlow, mhigh, 
+            return scipy.integrate.quad(self.mass_weighted, mlow, mhigh,
                                         limit=self._quad_sub_limit, **kwargs)
         else:
-            return scipy.integrate.quad(self.mass_weighted, 
+            return scipy.integrate.quad(self.mass_weighted,
                                         mlow, mhigh, **kwargs)
 
     @property
     def gamma(self):
         return self._gamma
-    
+
     @property
     def sigma(self):
         return self._sigma
-    
+
     @property
     def quad_sub_limit(self):
         return self._quad_sub_limit
-    
+
     @quad_sub_limit.setter
-    def quad_sub_limit(self,x):
+    def quad_sub_limit(self, x):
         self._quad_sub_limit = x
 
-    @property
-    def normfactor(self):
-        return self._normfactor
 
 class SpotKoenConvolvedPowerLaw(MassFunction):
     """
@@ -1007,23 +1121,23 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
     def __init__(self, mmin, mmax, gamma, sigma):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
-        if not np.all(np.isfinite(np.log([mmin,mmax]))):
+        if not np.all(np.isfinite(np.log([mmin, mmax]))):
             raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
 
         super().__init__(mmin, mmax)
         self.sigma = sigma
         self.gamma = gamma
-        self.normfactor = 1/self._integrate(self.mmax,integral_form=True)
+        self.normfactor = 1 / self._integrate(self.mmax, integral_form=True)
 
     def _coef(self, integral_form):
         if integral_form:
-            return (1 / (self.sigma * np.sqrt(2 * np.pi) * 
+            return (1 / (self.sigma * np.sqrt(2 * np.pi) *
                          (self.mmin**-self.gamma - self.mmax**-self.gamma)))
         else:
-            return (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) * 
-                                  ((self.mmin**-self.gamma) - 
+            return (self.gamma / ((self.sigma * np.sqrt(2 * np.pi)) *
+                                  ((self.mmin**-self.gamma) -
                                    (self.mmax**-self.gamma))))
-    
+
     def _integrand(self, x, y, integral_form):
         if integral_form:
             return ((self.mmin**-self.gamma - x**-self.gamma) * np.exp(
@@ -1031,29 +1145,29 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         else:
             return (x**-(self.gamma + 1)) * np.exp(-.5 * (
                 (y - x) / self.sigma)**2)
-        
+
     def _mirror_steps(self):
-        #Sub-intervals for the integration to capture small changes at both ends
-        x = np.geomspace(self.mmin,self.mmax,100)
+        # Sub-intervals for the integration to capture small changes at both ends
+        x = np.geomspace(self.mmin, self.mmax, 100)
         mir_x = self.mmax-(x[::-1]-self.mmin)
         dx = x[1:]-x[:-1]
-        cutoff = min(self.sigma,1)
-        break1 = np.searchsorted(dx,cutoff)
-        break2 = np.searchsorted(-dx[::-1],-cutoff)
+        cutoff = min(self.sigma, 1)
+        break1 = np.searchsorted(dx, cutoff)
+        break2 = np.searchsorted(-dx[::-1], -cutoff)
         xpt = x[break1]
         mirxpt = mir_x[break2]
-        x1, x2 = min(xpt,mirxpt), max(xpt,mirxpt)
-        x = np.append(x[x < x1],np.linspace(x1,x2,
+        x1, x2 = min(xpt, mirxpt), max(xpt, mirxpt)
+        x = np.append(x[x < x1], np.linspace(x1, x2,
                                             int((x2-x1)/cutoff)))
-        x = np.append(x,mir_x[mir_x > x2])
+        x = np.append(x, mir_x[mir_x > x2])
         return x
 
     def _integrate(self, y, integral_form):
         steps = self._mirror_steps()
         chunks = []
         for i in range(len(steps)-1):
-            l,u = steps[i],steps[i+1]
-            area = quad(self._integrand,l,u,args=(y,integral_form))[0]
+            l, u = steps[i], steps[i+1]
+            area = quad(self._integrand, l, u, args=(y, integral_form))[0]
             chunks.append(area)
         if integral_form:
             ret = self._coef(integral_form) * np.sum(chunks) + norm.cdf(
@@ -1061,11 +1175,12 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         else:
             ret = self._coef(integral_form)*np.sum(chunks)
         return ret
-    
+
     def __call__(self, m, integral_form=False):
         vector_int = np.vectorize(self._integrate)
         m = np.asarray(m)
         return self.normfactor * vector_int(m, integral_form)
+
 
 class KoenTruePowerLaw(MassFunction):
     """

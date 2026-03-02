@@ -16,7 +16,7 @@ os.makedirs(f'{plot_dir}',exist_ok=True)
 if __name__ == "__main__":
     import pylab as pl
     pl.matplotlib.style.use('classic')
-    pl.rc('font',size=30)
+    pl.rc('font', size=30)
     pl.close(1)
 
     # make three figures of dN/dM vs M, one for each mass function,
@@ -28,78 +28,78 @@ if __name__ == "__main__":
         # case because I made and initialized the classes)
         name = massfunc.__class__.__name__
 
-        pl.figure(1, figsize=(10,8))
+        pl.figure(1, figsize=(10, 8))
         pl.clf()
         cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
         pl.gca().set_xscale('log')
 
-        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()), 10000)
 
-        pl.plot(masses,np.log10(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
         pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
 
-        pl.figure(2, figsize=(20,16))
+        pl.figure(2, figsize=(20, 16))
         pl.clf()
         cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc, log=False)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
         pl.gca().set_xscale('log')
 
-        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()), 10000)
 
-        pl.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        pl.plot(masses, (massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("dN(M)/dM")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
         pl.savefig(f"{plot_dir}/{name}_imf_figure_loglinear.pdf",bbox_inches='tight')
 
-        pl.rc('font',size=20)
-        pl.figure(3, figsize=(20,16))
-        ax1 = pl.subplot(1,3,1)
-        ax1.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        pl.rc('font', size=20)
+        pl.figure(3, figsize=(20, 16))
+        ax1 = pl.subplot(1, 3, 1)
+        ax1.plot(masses, (massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         ax1.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
-        ax2 = pl.subplot(1,3,2)
-        ax2.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
+        ax2 = pl.subplot(1, 3, 2)
+        ax2.plot(masses, (massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         ax2.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
-        ax3 = pl.subplot(1,3,3)
-        ax3.plot(masses,(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
+        ax3 = pl.subplot(1, 3, 3)
+        ax3.plot(masses, (massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         ax3.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
         ax2.set_xlabel("Stellar Mass", fontsize=30)
         ax1.set_ylabel("dN(M)/dM", fontsize=30)
-        ax1.axis([min(cluster)/1.1,1,min(yax)-0.2,max(yax)+0.5])
-        ax2.axis([1,5,min(yax)-0.2,max(yax[cluster>1])+0.5])
-        ax3.axis([5,max(cluster)*1.1,min(yax)-0.2,max(yax[cluster>5])+0.5])
+        ax1.axis([min(cluster)/1.1, 1, min(yax)-0.2, max(yax)+0.5])
+        ax2.axis([1, 5, min(yax)-0.2, max(yax[cluster > 1])+0.5])
+        ax3.axis([5, max(cluster)*1.1, min(yax)-0.2, max(yax[cluster > 5])+0.5])
         pl.tight_layout()
         pl.savefig(f"{plot_dir}/{name}_imf_figure_linearlinear.pdf",
                    bbox_inches='tight')
 
-        pl.rc('font',size=30)
+        pl.rc('font', size=30)
 
     # make one more plot, now showing a top-heavy (shallow-tail) IMF
     massfunc = imf.Kroupa(p3=1.75)
-    name='KroupaTopHeavy'
-    pl.figure(1, figsize=(10,8))
+    name = 'KroupaTopHeavy'
+    pl.figure(1, figsize=(10, 8))
     pl.clf()
     cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
     pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-               linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+               linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
     pl.gca().set_xscale('log')
 
-    masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+    masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()), 10000)
 
-    pl.plot(masses,np.log10(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+    pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
     pl.xlabel("Stellar Mass")
     pl.ylabel("log(dN(M)/dM)")
     pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
@@ -110,16 +110,16 @@ if __name__ == "__main__":
                            (imf.Salpeter(alpha=2), 'Alpha2p0'),
                            (imf.Salpeter(alpha=1), 'Alpha1p0'),
                            (imf.Salpeter(alpha=3), 'Alpha3p0')]:
-        pl.figure(1, figsize=(10,8))
+        pl.figure(1, figsize=(10, 8))
         pl.clf()
         cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+                   linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
         pl.gca().set_xscale('log')
 
-        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+        masses = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()), 10000)
 
-        pl.plot(masses,np.log10(massfunc(masses)),'r--',linewidth=2,alpha=0.5)
+        pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])

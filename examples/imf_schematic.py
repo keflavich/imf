@@ -9,7 +9,7 @@ if __name__ == "__main__":
     pl.matplotlib.rc_file("/Users/adam/.matplotlib/pubfiguresrc")
     pl.rc('font', family='cmr10')
 
-    x = np.logspace(-2,2)
+    x = np.logspace(-2, 2)
     pl.clf()
 
     chabrier = imf.chabrier(x)
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     wider_n = wider/wider.sum()
 
     pl.loglog(x, chabrier_n, linewidth=3, alpha=0.8, label='Chabrier')
-    #pl.loglog(x, imf.kroupa(x), linewidth=3, alpha=0.8, label='Kroupa')
+    # pl.loglog(x, imf.kroupa(x), linewidth=3, alpha=0.8, label='Kroupa')
     pl.loglog(x, chabrier3x_n, linestyle='dashed', linewidth=3, alpha=0.8, label='$3\\times$ Chabrier')
     pl.loglog(x, wider_n, linestyle='dotted', linewidth=3, alpha=0.8, label='Wider MF')
     pl.loglog(x, seed_n, linestyle='-.', linewidth=3, alpha=0.8, label='Seed MF')
@@ -39,7 +39,6 @@ if __name__ == "__main__":
     ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
 
     pl.savefig("imf_schematic.png")
-
 
     pl.draw()
     pl.show()
