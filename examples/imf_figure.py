@@ -9,10 +9,9 @@ from imf.visualization import plotinfo
 from astropy.table import Table
 import numpy as np
 
+import os
 plot_dir = 'plots/imf_figure'
-from os import system
-system(f'mkdir -p {plot_dir}')
-
+os.makedirs(f'{plot_dir}',exist_ok=True)
 
 if __name__ == "__main__":
     import pylab as pl
@@ -124,4 +123,4 @@ if __name__ == "__main__":
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
         pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.png",bbox_inches='tight')
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
