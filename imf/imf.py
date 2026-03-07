@@ -203,11 +203,13 @@ class BrokenPowerLaw(MassFunction):
         if numerical:
             return super(Kroupa, self).m_integrate(mlow, mhigh, **kwargs)
         else:
+            raise NotImplementedError("Analytic m_integrate not implemented for BrokenPowerLaw; use numerical=True to use the default numerical integration")
+            # marking as not implemented because there's a variable definition error that requires some thinking to fix - this _might_ be fixed, but we need to check
             distr1 = distributions.BrokenPowerLaw(
                 [-x + 1 for x in self.powers],
                 [self.mmin, *self.breaks, self.mmax])
-            ratio = distr1.pdf(self.break1) / self.distr.pdf(
-                self.break1) / self.break1
+            ratio = distr1.pdf(self.breaks[0]) / self.distr.pdf(
+                self.breaks[0]) / self.breaks[0]
             return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
 
 
