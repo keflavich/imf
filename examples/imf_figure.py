@@ -4,10 +4,14 @@ under the curve with an appropriate number of stars colored by their
 "true"(ish) color and sized by their mass.
 """
 import imf
-from imf import coolplot, kroupa, make_cluster
+from imf import kroupa,make_cluster
+from imf.visualization import plotinfo
 from astropy.table import Table
 import numpy as np
 
+import os
+plot_dir = 'plots/imf_figure'
+os.makedirs(f'{plot_dir}',exist_ok=True)
 
 if __name__ == "__main__":
     import pylab as pl
@@ -26,7 +30,7 @@ if __name__ == "__main__":
 
         pl.figure(1, figsize=(10, 8))
         pl.clf()
-        cluster, yax, colors = coolplot(1000, massfunc=massfunc)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
@@ -38,13 +42,12 @@ if __name__ == "__main__":
         pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
-        pl.gca().axis([min(cluster)/1.1, max(cluster)*1.1, min(yax)-0.2, max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_log.png".format(name), bbox_inches='tight', dpi=150)
-        pl.savefig("{0}_imf_figure_log.pdf".format(name), bbox_inches='tight')
+        pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
 
         pl.figure(2, figsize=(20, 16))
         pl.clf()
-        cluster, yax, colors = coolplot(1000, massfunc=massfunc, log=False)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc, log=False)
         cluster = np.array(cluster)
         yax = np.array(yax)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
@@ -56,8 +59,8 @@ if __name__ == "__main__":
         pl.plot(masses, (massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("dN(M)/dM")
-        pl.gca().axis([min(cluster)/1.1, max(cluster)*1.1, min(yax)-0.2, max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_loglinear.png".format(name), bbox_inches='tight')
+        pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_loglinear.pdf",bbox_inches='tight')
 
         pl.rc('font', size=20)
         pl.figure(3, figsize=(20, 16))
@@ -79,7 +82,7 @@ if __name__ == "__main__":
         ax2.axis([1, 5, min(yax)-0.2, max(yax[cluster > 1])+0.5])
         ax3.axis([5, max(cluster)*1.1, min(yax)-0.2, max(yax[cluster > 5])+0.5])
         pl.tight_layout()
-        pl.savefig("{0}_imf_figure_linearlinear.png".format(name),
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_linearlinear.pdf",
                    bbox_inches='tight')
 
         pl.rc('font', size=30)
@@ -89,7 +92,7 @@ if __name__ == "__main__":
     name = 'KroupaTopHeavy'
     pl.figure(1, figsize=(10, 8))
     pl.clf()
-    cluster, yax, colors = coolplot(1000, massfunc=massfunc)
+    cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
     pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
     pl.gca().set_xscale('log')
@@ -99,9 +102,8 @@ if __name__ == "__main__":
     pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
     pl.xlabel("Stellar Mass")
     pl.ylabel("log(dN(M)/dM)")
-    pl.gca().axis([min(cluster)/1.1, max(cluster)*1.1, min(yax)-0.2, max(yax)+0.5])
-    pl.savefig("{0}_imf_figure_log.png".format(name), bbox_inches='tight', dpi=150)
-    pl.savefig("{0}_imf_figure_log.pdf".format(name), bbox_inches='tight')
+    pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+    pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
 
     # make two more plots, now showing a bottom- and a top-heavy  IMF
     for massfunc, name in [(imf.Salpeter(alpha=1.5), 'Alpha1p5'),
@@ -110,7 +112,7 @@ if __name__ == "__main__":
                            (imf.Salpeter(alpha=3), 'Alpha3p0')]:
         pl.figure(1, figsize=(10, 8))
         pl.clf()
-        cluster, yax, colors = coolplot(1000, massfunc=massfunc)
+        cluster,yax,colors = plotinfo(mtot=1000, massfunc=massfunc)
         pl.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
                    linewidths=0.5, edgecolors=(0, 0, 0, 0.25), alpha=0.95)
         pl.gca().set_xscale('log')
@@ -120,6 +122,5 @@ if __name__ == "__main__":
         pl.plot(masses, np.log10(massfunc(masses)), 'r--', linewidth=2, alpha=0.5)
         pl.xlabel("Stellar Mass")
         pl.ylabel("log(dN(M)/dM)")
-        pl.gca().axis([min(cluster)/1.1, max(cluster)*1.1, min(yax)-0.2, max(yax)+0.5])
-        pl.savefig("{0}_imf_figure_log.png".format(name), bbox_inches='tight', dpi=150)
-        pl.savefig("{0}_imf_figure_log.pdf".format(name), bbox_inches='tight')
+        pl.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+        pl.savefig(f"{plot_dir}/{name}_imf_figure_log.pdf",bbox_inches='tight')
