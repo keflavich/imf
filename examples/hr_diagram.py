@@ -6,11 +6,12 @@ with data from Ekström+ 2012 (Vizier catalog J/A+A/537/A146/iso).
 Colors come from vendian.org.
 """
 import numpy as np
-import imf
 import pylab as pl
 from astroquery.vizier import Vizier
 from labellines import labelLine, labelLines
 # pip install matplotlib-label-lines
+
+from imf.visualization import color_from_mass
 
 pl.rcParams['font.size'] = 20
 
@@ -59,7 +60,7 @@ Tfit = np.polyfit(np.log10(highmass['Mass']), highmass['logTe'], 1)
 htems = np.poly1d(Tfit)(np.log10(hmasses))
 
 # obtain the colors from the vendian-based table
-colors = [imf.color_from_mass(m) for m in subtbl['Mass']]
+colors = [color_from_mass(m) for m in subtbl['Mass']]
 
 # start plotting
 pl.gca().set_yscale('log')
@@ -68,13 +69,13 @@ pl.scatter(10**subtbl['logTe'],
            c=colors,
            s=(10**subtbl['logL'])**0.25*45)
 
-colors = [imf.color_from_mass(m) for m in masses]
+colors = [color_from_mass(m) for m in masses]
 pl.scatter(10**tems,
            masses,
            c=colors,
            s=(10**lums)**0.25*45)
 
-colors = [imf.color_from_mass(m) for m in hmasses]
+colors = [color_from_mass(m) for m in hmasses]
 pl.scatter(10**htems,
            hmasses,
            c=colors,
@@ -98,21 +99,21 @@ pl.savefig("tem_lum_diagram.svg")  # , bbox_inches='tight')
 # HR diagram (temperature-luminosity)
 pl.figure(3, figsize=(8, 8)).clf()
 
-colors = [imf.color_from_mass(m) for m in subtbl['Mass']]
-# pl.gca().set_xscale('log')
+colors = [color_from_mass(m) for m in subtbl['Mass']]
+#pl.gca().set_xscale('log')
 pl.gca().set_yscale('log')
 pl.scatter(10**subtbl['logTe'],
            10**subtbl['logL'],
            c=colors,
            s=(subtbl['Mass'])*5)
 
-colors = [imf.color_from_mass(m) for m in masses]
+colors = [color_from_mass(m) for m in masses]
 pl.scatter(10**tems,
            10**lums,
            c=colors,
            s=masses*5)
 
-colors = [imf.color_from_mass(m) for m in hmasses]
+colors = [color_from_mass(m) for m in hmasses]
 pl.scatter(10**htems,
            10**hlums,
            c=colors,
@@ -138,8 +139,8 @@ pl.savefig("HR_diagram.svg")  # , bbox_inches='tight')
 # mass-luminosity diagram
 pl.figure(4, figsize=(8, 8)).clf()
 
-colors = [imf.color_from_mass(m) for m in subtbl['Mass']]
-# pl.gca().set_xscale('log')
+colors = [color_from_mass(m) for m in subtbl['Mass']]
+#pl.gca().set_xscale('log')
 pl.gca().set_yscale('log')
 pl.scatter(subtbl['Mass'],
            10**subtbl['logL'],
@@ -147,14 +148,14 @@ pl.scatter(subtbl['Mass'],
            edgecolors='none',
            s=10**subtbl['logTe']/100)
 
-colors = [imf.color_from_mass(m) for m in masses]
+colors = [color_from_mass(m) for m in masses]
 pl.scatter(masses,
            10**lums,
            c=colors,
            edgecolors='none',
            s=10**tems/100)
 
-colors = [imf.color_from_mass(m) for m in hmasses]
+colors = [color_from_mass(m) for m in hmasses]
 pl.scatter(hmasses,
            10**hlums,
            c=colors,
