@@ -73,8 +73,8 @@ Some basic examples below.
 
  * Adam Ginsburg (@keflavich, wrote most of this)
  * Sergey Koposov (@segasai, majorly refactored the distribution functions)
+ * Theo Richardson (@richardson-t, refactored pre-IMF submodules and wrote/revised some functions and documentation)
  * Tiffany Christian (@teachristian, made some small corrections)
- * Theo Richardson (@richardson-t, refactored optimal sampling)
 
-No formal citation is available yet; please just reference the repository
-(https://github.com/keflavich/imf) if you use this.
+A companion paper describing the package has been published; if this code is helpful to your research, you can acknowledge it by citing the following:
+(entry)
