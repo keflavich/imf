@@ -105,25 +105,20 @@ class PLF(MassFunction):
                               self.n, self.tau,
                               self.interps,
                               n_lpts, n_mpts)
+        self.distr._taper = False
+        self.distr._accelerating = False
+        self.distr._update_functions()
+
         self.normfactor = 1
-
+        
     def __call__(self, lum,
-                 integral_form=False,
-                 taper=False,
-                 accelerating=False):
-
-        self.distr.taper = taper
-        self.distr.accelerating = accelerating
+                 integral_form=False
+                 ):
 
         if integral_form:
-            return self.distr.cdf(lum) * self.normfactor
+            return self.normfactor * self.distr.cdf(lum)
         else:
-            return self.distr.pdf(lum) * self.normfactor
-
-    def mass_weighted(self, x,
-                      taper=False,
-                      accelerating=False):
-        return self(x, taper=taper, accelerating=accelerating) * x
+            return self.normfactor * self.distr.pdf(lum)
 
     def _make_interps(self, trackdir, **kwargs):
         """
@@ -168,6 +163,12 @@ class PLF(MassFunction):
         PMF.
         """
         return self.distr._average_time(taper, accelerating)
+
+    def set_taper(self, x):
+        self.distr.taper = x
+
+    def set_accel(self, x):
+        self.distr.accelerating = x
 
     @property
     def imf(self):
@@ -277,13 +278,21 @@ class PLF(MassFunction):
     def interps(self):
         return self._interps
 
+    @property
+    def taper(self):
+        return self.distr.taper
+
+    @property
+    def accelerating(self):
+        return self.distr.accelerating
+
 
 class dist_plf(Distribution):
     """
     Manages the PDF/CDF for a PLF.
 
     Currently not implemented due to algorithmic issues with
-    interpolation (see Section 5.1 of the companion paper).
+    interpolation
     """
 
     def __init__(self, imf, l1, l2,

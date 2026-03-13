@@ -431,9 +431,9 @@ class PadoanTF(MassFunction):
 
     def __call__(self, m, integral_form=False):
         if integral_form:
-            return self.distr.cdf(m)
+            return self.normfactor * self.distr.cdf(m)
         else:
-            return self.distr.pdf(m)
+            return self.normfactor * self.distr.pdf(m)
 
     @property
     def mmin(self):
@@ -897,11 +897,11 @@ class KoenConvolvedPowerLaw(MassFunction):
     Parameters
     ----------
     mmin, mmax: floats
-        The upper and lower bounds for the power law distribution.
-    gamma: float
-        The specified gamma for the distribution. Slope = -gamma - 1.
+        The upper and lower bounds for the power law distribution
+    alpha: float
+        The exponent for the power law
     sigma: float
-        Specified spread of error. Assumes normal distribution with mean 0 and variance sigma.
+        Specified spread of error. Assumes normal distribution with mean 0 and variance sigma
     npts: int
         Number of points at which to evaluate the function for interpolation
         (default = 200)
@@ -912,14 +912,14 @@ class KoenConvolvedPowerLaw(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma, npts=200, quad_sub_limit=50):
+    def __init__(self, mmin, mmax, alpha, sigma, npts=200, quad_sub_limit=50):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
         if not np.all(np.isfinite(np.log([mmin, mmax]))):
             raise ValueError('KoenConvolvedPowerLaw requires finite, positive mass bounds')
 
         super().__init__(mmin, mmax)
-        self._gamma = gamma
+        self._gamma = alpha - 1
         self._sigma = sigma
         self._quad_sub_limit = quad_sub_limit
         self.distr = distributions.KoenConvolvedPowerLaw(self.mmin, self.mmax,
@@ -959,6 +959,10 @@ class KoenConvolvedPowerLaw(MassFunction):
         return self._gamma
 
     @property
+    def alpha(self):
+        return self._gamma + 1
+
+    @property
     def sigma(self):
         return self._sigma
 
@@ -982,7 +986,7 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
     default_mmin = 0
     default_mmax = np.inf
 
-    def __init__(self, mmin, mmax, gamma, sigma):
+    def __init__(self, mmin, mmax, alpha, sigma):
         if mmax < mmin:
             raise ValueError("mmax must be greater than mmin")
         if not np.all(np.isfinite(np.log([mmin, mmax]))):
@@ -990,7 +994,7 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
 
         super().__init__(mmin, mmax)
         self.sigma = sigma
-        self.gamma = gamma
+        self.gamma = alpha - 1
         self.normfactor = 1 / self._integrate(self.mmax, integral_form=True)
 
     def _coef(self, integral_form):
@@ -1045,54 +1049,6 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         m = np.asarray(m)
         return self.normfactor * vector_int(m, integral_form)
 
-
-class KoenTruePowerLaw(MassFunction):
-    """
-    Implementaton of error free power-law described in 2009 Koen Kondlo paper,
-    Fitting power-law distributions to data with measurement errors
-
-    This is a power law with truncations on the low and high end.
-
-    Equations (2) and (4)
-
-    Parameters
-    ----------
-    m: float
-        The mass at which to evaluate the function
-    mmin, mmax: floats
-        The upper and lower bounds for the power law distribution
-    gamma: floats
-        The specified gamma for the distribution, related to the slope, alpha = -gamma + 1
-    """
-    default_mmin = 0
-    default_mmax = np.inf
-
-    def __init__(self, mmin, mmax, gamma):
-        super().__init__(mmin, mmax)
-        self.gamma = gamma
-
-    def __call__(self, m, integral_form=False):
-        m = np.asarray(m)
-        if self.mmax < self.mmin:
-            raise ValueError('mmax must be greater than mmin')
-        if integral_form:
-            # Returns
-            # -------
-            # Probability that m < x for the given CDF with specified mmin, mmax, sigma, and gamma
-            # True for L<=x
-            pdf = ((self.mmin**-self.gamma - np.power(m, -self.gamma)) /
-                   self.mmin**-self.gamma - self.mmax**-self.gamma)
-            return_value = (pdf * ((m > self.mmin) & (m < self.mmax)) + 1.0 *
-                            (m >= self.mmax) + 0 * (m < self.mmin))
-            return return_value
-
-        else:
-            # Returns
-            # ------
-            # Probability of getting x given the PDF with specified mmin, mmax, and gamma
-            # Answers it gives are true from mmin<=x<=mmax
-            cdf = (self.gamma * np.power(m, -(self.gamma + 1)) /
-                   (self.mmin**-self.gamma - self.mmax**-self.gamma))
-            return_value = (cdf * ((m > self.mmin) & (m < self.mmax)) + 0 *
-                            (m > self.mmax) + 0 * (m < self.mmin))
-            return return_value
+    @property
+    def alpha(self):
+        return self.gamma + 1
