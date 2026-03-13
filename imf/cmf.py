@@ -11,6 +11,7 @@ from . import imf
 from .distributions import Distribution
 from .imf import MassFunction
 
+import warnings
 
 class PN_CMF(MassFunction):
     """
@@ -126,9 +127,8 @@ class PN_CMF(MassFunction):
                              self.rho, self.tcross, self.birthdays,
                              bins)
 
-        self.set_time(1, calc=False)
-        self.set_visible(True)
-        self.set_cores('prestellar')
+        self.distr._calculate()
+        self.distr._update_functions()
 
         self.normfactor = 1
 
@@ -154,31 +154,32 @@ class PN_CMF(MassFunction):
         """
         return self.distr._core_masses(tnow, visible_only, cores)
 
-    def set_time(self, x, calc=True):
+    def set_time(self, x):
         """
         Sets the time at which the CMF is sampled. Accepts ints and floats; 
         units are in terms of cloud crossing time
         """
         self.distr._time = x
-        if calc:
-            self.distr._calculate()
+        self.distr._calculate()
+        self.distr._update_functions()
 
-    def set_visible(self, x, calc=True):
+    def set_visible(self, x):
         """
         Sets whether the CMF includes only cores likely to be visible
         or all sampled cores. Accepts True or False
         """
         self.distr._visible = x
-        if calc:
-            self.distr._calculate()
+        self.distr._calculate()
+        self.distr._update_functions()
 
     def set_cores(self, x):
         """
         Set the type of cores included in the CMF. Accepts "prestellar",
         "stellar", or "all"
         """
-        self.distr.cores = x
-
+        self.distr._cores = x
+        self.distr._update_functions()
+        
     @property
     def mmin(self):
         return self.distr.m1
@@ -234,12 +235,12 @@ class dist_pn(Distribution):
     through Padoan/Nordlund (2011) turbulent fragmentation
     """
 
-    def __init__(self, m1, m2,
+    def __init__(self, cmin, cmax,
                  maccr, taccr, mbe, rho,
                  tcross, birthdays, bins):
 
-        self.m1 = m1
-        self.m2 = m2
+        self.cmin = cmin
+        self.cmax = cmax
         self.maccr = maccr
         self.taccr = taccr
         self.tbe = (self.taccr * (self.maccr / mbe)**(-1/3.)).to(u.s)
@@ -250,8 +251,9 @@ class dist_pn(Distribution):
 
         self.tcross = tcross
         self.birthdays = birthdays
-        self._time = None
+        self._time = 1
         self._visible = True
+        self._cores = 'prestellar'
 
         keys = ['prestellar', 'stellar', 'all']
         self._func_dict = {key: None for key in keys}
@@ -285,7 +287,7 @@ class dist_pn(Distribution):
                 cut = np.ones(len(mnow)).astype(bool)
 
         core_masses = mnow[cut]
-        core_masses = core_masses[core_masses.value > self.m1]  # only consider cores above minimum provided core mass
+        core_masses = core_masses[core_masses.value > self.cmin]  # only consider cores above minimum provided core mass
         return core_masses
 
     def _calculate(self):
@@ -300,19 +302,23 @@ class dist_pn(Distribution):
 
             edges = 10**np.histogram_bin_edges(np.log10(core_masses.value), bins=self.bins) * u.M_sun
             N, edges = np.histogram(core_masses, bins=edges)
-            centers = (edges[:-1] + edges[1:]) / 2
+            centers = ((edges[:-1] + edges[1:]) / 2).value
 
             # construct function dictionary
-            pdf = N / centers
-            norm = np.trapezoid(pdf, x=centers)
-            pdf /= norm
-            cdf = cumulative_trapezoid(pdf, centers, initial=0)
-            cdf_unq, indices = np.unique(cdf,return_index=True)
+            try:
+                pdf = N / centers
+                norm = np.trapezoid(pdf, x=centers)
+                pdf /= norm
+                cdf = cumulative_trapezoid(pdf, centers, initial=0)
+                cdf_unq, indices = np.unique(cdf,return_index=True)
 
-            functions = [PchipInterpolator(centers, pdf),
-                         PchipInterpolator(centers, cdf),
-                         PchipInterpolator(cdf_unq, centers[indices])]
-            self._func_dict[key] = functions
+                functions = [PchipInterpolator(centers, pdf),
+                             PchipInterpolator(centers, cdf),
+                             PchipInterpolator(cdf_unq, centers[indices])]
+                self._func_dict[key] = functions
+            except(ValueError):
+                warnings.warn(f"Insufficient cores of type '{key}' to construct a function")
+                self._func_dict[key] = None
 
     def pdf(self, x):
         return self._pdf(x, extrapolate=False)
@@ -329,12 +335,23 @@ class dist_pn(Distribution):
 
     def _pick_functions(self, cores):
         functions = self._func_dict[cores]
-        return functions[0], functions[1], functions[2]
-
+        if functions is not None:
+            return functions
+        else:
+            return None
+        
     def _update_functions(self):
-        self._pdf, self._cdf, self._ppf = self._pick_functions(self.cores)
-        self.m1 = self._pdf.x[0]
-        self.m2 = self._pdf.x[-1]
+        functions = self._pick_functions(self.cores)
+        if functions is not None:
+            self._pdf, self._cdf, self._ppf = functions[0], functions[1], functions[2]
+            self.m1 = self._pdf.x[0]
+            self.m2 = self._pdf.x[-1]
+        else:
+            self._pdf = None
+            self._cdf = None
+            self._ppf = None
+            self.m1 = None
+            self.m2 = None
 
     @property
     def time(self):
@@ -347,11 +364,6 @@ class dist_pn(Distribution):
     @property
     def cores(self):
         return self._cores
-
-    @cores.setter
-    def cores(self, x):
-        self._cores = x
-        self._update_functions()
 
 
 class HC_CMF(MassFunction):
