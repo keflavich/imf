@@ -153,21 +153,30 @@ class PLF(MassFunction):
         """
         Returns the expected formation time of a star with
         final mass mf following the accretion history
-        underlying the PMF.
+        underlying the PMF
         """
         return self.distr._tf(mf, taper)
 
     def average_time(self, taper=False, accelerating=False):
-        """
+	"""
         Returns the IMF-averaged star formation time of the
-        PMF.
+        PMF
         """
         return self.distr._average_time(taper, accelerating)
 
+
     def set_taper(self, x):
-        self.distr.taper = x
+        """
+        Sets whether or not the accretion history is tapered.
+        Accepts True or False
+        """
+	self.distr.taper = x
 
     def set_accel(self, x):
+        """
+        Sets whether or not the assumed star formation rate
+        is accelerating. Accepts True or False
+        """
         self.distr.accelerating = x
 
     @property
@@ -468,7 +477,7 @@ class dist_plf(Distribution):
 
     @taper.setter
     def taper(self, x):
-        self._taper = x
+        self._taper = bool(x)
         self._update_functions()
         self.interp_idx = int(3 * self._taper)
 
@@ -478,5 +487,5 @@ class dist_plf(Distribution):
 
     @accelerating.setter
     def accelerating(self, x):
-        self._accelerating = x
+        self._accelerating = bool(x)
         self._update_functions()

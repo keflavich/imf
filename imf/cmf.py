@@ -168,15 +168,18 @@ class PN_CMF(MassFunction):
         Sets whether the CMF includes only cores likely to be visible
         or all sampled cores. Accepts True or False
         """
-        self.distr._visible = x
+        self.distr._visible = bool(x)
         self.distr._calculate()
         self.distr._update_functions()
 
     def set_cores(self, x):
         """
-        Set the type of cores included in the CMF. Accepts "prestellar",
+        Sets the type of cores included in the CMF. Accepts "prestellar",
         "stellar", or "all"
         """
+        if x not in ('stellar', 'prestellar', 'all'):
+            raise ValueError("Allowed values are 'prestellar', 'stellar', or 'all'")
+        
         self.distr._cores = x
         self.distr._update_functions()
         
@@ -489,7 +492,7 @@ class HC_CMF(MassFunction):
         Set the type of CMF to use. If True, use the time-dependent CMF
         of HC13; if False, use the time-independent form of HC08/09.
         """
-        self.distr.time_dep = x
+        self.distr.time_dep = bool(x)
 
     @property
     def mtot(self):
@@ -662,7 +665,6 @@ class dist_hc(Distribution):
         Mj = (aj * Cs**3 / np.sqrt(constants.G**3 * self.rho0)).to(u.M_sun) * cs_mod**1.5  # in the IDL code, gamma is explicit for Mj/Lj
         Lj = ((np.pi**0.5 / 2)**(1/3) * Cs / np.sqrt(constants.G * self.rho0)).to(u.pc) * cs_mod**0.5
         Li = self.clump_size.to(u.pc) / Lj
-        
         # Mach number
         Mstar = self.v0 / Cs * (Lj.value)**self.eta / np.sqrt(3)
         Mach = np.sqrt(3) * Mstar * Li**self.eta

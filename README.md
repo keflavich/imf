@@ -76,5 +76,4 @@ Some basic examples below.
  * Theo Richardson (@richardson-t, refactored pre-IMF submodules and wrote/revised some functions and documentation)
  * Tiffany Christian (@teachristian, made some small corrections)
 
-A companion paper describing the package has been published; if this code is helpful to your research, you can acknowledge it by citing the following:
-(entry)
+A companion paper describing the package is in prep.

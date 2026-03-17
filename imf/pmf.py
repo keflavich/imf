@@ -22,7 +22,7 @@ def scaling(history, value=None):
     ----------
     history: str
         Accretion history of stars; accepts 'is' (isothermal sphere),
-        'tc' (turbulent core), and 'ca' (competitive accretion).
+        'tc' (turbulent core), and 'ca' (competitive accretion)
     value: float
         Value of the scaling parameter relevant for the accretion history.
         If None, defaults to the fiducial value (10 K for IS, 0.1 g cm^-2
@@ -124,7 +124,7 @@ class PMF(MassFunction):
         """
         Returns the expected formation time of a star with
         final mass mf following the accretion history
-        underlying the PMF.
+        underlying the PMF
         """
         if taper is None:
             taper = self.distr.taper
@@ -134,7 +134,7 @@ class PMF(MassFunction):
     def average_time(self, taper=None, accelerating=None):
         """
         Returns the IMF-averaged star formation time of the
-        PMF.
+        PMF
         """
         if taper is None:
             taper = self.distr.taper
@@ -144,9 +144,17 @@ class PMF(MassFunction):
         return self.distr._average_time(taper, accelerating)
 
     def set_taper(self, x):
+        """
+        Sets whether or not the accretion history is tapered.
+        Accepts True or False
+        """
         self.distr.taper = x
 
     def set_accel(self, x):
+        """
+        Sets whether or not the assumed star formation rate 
+        is accelerating. Accepts True or False
+        """
         self.distr.accelerating = x
     
     @property
@@ -433,7 +441,7 @@ class dist_pmf(Distribution):
 
     @taper.setter
     def taper(self, x):
-        self._taper = x
+        self._taper = bool(x)
         self._update_functions()
 
     @property
@@ -442,7 +450,7 @@ class dist_pmf(Distribution):
 
     @accelerating.setter
     def accelerating(self, x):
-        self._accelerating = x
+        self._accelerating = bool(x)
         self._update_functions()
 
 
