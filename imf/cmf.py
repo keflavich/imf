@@ -699,22 +699,21 @@ class dist_hc(Distribution):
         # store time-independent PDF
         norm = np.trapezoid(N, x=self._points)
         cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
-        #zero_arg = np.argmax(self._points[self._points < mmax.value])
-        zero_arg = np.argmin(np.diff(cdf))
+        cdf_unq, indices = np.unique(cdf, return_indices=True)
         
         self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
         self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf_unq, self._points[indices]))
 
         # store time-dependent PDF
         N *= np.sqrt(np.exp(delta))
         norm = np.trapezoid(N, x=self._points)
         cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
-        zero_arg = np.argmin(np.diff(cdf))
+        cdf_unq, indices = np.unique(cdf, return_indices=True)
 
         self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
         self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
-        self._func_dict['ppf'].append(PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
+        self._func_dict['ppf'].append(PchipInterpolator(cdf_unq, self._points[indices]))
 
     def _pick_function(self, functype, time_dep):
         return self._func_dict[functype][int(time_dep)]

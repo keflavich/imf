@@ -354,10 +354,10 @@ class dist_pmf(Distribution):
         base = pmf(self._points, taper, accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf, self._points, initial=0)
-        zero_arg = np.max(np.nonzero(np.diff(cdf))) + 1
+        cdf_unq, indices = np.unique(cdf, return_indices=True)
         return (PchipInterpolator(self._points, pdf),
                 PchipInterpolator(self._points, cdf),
-                PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
+                PchipInterpolator(cdf_unq, self._points[indices]))
 
     def _calculate(self, mode):
         """
@@ -678,9 +678,10 @@ class dist_pmf_2c(dist_pmf):
         base = pmf(self._points, taper, accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf, self._points, initial=0)
+        cdf_unq = np.unique(cdf, return_indices=True)
         return (PchipInterpolator(self._points, pdf),
                 PchipInterpolator(self._points, cdf),
-                PchipInterpolator(cdf[np.nonzero(pdf)], self._points[np.nonzero(pdf)]))
+                PchipInterpolator(cdf_unq, self._points[indices]))
 
     def _calculate(self, mode):
         """
