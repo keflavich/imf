@@ -169,7 +169,7 @@ class PLF(MassFunction):
         Sets whether or not the accretion history is tapered.
         Accepts True or False
         """
-	self.distr.taper = x
+        self.distr.taper = x
 
     def set_accel(self, x):
         """
