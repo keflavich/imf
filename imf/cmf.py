@@ -699,7 +699,7 @@ class dist_hc(Distribution):
         # store time-independent PDF
         norm = np.trapezoid(N, x=self._points)
         cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
-        cdf_unq, indices = np.unique(cdf, return_indices=True)
+        cdf_unq, indices = np.unique(cdf, return_index=True)
         
         self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
         self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
@@ -709,7 +709,7 @@ class dist_hc(Distribution):
         N *= np.sqrt(np.exp(delta))
         norm = np.trapezoid(N, x=self._points)
         cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
-        cdf_unq, indices = np.unique(cdf, return_indices=True)
+        cdf_unq, indices = np.unique(cdf, return_index=True)
 
         self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
         self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
