@@ -158,12 +158,11 @@ class PLF(MassFunction):
         return self.distr._tf(mf, taper)
 
     def average_time(self, taper=False, accelerating=False):
-	"""
+        """
         Returns the IMF-averaged star formation time of the
         PMF
         """
         return self.distr._average_time(taper, accelerating)
-
 
     def set_taper(self, x):
         """
