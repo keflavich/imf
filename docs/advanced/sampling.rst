@@ -1,0 +1,4 @@
+Sampling
+========
+
+Text about sampling.

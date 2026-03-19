@@ -1,59 +1,46 @@
-Documentation
-=============
+.. imf documentation master file, created by
+   sphinx-quickstart on Thu Mar 19 10:22:17 2026.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
 
-This package is very shy on documentation at the moment.  There's a nice set of examples here:
-https://github.com/keflavich/imf/tree/master/examples
+imf
+===
 
-but almost nothing else has been documented.
+This package is very shy on documentation at the moment.
 
-
-Simple Example
---------------
-
-Plot the Kroupa and Chabrier mass functions:
-
-.. python::
-
-   import numpy as np
-   import imf
-   import pylab as pl
-
-   k_masses = np.linspace(imf.kroupa.mmin, imf.kroupa.mmax, 1000)
-
-   # Chabrier2005 has no maximum mass
-   c_masses = np.linspace(imf.chabrier2005.mmin, imf.kroupa.mmax, 1000)
-
-   pl.loglog(c_masses, imf.chabrier2005(c_masses), label='Chabrier 2005 IMF')
-   pl.loglog(c_masses, imf.chabrier2005(c_masses), label='Chabrier 2005 IMF')
-   pl.loglog(k_masses, imf.kroupa(k_masses), label='Kroupa IMF')
-   pl.legend(loc='best')
-   pl.xlabel("Stellar Mass (M$_\odot$)")
-   pl.ylabel("P(M)")
-
-
-Model a 10,000 solar mass cluster with two IMFs:
-
-.. python::
-
-   import numpy as np
-   import imf
-   import pylab as pl
-
-   cluster1 = imf.make_cluster(1e4, massfunc='kroupa')
-   cluster2 = imf.make_cluster(1e4, massfunc=imf.Chabrier2005(mmax=imf.kroupa.mmax))
-
-   pl.hist(cluster1, bins=np.geomspace(0.03, 120), label='Kroupa', alpha=0.5)
-   pl.hist(cluster2, bins=np.geomspace(0.03, 120), label='Chabrier', alpha=0.5)
-   pl.xscale('log')
-   pl.yscale('log')
-   pl.legend(loc='best')
-   pl.xlabel("Stellar Mass (M$_\odot$)")
-   pl.ylabel("N(M)")
-   
-
-
-Advanced
-^^^^^^^^
+Using imf
+---------
 
 .. toctree::
    :maxdepth: 1
+
+   installation.rst
+   tutorials.rst
+
+API
+---
+   
+.. toctree::
+   :maxdepth: 1
+
+   api/imf.rst
+   api/distributions.rst
+   api/pmf.rst
+   api/cmf.rst
+   api/lum.rst
+   api/visualization.rst
+
+Advanced topics
+---------------
+
+.. toctree::
+   :maxdepth: 1
+
+   advanced/sampling.rst
+
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
