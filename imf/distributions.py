@@ -558,7 +558,7 @@ class CompositeDistribution(Distribution):
 
     Example
     -------
-    >>> dd = CompositeDistribution([TruncatedLogNormal(0.3,0,3,0.08,1),
+    >>> dd = CompositeDistribution([TruncatedLogNormal(0.3,0.3,0.08,1),
     ...                             PowerLaw(-2.55,1,np.inf)])
     >>> dd.pdf(3)
     """
