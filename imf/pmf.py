@@ -13,20 +13,20 @@ hist_values = {'is': (0, 0, 1.54e-6, 10, 1.5),
 
 
 def scaling(history, value=None):
-    r"""
+    """
     Calculates the final untapered accretion rate for a star
-    of unit mass (in $M_\odot$ / yr) for the accretion histories
-    implemented in McKee/Offner (2010).
+    of unit mass (in :math:`M_\odot` / yr) for the accretion histories
+    implemented in `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
 
     Parameters
     ----------
     history: str
-        Accretion history of stars; accepts 'is' (isothermal sphere),
-        'tc' (turbulent core), and 'ca' (competitive accretion)
+        Accretion history of stars; accepts ``'is'`` (isothermal sphere),
+        ``'tc'`` (turbulent core), and ``'ca'`` (competitive accretion)
     value: float
         Value of the scaling parameter relevant for the accretion history.
-        If None, defaults to the fiducial value (10 K for IS, 0.1 g cm^-2
-        for TC, 10^4 cm^-3 for CA)
+        If ``None``, defaults to the fiducial value (10 K for IS, 0.1 g / cm2
+        for TC, 1e4 / cm3 for CA)
     """
     if history not in hist_values.keys():
         raise ValueError(f'history must be one of {hist_values.keys()}')
@@ -38,10 +38,10 @@ def scaling(history, value=None):
 
 
 class PMF(MassFunction):
-    r"""
-    Calculates the Protostellar Luminosity Function (PMF)
-    corresponding to a supplied IMF and accretion history
-    using the formalism of McKee/Offner (2010).
+    """
+    Calculates the Protostellar Mass Function (PMF) corresponding 
+    to a supplied IMF and accretion history using the formalism 
+    of `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
 
     Parameters
     ----------
@@ -55,19 +55,19 @@ class PMF(MassFunction):
         Minimum protostellar mass, i.e. where to start the PMF
         (default = lower of IMF min or 1e-3)
     history: str
-        Accretion history of stars; accepts 'is' (isothermal sphere),
-        'tc' (turbulent core), and 'ca' (competitive accretion). If
-        None, custom values can be input for j, jf, and scale_value
-        (default = 'is')
+        Accretion history of stars; accepts ``'is'`` (isothermal sphere),
+        ``'tc'`` (turbulent core), and ``'ca'`` (competitive accretion). 
+        If ``None``, custom values can be input for j_exp, jf_exp, and 
+        scale_value (default = ``'is'``)
     j_exp: float
         Value setting the scaling of accretion rate with current mass
-        (default = None)
+        (default = ``None``)
     jf_exp: float
         Value setting the scaling of accretion rate with final mass
-        (default = None)
+        (default = ``None``)
     scale_value: float
         Final untapered accretion rate for a star of unit mass,
-        in $M_\odot$ / yr (default = None)
+        in :math:`M_\odot` / yr (default = ``None``)
     n: float
         Exponent governing the tapering factor (default = 1)
     tau: float
@@ -124,36 +124,38 @@ class PMF(MassFunction):
         """
         Returns the expected formation time of a star with
         final mass mf following the accretion history
-        underlying the PMF
+        underlying the PMF. ``taper`` is a bool determining
+        whether the PMF is assumed to be tapered; by default, 
+        this will be the same as the PMF.
         """
-        if taper is None:
-            taper = self.distr.taper
-        
+        taper = self.taper if taper is None else bool(taper)
+            
         return self.distr._tf(mf, taper)
 
     def average_time(self, taper=None, accelerating=None):
         """
         Returns the IMF-averaged star formation time of the
-        PMF
+        PMF. ``taper`` and ``accelerating`` are bools determining
+        whether the PMF is tapered and star formation is
+        accelerating, respectively; by default, these are
+        the same as the PMF.
         """
-        if taper is None:
-            taper = self.distr.taper
-        if accelerating is None:
-            accelerating = self.distr.accelerating
+        taper = self.taper if taper is None else bool(taper)
+        accelerating = self.accelerating if accelerating is None else bool(accelerating)
         
         return self.distr._average_time(taper, accelerating)
 
     def set_taper(self, x):
         """
         Sets whether or not the accretion history is tapered.
-        Accepts True or False
+        Accepts ``True`` or ``False``.
         """
         self.distr.taper = x
 
     def set_accel(self, x):
         """
         Sets whether or not the assumed star formation rate 
-        is accelerating. Accepts True or False
+        is accelerating. Accepts ``True`` or ``False``.
         """
         self.distr.accelerating = x
     
@@ -459,7 +461,7 @@ hist_values_2C = {'tc': (0.5, 0.75, 3.6),
 
 
 class PMF_2C(PMF):
-    r"""
+    """
     Calculates a two-component (i.e. blended accretion) PMF.
 
     Parameters
@@ -474,18 +476,18 @@ class PMF_2C(PMF):
         Minimum protostellar mass, i.e. where to start the PMF
         (default = lower of IMF min or 1e-3)
     history: str
-        Accretion history of stars; accepts 'tc' (turbulent core),
-        and 'ca' (competitive accretion). If None, custom values
-        can be input for j, jf, and R_mdot (default = 'tc')
+        Accretion history of stars; accepts ``'tc'`` (turbulent core),
+        and ``'ca'`` (competitive accretion). If None, custom values
+        can be input for j_exp, jf_exp, and R_mdot (default = ``'tc'``)
     j_exp: float
         Value setting the scaling of the non-IS accretion rate
-        with current mass (default = None)
+        with current mass (default = ``None``)
     jf_exp: float
         Value setting the scaling of the non-IS accretion rate
-        with final mass (default = None)
+        with final mass (default = ``None``)
     R_mdot: float
         Ratio of the characteristic accretion rate of the blended history
-        and IS accretion (default = None)
+        and IS accretion (default = ``None``)
     T: float
         Average gas temperature, in K. Sets the scaling for
         IS accretion (default = 10)

@@ -385,9 +385,9 @@ class HC_CMF(MassFunction):
     Parameters
     ----------
     mmin: float
-        Minimum permissible core mass
+        Minimum permissible core mass (default = 0.01)
     mmax: float
-        Maximum permissible core mass
+        Maximum permissible core mass (default = 300)
     clump_size: :math:`{\\rm pc}` or equivalent
         Radius of the parent clump (default = 1 pc)
     n_cl: float
