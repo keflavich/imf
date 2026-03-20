@@ -21,22 +21,17 @@ API
 ---
    
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   api/imf.rst
-   api/distributions.rst
-   api/pmf.rst
-   api/cmf.rst
-   api/lum.rst
-   api/visualization.rst
+   api/api.rst
 
 Advanced topics
 ---------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   advanced/sampling.rst
+   advanced/advanced.rst
 
 Indices and tables
 ------------------

@@ -422,7 +422,7 @@ class dist_pmf(Distribution):
             ret = self.imf.weight_average(accel_weight, taper)
         else:
             ret = self.imf.weight_average(self._tf, taper)
-        return ret
+        return ret[0]
 
     def pdf(self, x):
         return self._pdf(x, extrapolate=False)

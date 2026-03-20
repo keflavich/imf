@@ -55,8 +55,8 @@ class LogNormal(Distribution):
         Lognormal "mean" parameter; log(mu) is the mean of the
         log of the distribution
     sig: float
-        Lognormal "width" parameter; log(sig) is the stdev of the
-        log of the distribution
+        Lognormal "width" parameter; log(sig) is the stdev of 
+        the log of the distribution
     """
     def __init__(self, mu, sig):
         self.m1 = 0
@@ -166,11 +166,11 @@ class BrokenPowerLaw:
 
     Parameters
     ----------
-    slopes: array
-        Array of power-law slopes
-    breaks: array
-        Array of points/edges of powerlaw segments. Must be one 
-        larger than the list of slopes
+    slopes: list/array
+        Power law slopes for each segment.
+    breaks: list/array
+        Points/edges of powerlaw segments. Must be one larger 
+        than the list of slopes.
     """
     def __init__(self, slopes, breaks):
         self.slopes = slopes
@@ -378,7 +378,7 @@ class KoenConvolvedPowerLaw(Distribution):
         Slope of the power law in log space
     sigma: float
         Width of the Gaussian to be convolved
-    npts: float
+    npts: int
         Number of points at which the distribution
         will be evaluated
     """
