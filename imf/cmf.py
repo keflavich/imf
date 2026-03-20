@@ -56,13 +56,13 @@ class PN_CMF(MassFunction):
         Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
     b: float
         Spectral index of the turbulence power spectrum (default = 1.8)
-    T_mean: :math:`{\\rm K} or equivalent`
+    T_mean: :math:`{\\rm K}` or equivalent
         Mean core temperature (default = 7 K)
     mu: float
         Mean molecular weight of gas (default = 2.33)
     bins: int or str
         Number of histogram bins (in log space) or type of estimator to
-        use for bin width; accepts the same strings as `numpy histograms
+        use for bin width; accepts the same arguments as `NumPy histograms
         <https://numpy.org/doc/stable/reference/generated/numpy.histogram.html>`__ 
         (default = ``'auto'``)
     """
@@ -472,7 +472,7 @@ class HC_CMF(MassFunction):
         # scale density according to Larson laws
         n0 = (n_cl * 1e3 * u.cm**-3) / (clump_size.to(u.pc).value)**0.7
         rho0 = (n0 * mu * constants.m_p).to(u.g/u.cm**3)
-        self._mtot = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
+        self._mcloud = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
 
         # scale sound speed according to EOS
         if Cs0 is None:
@@ -505,11 +505,11 @@ class HC_CMF(MassFunction):
         self.distr.time_dep = bool(x)
 
     @property
-    def mtot(self):
+    def mcloud(self):
         r"""
         Total cloud mass (in :math:`M_\odot`)
         """
-        return self._mtot
+        return self._mcloud
 
     @property
     def mmin(self):

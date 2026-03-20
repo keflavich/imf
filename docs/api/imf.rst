@@ -17,16 +17,16 @@ Contains all implemented IMF forms, as well as the basic class for mass function
    Many IMF forms involve power laws in some way; however, notation may
    vary from usage to usage. This package adopts the convention that when
    working with a ``MassFunction``, the power law shape is determined by
-   the parameter :math:`\\alpha`, which corresponds to :math:`dn/dm`, while
-   the shape parameter for :math:`dn/{d\\,{\\rm log}\\, m` is
-   :math:`\\gamma=\\alpha-1`.
+   the parameter :math:`\alpha`, which corresponds to :math:`dn/dm`, while
+   the shape parameter for :math:`dn/d\,{\rm log}\, m` is
+   :math:`\Gamma=\alpha-1`.
 
    For a mass function with a decreasing power law slope, a positive
-   value should be provided for ``alpha`` or ``powers`` depending on the
-   function, i.e. this package adopts a negative sign convention such that
-   the more commonly occurring decreasing power laws are more "natural" to
-   construct. Anything notated as a power law "exponent" in this document
-   assumes this convention.
+   value should be provided for ``alpha`` or ``powers`` (keyword
+   depending on the function), i.e. this package adopts a negative sign
+   convention such that the more commonly occurring decreasing power laws
+   are more "natural" to construct. Anything notated as a power law
+   "exponent" in this document assumes this convention.
 
 .. automodule:: imf.imf
    :members:

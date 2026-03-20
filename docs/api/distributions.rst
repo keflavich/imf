@@ -12,7 +12,7 @@ The base statistical distributions underpinning IMF forms. All distributions are
    ``KoenConvolvedPowerLaw`` and ``PadoanTF`` are exceptions, as they inherit
    the conventions of their companion papers.
 
-   Power laws with :math:`dn/dm \\propto m^{-1}` will not have defined CDFs
+   Power laws with :math:`dn/dm \propto m^{-1}` will not have defined CDFs
    due to the lack of an appropriate analytical form. 
 
 .. automodule::	imf.distributions

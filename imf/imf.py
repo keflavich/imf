@@ -150,7 +150,7 @@ class MassFunction(object):
 
 class Salpeter(MassFunction):
     """
-    The `Salpeter (1955) <https://doi.org/10.1086/145971>`_ mass 
+    The `Salpeter (1955) <https://doi.org/10.1086/145971>`__ mass 
     function, i.e. a power-law  with :math:`dn/dm \\propto m^{-\\alpha}`.
     Default mass range is [0.3, 120] :math:`M_\\odot`.
 
@@ -248,7 +248,7 @@ class BrokenPowerLaw(MassFunction):
 
 class Kroupa(BrokenPowerLaw):
     """
-    The `Kroupa (2001) <https://doi.org/10.1046/j.1365-8711.2001.04022.x>`_
+    The `Kroupa (2001) <https://doi.org/10.1046/j.1365-8711.2001.04022.x>`__
     parameterization of the IMF. Default mass range is [0.03, 120] 
     :math:`M_\\odot`.
     """
@@ -290,7 +290,7 @@ class Kroupa(BrokenPowerLaw):
 class Kirkpatrick2024(BrokenPowerLaw):
     """
     The local IMF derived in the census of `Kirkpatrick et al. (2024) 
-    <https://doi.org/10.3847/1538-4365/ad24e2>`_. Default mass range 
+    <https://doi.org/10.3847/1538-4365/ad24e2>`__. Default mass range 
     is [0.03, 120] :math:`M_\\odot`.
     """
     default_mmin = 0.03
@@ -308,7 +308,7 @@ class Kirkpatrick2024(BrokenPowerLaw):
 class ChabrierPowerLaw(MassFunction):
     """
     The log-normal + power law IMF from `Chabrier 2003
-    <https://doi.org/10.1086/376392>`_. Default mass range 
+    <https://doi.org/10.1086/376392>`__. Default mass range 
     is [0, :math:`\\infty`] :math:`M_\\odot`. 
 
     Parameters
@@ -361,7 +361,7 @@ class ChabrierPowerLaw(MassFunction):
 class ChabrierLogNormal(MassFunction):
     """
     A purely log-normal version of the `Chabrier (2003) 
-    <https://doi.org/10.1086/376392>`_ IMF. Accepts the same 
+    <https://doi.org/10.1086/376392>`__ IMF. Accepts the same 
     log-normal shape parameters as ``ChabrierPowerLaw``.
     Default mass range is [0, :math:`\\infty`] :math:`M_\\odot`. 
 
@@ -396,7 +396,7 @@ class ChabrierLogNormal(MassFunction):
 
 class Schechter(MassFunction):
     """
-    A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`_-like 
+    A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`__-like 
     mass function; a power law with a high-mass exponential 
     cutoff. Default mass range is [0.03, 200] :math:`M_\\odot`.
 
@@ -434,7 +434,7 @@ class Schechter(MassFunction):
 
 class ModifiedSchechter(Schechter):
     """
-    A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`_-like 
+    A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`__-like 
     mass function with an additional low-level exponential cutoff.
 
     Parameters
@@ -473,138 +473,10 @@ class ModifiedSchechter(Schechter):
             return self.normfactor * self.distr.pdf(mass)
 
 
-class PadoanTF(MassFunction):
-    """
-    An IMF implementing the form derived in `Padoan & 
-    Nordlund (2002) <https://doi.org/10.1086/341790>`_
-    emerging from turbulent fragmentation theory. Default
-    mass range is [0.01, 200] :math:`M_\\odot`.
-
-    Parameters
-    ----------
-    b: float
-        Spectral index of the turbulence power spectrum 
-        (default = 1.8)
-    T0: float
-        Average gas temperature in K (default = 10)
-    n0: float
-        Average gas number density in 1 / cm3 (default = 5e2)
-    sigma: float
-        Standard deviation of the log of gas density (default = 
-        ``None``)
-    mach: float
-        Mach number of the turbulent flow. Used to calculate sigma 
-        if sigma is ``None`` (default = 10)
-    npts: int
-        Number of points at which to evaluate the function for
-        interpolation (default = 200)
-    """
-    default_mmin = 0.01
-    default_mmax = 200
-
-    def __init__(self, mmin=default_mmin, mmax=default_mmax,
-                 b=1.8, T0=10, n0=5e2,
-                 sigma=None, mach=10, npts=None):
-        if ~np.logical_and(np.isfinite(mmin), np.isfinite(mmax)):
-            raise ValueError("PN IMF uses interpolation; mmin and mmax must be finite")
-        if sigma is None and mach is None:
-            raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
-        init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
-        self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
-
-        self.distr = distributions.PadoanTF(mmin, mmax,
-                                            b, T0, n0, init_sigma,
-                                            npts=npts)
-        self.normfactor = 1
-
-    def __call__(self, m, integral_form=False):
-        if integral_form:
-            return self.normfactor * self.distr.cdf(m)
-        else:
-            return self.normfactor * self.distr.pdf(m)
-
-    @property
-    def mmin(self):
-        return self.distr.m1
-
-    @mmin.setter
-    def mmin(self, x):
-        self.distr.m1 = x
-        self.distr._calculate()
-
-    @property
-    def mmax(self):
-        return self.distr.m2
-
-    @mmax.setter
-    def mmax(self, x):
-        self.distr.m2 = x
-        self.distr._calculate()
-
-    @property
-    def b(self):
-        return self.distr.b
-
-    @b.setter
-    def b(self, x):
-        self.distr.b = x
-        self.distr._calculate()
-
-    @property
-    def T0(self):
-        return self.distr.T0
-
-    @T0.setter
-    def T0(self, x):
-        self.distr.T0 = x
-        self.distr._calculate()
-
-    @property
-    def n0(self):
-        return self.distr.n0
-
-    @n0.setter
-    def n0(self, x):
-        self.distr.n0 = x
-        self.distr._calculate()
-
-    @property
-    def sigma(self):
-        return self.distr.sigma
-
-    def set_sigma(self, x, update_mach=True):
-        """
-        Set the width of the gas density distribution.
-        Accepts floats. If ``update_mach`` is ``True``,
-        update the Mach number to match sigma (default =
-        ``True``).
-        """
-        self.distr.sigma = x
-        self.distr._calculate()
-        if update_mach:
-            self._mach = 2 * np.sqrt(np.exp(x**2) - 1)
-
-    @property
-    def mach(self):
-        return self._mach
-
-    def set_mach(self, x, update_sigma=True):
-        """
-        Set the Mach number of the turbulent flow.
-        Accepts floats. If ``update_sigma`` is ``True``,
-        update the width of the density distribution to
-        match mach (default = ``True``).
-        """
-        self._mach = x
-        if update_sigma:
-            self.sigma = np.sqrt(np.log(1 + (self._mach / 2)**2))
-            self.distr._calculate()
-
-
 class KoenConvolvedPowerLaw(MassFunction):
     """
     An IMF based on an error-convolved power law as described in 
-    `Koen/Kondlo (2009) <https://doi.org/10.1111/j.1365-2966.2009.14956.x>`_.
+    `Koen/Kondlo (2009) <https://doi.org/10.1111/j.1365-2966.2009.14956.x>`__.
     This implementation is preferred for those looking to work extensively 
     with a single mass function, including using it to create clusters.
 
@@ -613,7 +485,7 @@ class KoenConvolvedPowerLaw(MassFunction):
     mmin, mmax: floats
         The upper and lower bounds for the power law distribution
     alpha: float
-        The exponent for the power law
+        Power law exponent
     sigma: float
         Specified spread of error. Assumes normal distribution with 
         mean 0 and variance sigma
@@ -764,6 +636,134 @@ class SpotKoenConvolvedPowerLaw(MassFunction):
         return self.gamma + 1
 
 
+class PadoanTF(MassFunction):
+    """
+    An IMF implementing the form derived in `Padoan & 
+    Nordlund (2002) <https://doi.org/10.1086/341790>`_
+    emerging from turbulent fragmentation theory. Default
+    mass range is [0.01, 200] :math:`M_\\odot`.
+
+    Parameters
+    ----------
+    b: float
+        Spectral index of the turbulence power spectrum 
+        (default = 1.8)
+    T0: float
+        Average gas temperature in K (default = 10)
+    n0: float
+        Average gas number density in 1 / cm3 (default = 5e2)
+    sigma: float
+        Standard deviation of the log of gas density (default = 
+        ``None``)
+    mach: float
+        Mach number of the turbulent flow. Used to calculate sigma 
+        if sigma is ``None`` (default = 10)
+    npts: int
+        Number of points at which to evaluate the function for
+        interpolation (default = 200)
+    """
+    default_mmin = 0.01
+    default_mmax = 200
+
+    def __init__(self, mmin=default_mmin, mmax=default_mmax,
+                 b=1.8, T0=10, n0=5e2,
+                 sigma=None, mach=10, npts=None):
+        if ~np.logical_and(np.isfinite(mmin), np.isfinite(mmax)):
+            raise ValueError("PN IMF uses interpolation; mmin and mmax must be finite")
+        if sigma is None and mach is None:
+            raise ValueError('PN IMF requires either stdev of density distribution (sigma) or rms Mach number (mach)')
+        init_sigma = np.sqrt(np.log(1 + (mach / 2)**2)) if sigma is None else sigma
+        self._mach = 2 * np.sqrt(np.exp(sigma**2) - 1) if mach is None else mach
+
+        self.distr = distributions.PadoanTF(mmin, mmax,
+                                            b, T0, n0, init_sigma,
+                                            npts=npts)
+        self.normfactor = 1
+
+    def __call__(self, m, integral_form=False):
+        if integral_form:
+            return self.normfactor * self.distr.cdf(m)
+        else:
+            return self.normfactor * self.distr.pdf(m)
+
+    @property
+    def mmin(self):
+        return self.distr.m1
+
+    @mmin.setter
+    def mmin(self, x):
+        self.distr.m1 = x
+        self.distr._calculate()
+
+    @property
+    def mmax(self):
+        return self.distr.m2
+
+    @mmax.setter
+    def mmax(self, x):
+        self.distr.m2 = x
+        self.distr._calculate()
+
+    @property
+    def b(self):
+        return self.distr.b
+
+    @b.setter
+    def b(self, x):
+        self.distr.b = x
+        self.distr._calculate()
+
+    @property
+    def T0(self):
+        return self.distr.T0
+
+    @T0.setter
+    def T0(self, x):
+        self.distr.T0 = x
+        self.distr._calculate()
+
+    @property
+    def n0(self):
+        return self.distr.n0
+
+    @n0.setter
+    def n0(self, x):
+        self.distr.n0 = x
+        self.distr._calculate()
+
+    @property
+    def sigma(self):
+        return self.distr.sigma
+
+    def set_sigma(self, x, update_mach=True):
+        """
+        Set the width of the gas density distribution.
+        Accepts floats. If ``update_mach`` is ``True``,
+        update the Mach number to match ``sigma`` (default =
+        ``True``).
+        """
+        self.distr.sigma = x
+        self.distr._calculate()
+        if update_mach:
+            self._mach = 2 * np.sqrt(np.exp(x**2) - 1)
+
+    @property
+    def mach(self):
+        return self._mach
+
+    def set_mach(self, x, update_sigma=True):
+        """
+        Set the Mach number of the turbulent flow.
+        Accepts floats. If ``update_sigma`` is ``True``,
+        update the width of the density distribution to
+        match ``mach`` (default = ``True``).
+        """
+        self._mach = x
+        if update_sigma:
+            self.sigma = np.sqrt(np.log(1 + (self._mach / 2)**2))
+            self.distr._calculate()
+
+
 # these are global objects
 salpeter = Salpeter()
 kroupa = Kroupa()
@@ -838,7 +838,7 @@ def inverse_imf(p,
     """
     Inverse mass function.  Given a likelihood value in the 
     range [0, 1), return the appropriate mass.  This calls the 
-    mass function's ppf under the hood.
+    mass function's PPF under the hood.
 
     Parameters
     ----------
@@ -846,11 +846,14 @@ def inverse_imf(p,
         An array of floats in the range [0, 1).  These should be 
         uniformly random numbers.
     mmin: float
+        Minimum stellar mass for the mass function if none
+        exists already (default = ``None``)
     mmax: float
-        Minimum and maximum stellar mass in the distribution
+        Maximum stellar mass for the mass function if none
+        exists already (default = ``None``)
     massfunc: string or MassFunction
-        massfunc can be 'kroupa', 'chabrier', 'salpeter', 'schechter', or a
-        function
+        ``massfunc`` can be ``'salpeter'``, ``'kroupa'``, 
+        ``'chabrier'``, or an existing function
     """
 
     mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
@@ -959,27 +962,45 @@ def make_cluster(mcluster,
                  silent=False,
                  **kwargs):
     """
-    Sample from an IMF to make a cluster.  Returns the masses of all stars in the cluster
+    Sample from an IMF to make a cluster.  Returns an array with the 
+    masses of all stars in the cluster.
 
     Parameters
     ----------
     mcluster : float
         The target cluster mass.
     massfunc : string or MassFunction
-        A mass function to use.
+        A mass function to use. Can be an existing ``MassFunction`` instance
+        or ``'salpeter'``, ``'kroupa'``, or ``'chabrier'`` for default
+        common forms (default = ``'kroupa'``)
     tolerance : float
-        tolerance is how close the cluster mass must be to the requested mass.
-        It can be zero, but this does not guarantee that the final cluster mass will be
-        exactly `mcluster`
-    sampling: 'random' or 'optimal'
-        Optimal sampling is implemented by solving Equations 9-11 in Section 2.2
-        of https://ui.adsabs.harvard.edu/abs/2013pss5.book..115K/abstract.
-        Optimal sampling is only to be used in the context of a variable M_max
-        that is a function of the cluster mass, e.g., eqn 24 of Schulz+ 2015.
-    stop_criterion : 'nearest', 'before', 'after', 'sorted'
-        The criterion to stop random sampling when the total cluster mass is reached.
-        See, e.g., Krumholz et al 2015: https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.1447K/abstract.
-        Does not factor into optimal sampling.        
+        How close the sum of random samples must be to the requested 
+        cluster mass; sampling stops once total sampled mass + ``tolerance``
+        > ``mcluster``. It can be zero, but this does not guarantee that
+        the final cluster mass will be exactly ``mcluster`` (default = 0)
+    sampling: str
+        Which sampling method to use. Can be ``'random'`` or ``'optimal'``
+        (default = ``'random'``)
+    stop_criterion : str
+        The criterion to stop random sampling when the total cluster mass 
+        is reached. Can be ``'nearest'``, ``'before'``, ``'after'``, or
+        ``'sorted'``. Does not factor into optimal sampling (default = 
+        ``'nearest'``)
+
+    Other Parameters
+    ----------------
+    mmin: float
+        If the provided mass function has no defined minimum, use this
+        (default = ``None``)
+    mmax: float
+        If the provided mass function has no defined maximum, use this
+        (default = ``None``)
+    verbose: bool
+        Whether to provide running commentary on the sampling (default = 
+        ``False``)
+    silent: bool
+        Whether to suppress the final sampled cluster mass (default = 
+        ``False``)
     """
     # use most common mass to guess needed number of samples
     # nsamp = mcluster / mostcommonmass[get_massfunc_name(massfunc)]
