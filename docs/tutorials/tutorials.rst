@@ -1,7 +1,7 @@
 Tutorials
 =========
 
-This page provides some simple examples showing how to do basic operations in imf.
+These pages provide some simple examples showing how to use the features of ``imf``.
 
 Function plotting
 -----------------
@@ -54,4 +54,9 @@ Visualization
 -------------
 Use imf's built-in visualization utilities:
    
+.. toctree::
+   :maxdepth: 1
+
+text (notebook names go in toctree)
+
 A set of example scripts making use of the API is also located `on the github <https://github.com/keflavich/imf/tree/master/examples>`_.

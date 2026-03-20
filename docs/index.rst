@@ -6,31 +6,40 @@
 imf
 ===
 
-This package is very shy on documentation at the moment.
+Documentation is under construction.
 
-Using imf
+Installation
+------------
+
+To install the latest release version of ``imf``, run:
+
+.. code-block::	python
+
+   pip install initial_mass_function
+
+to retrieve it from the	Python package index. Alternatively, the latest development version can be installed by running:
+
+.. code-block:: python
+
+   pip install https://github.com/keflavich/imf/archive/refs/heads/master.zip
+
+Note that the project name (``initial_mass_function``) is different from the packagename you import (``imf``).
+
+Tutorials
 ---------
 
 .. toctree::
    :maxdepth: 1
 
-   installation.rst
-   tutorials.rst
+   tutorials/tutorials.rst
 
-API
----
-   
+Details
+-------
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    api/api.rst
-
-Advanced topics
----------------
-
-.. toctree::
-   :maxdepth: 2
-
    advanced/advanced.rst
 
 Indices and tables
