@@ -265,7 +265,7 @@ class BrokenPowerLaw:
 
         # must force float b/c int dtypes can result in truncation
         ret = np.zeros_like(x1, dtype='float')
-        for ii in range(x.size):
+        for ii in range(x_.size):
             ret[ii] = self.pows[pos[ii] - 1].ppf(x2[ii])
 
         isnan = (x1 < 0) | (x1 > 1)
