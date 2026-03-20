@@ -558,9 +558,9 @@ class CompositeDistribution(Distribution):
 
     Example
     -------
-    >>> dd = distributions.CompositeDistribution([
-    >>>       distributions.TruncatedLogNormal(0.3,0.3,0.08,1),
-    >>>       distributions.PowerLaw(-2.55,1,np.inf)])
+    >>> d_list = [distributions.TruncatedLogNormal(0.3,0,3,0.08,1),
+    >>>           distributions.PowerLaw(-2.55,1,np.inf)]
+    >>> dd = distributions.CompositeDistribution(d_list)
     >>> dd.pdf(3)
     """
     def __init__(self, distrs):
@@ -620,7 +620,7 @@ class CompositeDistribution(Distribution):
         w = self.weights[pos - 1]
         x2 = np.clip((x1 - left) / w, 0, 1)  # mapping to 0,1 on the segment
         ret = np.zeros_like(x1)
-        for ii in range(x.size):
+        for ii in range(x_.size):
             ret[ii] = self.distrs[pos[ii] - 1].ppf(x2[ii])
         ret[(x1 < 0) | (x1 > 1)] = np.nan
         return ret.reshape(x_.shape)
