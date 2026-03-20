@@ -558,9 +558,8 @@ class CompositeDistribution(Distribution):
 
     Example
     -------
-    >>> dd = distributions.CompositeDistribution([
-    ...   distributions.TruncatedLogNormal(0.3,0,3,0.08,1),
-    ...   distributions.PowerLaw(-2.55,1,np.inf)])
+    >>> dd = CompositeDistribution([TruncatedLogNormal(0.3,0,3,0.08,1),
+    ...                             PowerLaw(-2.55,1,np.inf)])
     >>> dd.pdf(3)
     """
     def __init__(self, distrs):
