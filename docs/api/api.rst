@@ -6,10 +6,11 @@ These pages provide an overview of the accessible classes and functions in each 
 .. toctree::
    :maxdepth: 1
 
-   cmf.rst
-   distributions.rst
    imf.rst
+   make_cluster.rst
    lum.rst
-   pmf.rst
    visualization.rst
+   cmf.rst
+   pmf.rst
+   distributions.rst
    

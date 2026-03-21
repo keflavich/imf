@@ -30,6 +30,7 @@ Contains all implemented IMF forms, as well as the basic class for mass function
 
 .. automodule:: imf.imf
    :members:
+   :exclude-members: make_cluster
 
 .. [S55] `Salpeter (1955) <https://doi.org/10.1086/145971>`_
 .. [K01] `Kroupa (2001) <https://doi.org/10.1046/j.1365-8711.2001.04022.x>`_
