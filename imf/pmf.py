@@ -12,31 +12,6 @@ hist_values = {'is': (0, 0, 1.54e-6, 10, 1.5),
                'ca': (2/3, 1., 6.9e-6, 1e4, 0.5)}
 
 
-def scaling(history, value=None):
-    """
-    Calculates the final untapered accretion rate for a star
-    of unit mass (in :math:`M_\odot` / yr) for the accretion histories
-    implemented in `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
-
-    Parameters
-    ----------
-    history: str
-        Accretion history of stars; accepts ``'is'`` (isothermal sphere),
-        ``'tc'`` (turbulent core), and ``'ca'`` (competitive accretion)
-    value: float
-        Value of the scaling parameter relevant for the accretion history.
-        If ``None``, defaults to the fiducial value (10 K for IS, 0.1 g / cm2
-        for TC, 1e4 / cm3 for CA)
-    """
-    if history not in hist_values.keys():
-        raise ValueError(f'history must be one of {hist_values.keys()}')
-
-    params = hist_values[history]
-    if value is None:
-        value = params[3]
-    return params[2] * (value / params[3])**params[4]
-
-
 class PMF(MassFunction):
     """
     Calculates the Protostellar Mass Function (PMF) corresponding 
@@ -732,3 +707,28 @@ class dist_pmf_2c(dist_pmf):
                                        1+0.5/self.j_exp,
                                        -(self.R_mdot * mf**self.jf_exp)**2)
         return factor * body
+
+
+def scaling(history, value=None):
+    """
+    Calculates the final untapered accretion rate for a star
+    of unit mass (in :math:`M_\odot` / yr) for the accretion histories
+    implemented in `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
+    
+    Parameters
+    ----------
+    history: str
+        Accretion history of stars; accepts ``'is'`` (isothermal sphere),
+        ``'tc'`` (turbulent core), and ``'ca'`` (competitive accretion)
+    value: float
+        Value of the scaling parameter relevant for the accretion history.
+        If ``None``, defaults to the fiducial value (10 K for IS, 0.1 g / cm2
+        for TC, 1e4 / cm3 for CA)
+    """
+    if history not in hist_values.keys():
+        raise ValueError(f'history must be one of {hist_values.keys()}')
+
+    params = hist_values[history]
+    if value is None:
+        value = params[3]
+    return params[2] * (value / params[3])**params[4]

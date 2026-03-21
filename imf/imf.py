@@ -129,7 +129,10 @@ class MassFunction(object):
         def weighted_func(x):
             return self(x) * func(x, *args)
 
-        return scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)
+        num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
+        den = self.integrate(self.mmin, self.mmax)[0]
+        
+        return num / den
 
     @property
     def mmin(self):
