@@ -87,7 +87,7 @@ def plotinfo(masses=None,
     mtot: float
         The mass of the cluster in solar masses. Either ``mtot`` or ``masses``
         must be provided.
-    massfunc: MassFunction or str
+    massfunc: str or MassFunction
         The mass function to use for sampling/positioning
     log: bool
         Whether the y-axis is log-scaled (default = True)

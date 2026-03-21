@@ -972,7 +972,7 @@ def make_cluster(mcluster,
     ----------
     mcluster : float
         The target cluster mass.
-    massfunc : string or MassFunction
+    massfunc : str or MassFunction
         A mass function to use. Can be an existing ``MassFunction`` instance
         or ``'salpeter'``, ``'kroupa'``, or ``'chabrier'`` for default
         common forms (default = ``'kroupa'``)
