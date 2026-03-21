@@ -1,6 +1,6 @@
 import numpy as np
 
-from .imf import make_cluster
+from .imf import make_cluster, get_massfunc
 from .lum import lum_of_star
 
 def color_from_mass(mass, outtype=float):
@@ -70,6 +70,8 @@ def plotinfo(masses=None,
              mtot=None,
              massfunc=None,
              log=True,
+             mmin=None,
+             mmax=None,
              **kwargs):
     """
     Returns information necessary to visualize a cluster; stellar 
@@ -85,7 +87,7 @@ def plotinfo(masses=None,
     mtot: float
         The mass of the cluster in solar masses. Either ``mtot`` or ``masses``
         must be provided.
-    massfunc: MassFunction
+    massfunc: MassFunction or str
         The mass function to use for sampling/positioning
     log: bool
         Whether the y-axis is log-scaled (default = True)
@@ -99,11 +101,11 @@ def plotinfo(masses=None,
     colors: list
         A list of color tuples associated with each star
     """
+    massfunc = get_massfunc(massfunc,mmin=mmin,mmax=mmax)
+
     if masses is None:
         cluster = make_cluster(mtot,
                                massfunc=massfunc,
-                               mmin=massfunc.mmin,
-                               mmax=massfunc.mmax,
                                **kwargs)
     else:
         cluster = np.copy(masses)
@@ -124,5 +126,8 @@ def plotinfo(masses=None,
         ]
 
     assert all(np.isfinite(yax))
+    
+    yax = np.array(yax)
+    colors = np.array(colors)
 
     return cluster, yax, colors
