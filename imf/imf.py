@@ -904,14 +904,6 @@ def _max_star_prime(m, M_res, massfunc):
     return -term1 - term2 - 1
 
 
-def _get_next_m(m, last_m, k, massfunc):
-    """
-    Returns the next smallest star in an optimally sampled cluster given the 
-    previous star and overall IMF. Formatted for use with root finding.
-    """
-    return k * massfunc.m_integrate(m, last_m)[0]-m
-
-
 def _opt_sample(M_res, massfunc, tolerance):
     """
     Returns a numpy array containing stellar masses that optimally sample 
