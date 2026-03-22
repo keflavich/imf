@@ -772,7 +772,7 @@ salpeter = Salpeter()
 kroupa = Kroupa()
 lognormal = chabrierlognormal = ChabrierLogNormal()
 chabrier = chabrierpowerlaw = ChabrierPowerLaw()
-chabrier2005 = ChabrierPowerLaw(lognormal_width=0.55*np.log(10),
+chabrier2005 = ChabrierPowerLaw(lognormal_width=0.55,
                                 lognormal_center=0.2, alpha=2.35)
 
 massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
@@ -971,7 +971,7 @@ def make_cluster(mcluster,
     Parameters
     ----------
     mcluster : float
-        The target cluster mass.
+        The target cluster mass, in solar masses.
     massfunc : str or MassFunction
         A mass function to use. Can be an existing ``MassFunction`` instance
         or ``'salpeter'``, ``'kroupa'``, or ``'chabrier'`` for default
