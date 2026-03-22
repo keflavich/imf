@@ -868,7 +868,7 @@ def inverse_imf(p,
         raise NotImplementedError
 
 
-#### This section contains the functions required to optimally sample a cluster####
+#### This section contains the functions required to optimally sample a cluster ####
 
 def _prefactor(max_star, massfunc):
     """
@@ -909,7 +909,7 @@ def _get_next_m(m, last_m, k, massfunc):
     Returns the next smallest star in an optimally sampled cluster given the 
     previous star and overall IMF. Formatted for use with root finding.
     """
-    return k*massfunc.m_integrate(m, last_m)[0]-m
+    return k * massfunc.m_integrate(m, last_m)[0]-m
 
 
 def _opt_sample(M_res, massfunc, tolerance):
