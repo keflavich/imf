@@ -4,5 +4,5 @@ Advanced topics
 .. toctree::
    :maxdepth: 1
 
-   random.rst
-   optimal.rst
+   opt_sampling
+   koen
