@@ -29,6 +29,7 @@ nbsphinx_allow_errors = False
 nbsphinx_execute_arguments = [
     "--InlineBackend.figure_formats={'png'}",
     "--InlineBackend.rc={'figure.dpi': 96}",
+    "--ExecutePreprocessor.skip_cells_with_tag=skip-execution",
 ]
 
 autodoc_default_options = {'member-order': 'bysource'}
