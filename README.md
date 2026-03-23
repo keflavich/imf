@@ -83,9 +83,9 @@ The `nbstripout` hook will clear output from `.ipynb` files before commit, and C
 
 ## Credits
 
- * Adam Ginsburg (@keflavich, wrote most of this)
+ * Adam Ginsburg (@keflavich, wrote some of this)
  * Sergey Koposov (@segasai, majorly refactored the distribution functions)
- * Theo Richardson (@richardson-t, refactored pre-IMF submodules and wrote/revised some functions and documentation)
+ * Theo Richardson (@richardson-t, refactored pre-IMF submodules and wrote/revised some functions, especially the PMF and CMF, and wrote all of the documentation)
  * Tiffany Christian (@teachristian, made some small corrections)
 
 A companion paper describing the package is in prep.
