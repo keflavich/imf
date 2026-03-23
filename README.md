@@ -68,6 +68,18 @@ Some basic examples below.
     ![IMF example figure](examples/plots/imf.png)
 
 
+## Contributing
+
+To avoid committing notebook cell outputs (plots/images), install the repository hooks:
+
+```
+pip install pre-commit
+pre-commit install
+```
+
+The `nbstripout` hook will clear output from `.ipynb` files before commit, and CI enforces the same check.
+
+
 
 ## Credits
 

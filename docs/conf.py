@@ -23,6 +23,14 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'nbsphinx']
 
+nbsphinx_execute = 'always'
+nbsphinx_timeout = 300
+nbsphinx_allow_errors = False
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'png'}",
+    "--InlineBackend.rc={'figure.dpi': 96}",
+]
+
 autodoc_default_options = {'member-order': 'bysource'}
 autodoc_inherit_docstrings = False
 
