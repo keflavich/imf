@@ -2,7 +2,6 @@ import numpy as np
 
 mass_luminosity_interpolator_cache = {}
 
-
 def mass_luminosity_interpolator(name):
     if name in mass_luminosity_interpolator_cache:
         return mass_luminosity_interpolator_cache[name]
@@ -87,18 +86,20 @@ def mass_luminosity_interpolator(name):
 
 def lum_of_star(mass, grid='Ekstrom'):
     """
-    Determines the log of total luminosity of a star given its mass
+    Determines the log of total luminosity of a star given its mass,
+    based on a grid of stellar properties.
 
-    Two grids:
-    (1) 'Ekstrom'
-    Values come from the stellar models of Ekstrom et al. (2012).
-    **WARNING** Extrapolates for mass outside of [0.8, 64] $M_\odot$.
+    Available grids (default = ``'Ekstrom'``):
+    
+    * ``'Ekstrom'``: values come from the stellar models of 
+      `Ekstrom et al. (2012) <https://doi.org/10.1051/0004-6361/201117751>`_.
+      **WARNING** Extrapolates for masses outside of [0.8, 64] :math:`M_\odot`.
+    * ``'VGS'``: values come from `Vacca, Garmany & Shull (1996) 
+      <https://doi.org/10.1086/177020>`_ Table 5. **WARNING** Extrapolates 
+      for masses outside of [18.4, 50] :math:`M_\odot`.
 
-    (2) 'VGS':
-    Values come from Vacca, Garmany & Shull (1996) Table 5.
-    **WARNING** Extrapolates for mass outside of [18.4, 50] $M_\odot$.
-
-    http://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
+    Extrapolation follows the observed relationship between stellar mass
+    and luminosity: https://en.wikipedia.org/wiki/Mass%E2%80%93luminosity_relation
     """
     masses, lums, _ = mass_luminosity_interpolator(grid)
     return np.interp(mass, masses, lums)
@@ -106,10 +107,11 @@ def lum_of_star(mass, grid='Ekstrom'):
 
 def lum_of_cluster(masses, grid='Ekstrom'):
     r"""
-    Determines the log of the integrated luminosity of a cluster
-    Only stars over 8 $M_\odot$ contribute.
+    Determines the log of the integrated luminosity of a cluster.
+    Luminosities are calculated using ``lum_of_star``, with the
+    same options and defaults.
 
-    masses is a list or array of masses.
+    ``masses`` is a list or array of masses.
     """
     logL = lum_of_star(masses, grid=grid)
     logLtot = np.log10((10**logL).sum())
@@ -118,8 +120,9 @@ def lum_of_cluster(masses, grid='Ekstrom'):
 
 def lyc_of_star(mass, grid='VGS'):
     r"""
-    Determines the log of Lyman continuum luminosity ($Q_1$) of a star given its mass.
-    Values come from Vacca, Garmany & Shull (1996) Table 5.
+    Determines the log of Lyman continuum luminosity (:math:`Q_1`) 
+    of a star given its mass. Grid options are the same as 
+    ``lum_of_star`` (default = ``'VGS'``)
     """
     masses, _, logQ = mass_luminosity_interpolator(grid)
 
@@ -128,10 +131,11 @@ def lyc_of_star(mass, grid='VGS'):
 
 def lyc_of_cluster(masses, grid='VGS'):
     r"""
-    Determines the log of the integrated Lyman continuum luminosity of a cluster.
-    Only stars over 8 $M_\odot$ contribute.
+    Determines the log of the integrated Lyman continuum luminosity 
+    of a cluster using ``lyc_of_star``, with the same options and 
+    defaults. Only stars over 8 :math:`M_\odot` contribute.
 
-    masses is a list or array of masses.
+    ``masses`` is a list or array of masses.
     """
     if max(masses) < 8:
         return 0

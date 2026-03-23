@@ -16,12 +16,57 @@ import warnings
 class PN_CMF(MassFunction):
     """
     Core mass function derived from a population generated according to
-    Padoan/Nordlund (2011). The base CMF consists of prestellar cores
-    which will go on to form stars and are visible at the crossing time
-    of the parent cloud
+    `Padoan/Nordlund (2011) <https://doi.org/10.1088/2041-8205/741/1/L22>`__.
+    The base CMF consists of prestellar cores which will go on to form 
+    stars and are visible at the crossing time of the parent cloud.
 
-    NOTE: does not match their figures yet
+    **NOTE**: output currently differs from the original paper
+
+    Parameters
+    ----------
+    mmin: float
+        Minimum permissible core mass (default = 0.01)
+    mmax: float
+        Maximum permissible core mass (default = 120)
+    T0: :math:`{\\rm K}` or equivalent
+        Mean temperature of the parent cloud (default = 10 K)
+    L0: :math:`{\\rm pc}` or equivalent
+        Cloud size (default = 10 pc)
+    v0: :math:`{\\rm km \\, s}^{-1}` or equivalent
+        RMS velocity of the parent cloud at R = 1 pc
+        (default = 0.8 km / s)
+    rho0: :math:`{\\rm g \\, cm}^{-3}` or equivalent
+        Mean mass density of gas in the parent cloud
+        (default = 2e-21 g / cm3)
+    massfunc: MassFunction
+        Mass function determining the final masses of cores.
+        Defaults to a ``PadoanTF`` instance with the properties
+        of the parent cloud
+    sampling: str
+        Method to use for sampling the provided mass function.
+        Accepts ``"random"`` or ``"optimal"``. If ``None``, 
+        defaults to random sampling.
+    stop_criterion: str
+        Stop criterion for random sampling; accepts the same arguments
+        as ``imf.make_cluster``. If ``None``, defaults to ``"nearest"``.
+    eff: float
+        Efficiency of core formation. The core mass budget is
+        eff * cloud mass (default = 0.26)
+    beta: float
+        Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
+    b: float
+        Spectral index of the turbulence power spectrum (default = 1.8)
+    T_mean: :math:`{\\rm K}` or equivalent
+        Mean core temperature (default = 7 K)
+    mu: float
+        Mean molecular weight of gas (default = 2.33)
+    bins: int or str
+        Number of histogram bins (in log space) or type of estimator to
+        use for bin width; accepts the same arguments as `NumPy histograms
+        <https://numpy.org/doc/stable/reference/generated/numpy.histogram.html>`__ 
+        (default = ``'auto'``)
     """
+    
     default_mmin = 0.01
     default_mmax = 120
 
@@ -30,51 +75,8 @@ class PN_CMF(MassFunction):
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, sampling=None, stop_criterion=None,
                  eff=0.26, beta=0.4, b=1.8,
-                 T_mean=7*u.K, mu=2.33, bins='auto'):
-        """
-        Parameters
-        ----------
-        mmin: float
-            Minimum permissible core mass
-        mmax: float
-            Maximum permissible core mass
-        T0: K (or equivalent)
-            Mean temperature of the parent cloud (default = 10 K)
-        L0: pc (or equivalent)
-            Cloud size (default = 10 pc)
-        v0: km s^-1 (or equivalent)
-            RMS velocity of the parent cloud at R = 1 pc
-            (default = 0.8 km s^-1)
-        rho0: g cm^-3 (or equivalent)
-            Mean mass density of gas in the parent cloud
-            (default = 2e-21 g cm^-3)
-        massfunc: MassFunction
-            Mass function determining the final masses of cores.
-            Defaults to a PadoanTF instance with the properties
-            of the parent cloud
-        sampling: str
-            Method to use for sampling the provided mass function.
-            Accepts "random" or "optimal". If None, defaults to random
-            sampling.
-        stop_criterion: str
-            Stop criterion for random sampling; accepts the same arguments
-            as imf.make_cluster. If None, defaults to "nearest".
-        eff: float
-            Efficiency of core formation. The core mass budget is
-            eff * cloud mass (default = 0.26)
-        beta: float
-            Ratio of gas to magnetic pressure in postshock gas (default = 0.4)
-        b: float
-            Spectral index of the turbulence power spectrum (default = 1.8)
-        T_mean: K (or equivalent)
-            Mean core temperature (default = 7 K)
-        mu: float
-            Mean molecular weight of gas (default = 2.33)
-        bins: int or str
-            Number of histogram bins (in log space) or type of estimator to
-            use for bin width; accepts the same strings as numpy histograms
-            (default = 'auto')
-        """
+	         T_mean=7*u.K, mu=2.33, bins='auto'):
+
         if mmin is None:
             mmin = default_mmin
         if mmax is None:
@@ -140,24 +142,19 @@ class PN_CMF(MassFunction):
         else:
             return self.normfactor * self.distr.pdf(m)
 
-    def mtot(self):
-        r"""
-        Returns the total mass of material in cores (in $M_\odot$)
-        """
-        return sum(self.maccr)
-
     def get_masses(self, tnow=1, cores='prestellar', visible_only=True):
-        r"""
-        Returns the masses of cores meeting the specifications (in $M_\odot$).
-        "tnow", "visible_only", and "cores" accept the same arguments as
-        the setter methods for time, visibility, and core type respectively
+        """
+        Returns the masses of cores meeting the specifications (in 
+        :math:`M_\odot`). ``'tnow'``, ``'visible_only'``, and ``'cores'``
+        accept the same arguments as the setter methods for time, 
+        visibility, and core type respectively.
         """
         return self.distr._core_masses(tnow, visible_only, cores)
 
     def set_time(self, x):
         """
-        Sets the time at which the CMF is sampled. Accepts ints and floats; 
-        units are in terms of cloud crossing time
+        Sets the time at which the CMF is sampled. Accepts ints 
+        and floats;  units are in terms of cloud crossing time.
         """
         self.distr._time = x
         self.distr._calculate()
@@ -166,7 +163,7 @@ class PN_CMF(MassFunction):
     def set_visible(self, x):
         """
         Sets whether the CMF includes only cores likely to be visible
-        or all sampled cores. Accepts True or False
+        or all sampled cores. Accepts ``True`` or ``False``.
         """
         self.distr._visible = bool(x)
         self.distr._calculate()
@@ -174,14 +171,21 @@ class PN_CMF(MassFunction):
 
     def set_cores(self, x):
         """
-        Sets the type of cores included in the CMF. Accepts "prestellar",
-        "stellar", or "all"
+        Sets the type of cores included in the CMF. Accepts ``'prestellar'``,
+        ``'stellar'``, or ``'all'``.
         """
         if x not in ('stellar', 'prestellar', 'all'):
             raise ValueError("Allowed values are 'prestellar', 'stellar', or 'all'")
         
         self.distr._cores = x
         self.distr._update_functions()
+        
+    @property
+    def mtot(self):
+        """
+        Total mass of all cores (in :math:`M_\odot`)
+        """
+        return sum(self.maccr)
         
     @property
     def mmin(self):
@@ -235,7 +239,8 @@ class PN_CMF(MassFunction):
 class dist_pn(Distribution):
     """
     Manages the PDF/CDF for a population of cores generated
-    through Padoan/Nordlund (2011) turbulent fragmentation
+    through `Padoan/Nordlund (2011) <https://doi.org/10.1088/2041-8205/741/1/L22>`__
+    turbulent fragmentation.
     """
 
     def __init__(self, cmin, cmax,
@@ -370,6 +375,79 @@ class dist_pn(Distribution):
 
 
 class HC_CMF(MassFunction):
+    """
+    Generalized core mass function following the formalism of
+    Hennebelle/Chabrier (`2008 <https://doi.org/10.1086/589916>`_,
+    `2009 <https://doi.org/10.1088/0004-637X/702/2/1428>`_,
+    `2013 <https://doi.org/10.1088/0004-637X/770/2/150>`_). The 
+    base CMF is the time-dependent version from the 2013 paper.
+
+    Parameters
+    ----------
+    mmin: float
+        Minimum permissible core mass (default = 0.01)
+    mmax: float
+        Maximum permissible core mass (default = 300)
+    clump_size: :math:`{\\rm pc}` or equivalent
+        Radius of the parent clump (default = 1 pc)
+    n_cl: float
+        Clump density normalization at 1 pc. Number density is
+        n_cl * 1e3 (default = 5)
+    mu: float
+        Mean molecular weight of gas (default = 2.33)
+    Cs0: :math:`{\\rm km \\, s}^{-1}` or equivalent
+        Average isothermal sound speed for a cloud with
+        number density 1e4 / cm3 (default = 0.2 km / s)
+    T0: :math:`{\\rm K}` or equivalent
+        Mean temperature of the parent clump. Used to calculate
+        sound speed if none is provided (default = 10 K)
+    v0: :math:`{\\rm km \\, s}^{-1}` or equivalent
+        RMS velocity of the parent clump at R = 1 pc
+        (default = 0.8 km / s)
+    eta: float
+        Exponent governing the behavior of dispersion velocity with scale
+        (default = ``None``)
+    n_pow: float
+        Index of 3D velocity power spectrum. Used to derive eta
+        if no eta is provided (default = 3.8)
+    b_forcing: float
+        Forcing parameter of turbulence (default = 0.4)
+    eos: str
+        String specifying which equation of state to use for gas
+        in the parent clump. Accepts ``'isothermal'``, ``'polytropic'``,
+        and ``'barotropic'``; see papers for implementation details
+        (default = ``'isothermal'``)
+    gamma1: float
+        Exponent in a non-isothermal EOS. The sole exponent in a
+        polytropic case and the lower-density exponent in a
+        barotropic case. Only used if eos != ``'isothermal'``
+        (default = 0.7)
+    gamma2: float
+        High-density exponent in a barotropic EOS. Only used if
+        eos == ``'barotropic'`` (default = 1.1)
+    rho_crit: :math:`{\\rm g \\, cm}^{-3}` or equivalent
+        Critical density in a barotropic EOS (i.e. where the piecewise
+        halves meet). Only used if eos == ``'barotropic'``
+        (default = 1e-18 g / cm3)
+    m: float
+        Exponent governing the combination of the piecewise components
+        of a barotropic EOS; higher = less blending. Only used if
+        eos == ``'barotropic'`` (default = 3)
+    include_B: bool
+        Whether or not to include support from a magnetic field in
+        CMF calculation. (default = ``False``)
+    B0: :math:`{\\rm gauss}` or equivalent
+        Mean magnetic field strength. Only used if include_B is ``True``
+        (default = 10 microgauss)
+    gammab: float
+        Exponent governing the relationship between magnetic field
+        strength and gas density. Only used if include_B is ``True``
+        (default = 0.1)
+    npts: int
+        Number of points at which to evaluate the CMF for interpolation
+        (default = 200)
+    """
+
     default_mmin = 0.01
     default_mmax = 300
 
@@ -382,74 +460,6 @@ class HC_CMF(MassFunction):
                  gamma2=1.1, rho_crit=1e-18*u.g/u.cm**3, m=3,
                  include_B=False, B0=10*u.uG, gammab=0.1,
                  npts=200):
-        """
-        Generalized core mass function following the formalism of
-        Hennebelle/Chabrier 2008/2009/2013. The base CMF is the
-        time-independent version from the 2013 paper
-
-        Parameters
-        ----------
-        mmin: float
-            Minimum permissible core mass
-        mmax: float
-            Maximum permissible core mass
-        clump_size: pc (or equivalent)
-            Radius of the parent clump (default = 1 pc)
-        n_cl: float
-            Clump density normalization at 1 pc. Number density is
-            n_cl * 1e3 (default = 5)
-        mu: float
-            Mean molecular weight of gas (default = 2.33)
-        Cs0: km s^-1 (or equivalent)
-            Average isothermal sound speed for a cloud with
-            number density 10^4 cm^-3 (default = 0.2 km s^-1)
-        T0: K (or equivalent)
-            Mean temperature of the parent clump. Used to calculate
-            sound speed if none is provided (default = 10 K)
-        v0: km s^-1 (or equivalent)
-            RMS velocity of the parent clump at R = 1 pc
-            (default = 0.8 km s^-1)
-        eta: None or float
-            Exponent governing the behavior of dispersion velocity with scale
-        n_pow: float
-            Index of 3D velocity power spectrum. Used to derive eta
-            if no eta is provided (default = 3.8)
-        b_forcing: float
-            Forcing parameter of turbulence (default = 0.4)
-        eos: str
-            String specifying which equation of state to use for gas
-            in the parent clump. Accepts 'isothermal', 'polytropic',
-            and 'barotropic'; see papers for implementation details
-            (default = 'isothermal')
-        gamma1: float
-            Exponent in a non-isothermal EOS. The sole exponent in a
-            polytropic case and the lower-density exponent in a
-            barotropic case. Only used if eos != 'isothermal' (default = 0.7)
-        gamma2: float
-            High-density exponent in a barotropic EOS. Only used if
-            eos == 'barotropic' (default = 1.1)
-        rho_crit: g cm^-3 (or equivalent)
-            Critical density in a barotropic EOS (i.e. where the piecewise
-            halves meet). Only used if eos == 'barotropic'
-            (default = 1e-18 g cm^-3)
-        m: float
-            Exponent governing the combination of the piecewise components
-            of a barotropic EOS; higher = less blending. Only used if
-            eos == 'barotropic' (default = 3)
-        include_B: bool
-            Whether or not to include support from a magnetic field in
-            CMF calculation. (default = False)
-        B0: gauss (or equivalent)
-            Mean magnetic field strength. Only used if include_B is True
-            (default = 10 microgauss)
-        gammab: float
-            Exponent governing the relationship between magnetic field
-            strength and gas density. Only used if include_B is True
-            (default = 0.1)
-        npts: int
-            Number of points at which to evaluate the CMF for interpolation
-            (default = 200)
-        """
 
         if eta is None:
             eta = (n_pow - 3) / 2
@@ -462,7 +472,7 @@ class HC_CMF(MassFunction):
         # scale density according to Larson laws
         n0 = (n_cl * 1e3 * u.cm**-3) / (clump_size.to(u.pc).value)**0.7
         rho0 = (n0 * mu * constants.m_p).to(u.g/u.cm**3)
-        self._mtot = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
+        self._mcloud = (4 * np.pi / 3 * clump_size**3 * rho0).to(u.M_sun).value
 
         # scale sound speed according to EOS
         if Cs0 is None:
@@ -489,17 +499,17 @@ class HC_CMF(MassFunction):
 
     def set_timedep(self, x):
         """
-        Set the type of CMF to use. If True, use the time-dependent CMF
-        of HC13; if False, use the time-independent form of HC08/09.
+        Sets the type of CMF to use. If ``True``, use the time-dependent 
+        CMF of HC13; if ``False``, use the time-independent form of HC08/09.
         """
         self.distr.time_dep = bool(x)
 
     @property
-    def mtot(self):
+    def mcloud(self):
         r"""
-        Total cloud mass (in $M_\odot$)
+        Total cloud mass (in :math:`M_\odot`)
         """
-        return self._mtot
+        return self._mcloud
 
     @property
     def mmin(self):
@@ -569,7 +579,7 @@ class HC_CMF(MassFunction):
 class dist_hc(Distribution):
     """
     Manages the PDF/CDF for a CMF generated according to the
-    Hennebelle/Chabrier turbulent fragmentation formalism
+    Hennebelle/Chabrier turbulent fragmentation formalism.
     """
 
     def __init__(self, m1, m2,
