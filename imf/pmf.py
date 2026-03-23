@@ -22,7 +22,7 @@ def scaling(history, value=None):
     ----------
     history: str
         Accretion history of stars; accepts 'is' (isothermal sphere),
-        'tc' (turbulent core), and 'ca' (competitive accretion).
+        'tc' (turbulent core), and 'ca' (competitive accretion)
     value: float
         Value of the scaling parameter relevant for the accretion history.
         If None, defaults to the fiducial value (10 K for IS, 0.1 g cm^-2
@@ -51,6 +51,9 @@ class PMF(MassFunction):
         Minimum final mass for stars (default = IMF min)
     mmax: float
         Maximum final mass for stars (default = IMF max)
+    pmf_min: float
+        Minimum protostellar mass, i.e. where to start the PMF
+        (default = lower of IMF min or 1e-3)
     history: str
         Accretion history of stars; accepts 'is' (isothermal sphere),
         'tc' (turbulent core), and 'ca' (competitive accretion). If
@@ -76,7 +79,7 @@ class PMF(MassFunction):
 
     def __init__(self, imf,
                  mmin=None, mmax=None,
-                 history='is',
+                 pmf_min=1e-3, history='is',
                  j_exp=None, jf_exp=None, scale_value=None,
                  n=1, tau=1, npts=200):
         self.distr = None
@@ -86,7 +89,8 @@ class PMF(MassFunction):
 
         self._mmin = self.imf.mmin if mmin is None else mmin
         self._mmax = self.imf.mmax if mmax is None else mmax
-
+        self._pmf_min = pmf_min
+        
         self.history = history
 
         if self.history is None:
@@ -98,86 +102,61 @@ class PMF(MassFunction):
         self._n = n
         self._tau = tau
 
-        self.distr = dist_pmf(self.imf, self.mmin, self.mmax,
-                              self.j, self.jf, self.scale_value,
+        self.distr = dist_pmf(self.imf, self._mmin, self.mmax, self.pmf_min,
+                              self.j_exp, self.jf_exp, self.scale_value,
                               self.n, self.tau, npts)
-        self.normfactor = 1
+        self.distr._taper = False
+        self.distr._accelerating = False
+        self.distr._update_functions()
 
+        self.normfactor = 1
+        
     def __call__(self, mass,
                  integral_form=False,
-                 taper=False,
-                 accelerating=False,
                  **kwargs):
 
-        self.distr.taper = taper
-        self.distr.accelerating = accelerating
-
         if integral_form:
-            return self.distr.cdf(mass) * self.normfactor
+            return self.normfactor * self.distr.cdf(mass)
         else:
-            return self.distr.pdf(mass) * self.normfactor
+            return self.normfactor * self.distr.pdf(mass)
 
-    def mass_weighted(self, x,
-                      taper=False,
-                      accelerating=False):
-        return self(x, taper=taper, accelerating=accelerating) * x
-
-    def integrate(self, mlow, mhigh,
-                  taper=False,
-                  accelerating=False,
-                  **kwargs):
-        def func(x):
-            return self(x, taper=taper, accelerating=accelerating)
-
-        return quad(func, mlow, mhigh, **kwargs)
-
-    def m_integrate(self, mlow, mhigh,
-                    taper=False,
-                    accelerating=False,
-                    **kwargs):
-        def func(x):
-            return self.mass_weighted(x, taper=taper, accelerating=accelerating)
-
-        return quad(func, mlow, mhigh, **kwargs)
-
-    def log_integrate(self, mlow, mhigh,
-                      taper=False,
-                      accelerating=False,
-                      **kwargs):
-        def logform(x):
-            return self(x, taper=taper, accelerating=accelerating) / x
-
-        return quad(logform, mlow, mhigh, **kwargs)
-
-    # PMFs are normalized by construction if the underlying IMF is normalized
-    # (which it is)
-    def normalize(self):
-        pass
-
-    def weight_average(self, func,
-                       taper=False,
-                       accelerating=False,
-                       *args, **kwargs):
-        def weighted_func(x):
-            return self(x, taper=taper, accelerating=accelerating) * func(x, *args)
-
-        return quad(weighted_func, self.mmin, self.mmax, **kwargs)
-
-    def tf(self, mf, taper=False):
+    def tf(self, mf, taper=None):
         """
         Returns the expected formation time of a star with
         final mass mf following the accretion history
-        underlying the PMF.
+        underlying the PMF
         """
+        if taper is None:
+            taper = self.distr.taper
+        
         return self.distr._tf(mf, taper)
 
-    def average_time(self, taper=False, accelerating=False):
+    def average_time(self, taper=None, accelerating=None):
         """
         Returns the IMF-averaged star formation time of the
-        PMF.
+        PMF
         """
+        if taper is None:
+            taper = self.distr.taper
+        if accelerating is None:
+            accelerating = self.distr.accelerating
+        
         return self.distr._average_time(taper, accelerating)
 
+    def set_taper(self, x):
+        """
+        Sets whether or not the accretion history is tapered.
+        Accepts True or False
+        """
+        self.distr.taper = x
+
+    def set_accel(self, x):
+        """
+        Sets whether or not the assumed star formation rate 
+        is accelerating. Accepts True or False
+        """
+        self.distr.accelerating = x
+    
     @property
     def imf(self):
         return self._imf
@@ -191,7 +170,7 @@ class PMF(MassFunction):
 
     @property
     def mmin(self):
-        return self._mmin
+        return min(self._mmin,self.pmf_min)
 
     @mmin.setter
     def mmin(self, x):
@@ -207,6 +186,16 @@ class PMF(MassFunction):
     def mmax(self, x):
         self._mmax = x
         self.distr.mmax = x
+        self.distr._calculate('all')
+
+    @property
+    def pmf_min(self):
+        return self._pmf_min
+
+    @pmf_min.setter
+    def pmf_min(self, x):
+        self._pmf_min = x
+        self.distr.pmf_min = x
         self.distr._calculate('all')
 
     @property
@@ -293,30 +282,36 @@ class PMF(MassFunction):
         self.distr.tau = x
         self.distr._calculate('accelerating')
 
+    @property
+    def taper(self):
+        return self.distr.taper
+
+    @property
+    def accelerating(self):
+        return self.distr.accelerating
+
 
 class dist_pmf(Distribution):
     """
     Manages the PDF/CDF for a PMF.
     """
 
-    def __init__(self, imf, m1, m2,
+    def __init__(self, imf, m1, m2, pmf_min,
                  j_exp, jf_exp, scale_value,
                  n, tau, npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
+        self.pmf_min = pmf_min
         self.j_exp = j_exp
         self.jf_exp = jf_exp
         self.scale_value = scale_value
         self.n = n
         self.tau = tau
 
-        self._points = np.geomspace(min(self.m1, 1e-3), self.m2, npts)
+        self.npts = npts
         self._func_dict = None
         self._calculate('all')
-
-        self._taper = False
-        self._accelerating = False
 
     def _make_bases(self, taper, accelerating):
         """
@@ -363,13 +358,14 @@ class dist_pmf(Distribution):
             ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1), mass)
             return np.where(ret / avg_time > 0, ret / avg_time, 0)  # ensure the PMF is always >= 0
 
+        self._points = np.geomspace(min(self.m1, self.pmf_min), self.m2, self.npts)
         base = pmf(self._points, taper, accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf, self._points, initial=0)
-        zero_arg = np.max(np.nonzero(np.diff(cdf))) + 1
+        cdf_unq, indices = np.unique(cdf, return_index=True)
         return (PchipInterpolator(self._points, pdf),
                 PchipInterpolator(self._points, cdf),
-                PchipInterpolator(cdf[:zero_arg+1], self._points[:zero_arg+1]))
+                PchipInterpolator(cdf_unq, self._points[indices]))
 
     def _calculate(self, mode):
         """
@@ -445,7 +441,7 @@ class dist_pmf(Distribution):
 
     @taper.setter
     def taper(self, x):
-        self._taper = x
+        self._taper = bool(x)
         self._update_functions()
 
     @property
@@ -454,7 +450,7 @@ class dist_pmf(Distribution):
 
     @accelerating.setter
     def accelerating(self, x):
-        self._accelerating = x
+        self._accelerating = bool(x)
         self._update_functions()
 
 
@@ -474,6 +470,9 @@ class PMF_2C(PMF):
         Minimum final mass for stars (default = IMF min)
     mmax: float
         Maximum final mass for stars (default = IMF max)
+    pmf_min: float
+        Minimum protostellar mass, i.e. where to start the PMF
+        (default = lower of IMF min or 1e-3)
     history: str
         Accretion history of stars; accepts 'tc' (turbulent core),
         and 'ca' (competitive accretion). If None, custom values
@@ -501,7 +500,7 @@ class PMF_2C(PMF):
 
     def __init__(self, imf,
                  mmin=None, mmax=None,
-                 history='tc',
+                 pmf_min=1e-3, history='tc',
                  j_exp=None, jf_exp=None,
                  R_mdot=None, T=10,
                  n=1, tau=1, npts=200):
@@ -512,7 +511,8 @@ class PMF_2C(PMF):
 
         self._mmin = self.imf.mmin if mmin is None else mmin
         self._mmax = self.imf.mmax if mmax is None else mmax
-
+        self._pmf_min = pmf_min
+        
         self.history = history
 
         if self.history is None:
@@ -526,10 +526,14 @@ class PMF_2C(PMF):
         self._T = T
         self.m_is = scaling('is', self.T)
 
-        self.distr = dist_pmf_2c(self.imf, self.mmin, self.mmax,
+        self.distr = dist_pmf_2c(self.imf, self._mmin, self.mmax, self.pmf_min,
                                  self.j_exp, self.jf_exp,
                                  self.R_mdot, self.m_is,
                                  self.n, self.tau, npts)
+        self.distr._taper = False
+        self.distr._accelerating = False
+        self.distr._update_functions()
+        
         self.normfactor = 1
 
     @property
@@ -609,13 +613,14 @@ class dist_pmf_2c(dist_pmf):
     Manages the PDF/CDF for two-component PMFs.
     """
 
-    def __init__(self, imf, m1, m2,
+    def __init__(self, imf, m1, m2, pmf_min,
                  j_exp, jf_exp,
                  R_mdot, m_is,
                  n, tau, npts):
         self.imf = imf
         self.m1 = m1
         self.m2 = m2
+        self.pmf_min = pmf_min
         self.j_exp = j_exp
         self.jf_exp = jf_exp
         self.R_mdot = R_mdot
@@ -623,11 +628,9 @@ class dist_pmf_2c(dist_pmf):
         self.n = n
         self.tau = tau
 
-        self._points = np.geomspace(min(self.m1, 1e-3), self.m2, npts)
+        self.npts = npts
         self._func_dict = None
         self._calculate('all')
-        self._taper = False
-        self._accelerating = False
 
     def _make_bases(self, taper, accelerating):
         """
@@ -679,12 +682,14 @@ class dist_pmf_2c(dist_pmf):
             ret = np.vectorize(integral)(np.where(self.m1 < mass, mass, self.m1), mass)
             return np.where(ret / avg_time > 0, ret / avg_time, 0)  # ensure the PMF is always >= 0
 
+        self._points = np.geomspace(min(self.m1, self.pmf_min), self.m2, self.npts)
         base = pmf(self._points, taper, accelerating)
         pdf = base / self._points
         cdf = cumulative_trapezoid(pdf, self._points, initial=0)
+        cdf_unq, indices = np.unique(cdf, return_index=True)
         return (PchipInterpolator(self._points, pdf),
                 PchipInterpolator(self._points, cdf),
-                PchipInterpolator(cdf[np.nonzero(pdf)], self._points[np.nonzero(pdf)]))
+                PchipInterpolator(cdf_unq, self._points[indices]))
 
     def _calculate(self, mode):
         """
