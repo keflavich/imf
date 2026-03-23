@@ -100,7 +100,7 @@ pl.savefig("tem_lum_diagram.svg")  # , bbox_inches='tight')
 pl.figure(3, figsize=(8, 8)).clf()
 
 colors = [color_from_mass(m) for m in subtbl['Mass']]
-#pl.gca().set_xscale('log')
+# pl.gca().set_xscale('log')
 pl.gca().set_yscale('log')
 pl.scatter(10**subtbl['logTe'],
            10**subtbl['logL'],
@@ -140,7 +140,7 @@ pl.savefig("HR_diagram.svg")  # , bbox_inches='tight')
 pl.figure(4, figsize=(8, 8)).clf()
 
 colors = [color_from_mass(m) for m in subtbl['Mass']]
-#pl.gca().set_xscale('log')
+# pl.gca().set_xscale('log')
 pl.gca().set_yscale('log')
 pl.scatter(subtbl['Mass'],
            10**subtbl['logL'],

@@ -13,6 +13,7 @@ from .imf import MassFunction
 
 import warnings
 
+
 class PN_CMF(MassFunction):
     """
     Core mass function derived from a population generated according to
@@ -66,7 +67,7 @@ class PN_CMF(MassFunction):
         <https://numpy.org/doc/stable/reference/generated/numpy.histogram.html>`__ 
         (default = ``'auto'``)
     """
-    
+
     default_mmin = 0.01
     default_mmax = 120
 
@@ -75,7 +76,7 @@ class PN_CMF(MassFunction):
                  v0=4.9*u.km/u.s, rho0=2e-21*u.g/u.cm**3,
                  massfunc=None, sampling=None, stop_criterion=None,
                  eff=0.26, beta=0.4, b=1.8,
-	         T_mean=7*u.K, mu=2.33, bins='auto'):
+                 T_mean=7*u.K, mu=2.33, bins='auto'):
 
         if mmin is None:
             mmin = default_mmin
@@ -176,17 +177,17 @@ class PN_CMF(MassFunction):
         """
         if x not in ('stellar', 'prestellar', 'all'):
             raise ValueError("Allowed values are 'prestellar', 'stellar', or 'all'")
-        
+
         self.distr._cores = x
         self.distr._update_functions()
-        
+
     @property
     def mtot(self):
         """
         Total mass of all cores (in :math:`M_\odot`)
         """
         return sum(self.maccr)
-        
+
     @property
     def mmin(self):
         return self.distr.m1
@@ -318,7 +319,7 @@ class dist_pn(Distribution):
                 norm = np.trapezoid(pdf, x=centers)
                 pdf /= norm
                 cdf = cumulative_trapezoid(pdf, centers, initial=0)
-                cdf_unq, indices = np.unique(cdf,return_index=True)
+                cdf_unq, indices = np.unique(cdf, return_index=True)
 
                 functions = [PchipInterpolator(centers, pdf),
                              PchipInterpolator(centers, cdf),
@@ -347,7 +348,7 @@ class dist_pn(Distribution):
             return functions
         else:
             return None
-        
+
     def _update_functions(self):
         functions = self._pick_functions(self.cores)
         if functions is not None:
@@ -491,7 +492,7 @@ class HC_CMF(MassFunction):
 
     def __call__(self, m,
                  integral_form=False):
-        
+
         if integral_form:
             return self.normfactor * self.distr.cdf(m)
         else:
@@ -681,11 +682,11 @@ class dist_hc(Distribution):
 
         # determine maximum possible "core" mass given provided sizescale
         mmax = root_scalar(lambda md, rd: R_M(rd, md), x0=1, args=(Li)).root * Mj
-        self.m2 = min(mmax.value,self.m2)
+        self.m2 = min(mmax.value, self.m2)
 
-        #set points for interpolation based on allowable mass range
-        self._points = np.geomspace(self.m1,self.m2,self.npts)
-        
+        # set points for interpolation based on allowable mass range
+        self._points = np.geomspace(self.m1, self.m2, self.npts)
+
         Mt = self._points / Mj.value
         Rt = np.vectorize(get_root)(Mt)
         delta = np.log(Mt / Rt**3)
@@ -712,7 +713,7 @@ class dist_hc(Distribution):
         norm = np.trapezoid(N, x=self._points)
         cdf = cumulative_trapezoid(N/norm, self._points, initial=0)
         cdf_unq, indices = np.unique(cdf, return_index=True)
-        
+
         self._func_dict['pdf'].append(PchipInterpolator(self._points, N/norm))
         self._func_dict['cdf'].append(PchipInterpolator(self._points, cdf))
         self._func_dict['ppf'].append(PchipInterpolator(cdf_unq, self._points[indices]))

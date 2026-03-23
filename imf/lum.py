@@ -2,6 +2,7 @@ import numpy as np
 
 mass_luminosity_interpolator_cache = {}
 
+
 def mass_luminosity_interpolator(name):
     if name in mass_luminosity_interpolator_cache:
         return mass_luminosity_interpolator_cache[name]
@@ -90,7 +91,7 @@ def lum_of_star(mass, grid='Ekstrom'):
     based on a grid of stellar properties.
 
     Available grids (default = ``'Ekstrom'``):
-    
+
     * ``'Ekstrom'``: values come from the stellar models of 
       `Ekstrom et al. (2012) <https://doi.org/10.1051/0004-6361/201117751>`_.
       **WARNING** Extrapolates for masses outside of [0.8, 64] :math:`M_\odot`.

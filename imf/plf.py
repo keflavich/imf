@@ -110,7 +110,7 @@ class PLF(MassFunction):
         self.distr._update_functions()
 
         self.normfactor = 1
-        
+
     def __call__(self, lum,
                  integral_form=False
                  ):

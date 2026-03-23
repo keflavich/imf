@@ -17,7 +17,7 @@ class MassFunction(object):
     """
     Generic class establishing basic operations for mass functions.
     Intended for subclassing.
-    
+
     Parameters
     ----------
     mmin: float or None
@@ -25,6 +25,7 @@ class MassFunction(object):
     mmax: float or None
         Maximum stellar mass
     """
+
     def __init__(self, mmin=None, mmax=None):
         self._mmin = self.default_mmin if mmin is None else mmin
         self._mmax = self.default_mmax if mmax is None else mmax
@@ -131,7 +132,7 @@ class MassFunction(object):
 
         num = scipy.integrate.quad(weighted_func, self.mmin, self.mmax, **kwargs)[0]
         den = self.integrate(self.mmin, self.mmax)[0]
-        
+
         return num / den
 
     @property
@@ -345,7 +346,7 @@ class ChabrierPowerLaw(MassFunction):
             raise ValueError("The Chabrier Mass Function does not support "
                              "mmax <= mmid")
         self._alpha = alpha
-        self._lognormal_width = lognormal_width * np.log(10) #convert to base e for scipy
+        self._lognormal_width = lognormal_width * np.log(10)  # convert to base e for scipy
         self._lognormal_center = lognormal_center
         self.normfactor = 1
         self.distr = distributions.CompositeDistribution([
@@ -416,7 +417,7 @@ class Schechter(MassFunction):
     """
     default_mmin = 0.03
     default_mmax = 200
-    
+
     def __init__(self, mmin=default_mmin, mmax=default_mmax,
                  alpha=2.35, m0=100, npts=None):
         super().__init__(mmin=mmin, mmax=mmax)

@@ -65,7 +65,7 @@ class PMF(MassFunction):
         self._mmin = self.imf.mmin if mmin is None else mmin
         self._mmax = self.imf.mmax if mmax is None else mmax
         self._pmf_min = pmf_min
-        
+
         self.history = history
 
         if self.history is None:
@@ -85,7 +85,7 @@ class PMF(MassFunction):
         self.distr._update_functions()
 
         self.normfactor = 1
-        
+
     def __call__(self, mass,
                  integral_form=False,
                  **kwargs):
@@ -104,7 +104,7 @@ class PMF(MassFunction):
         this will be the same as the PMF.
         """
         taper = self.taper if taper is None else bool(taper)
-            
+
         return self.distr._tf(mf, taper)
 
     def average_time(self, taper=None, accelerating=None):
@@ -117,7 +117,7 @@ class PMF(MassFunction):
         """
         taper = self.taper if taper is None else bool(taper)
         accelerating = self.accelerating if accelerating is None else bool(accelerating)
-        
+
         return self.distr._average_time(taper, accelerating)
 
     def set_taper(self, x):
@@ -133,7 +133,7 @@ class PMF(MassFunction):
         is accelerating. Accepts ``True`` or ``False``.
         """
         self.distr.accelerating = x
-    
+
     @property
     def imf(self):
         return self._imf
@@ -147,7 +147,7 @@ class PMF(MassFunction):
 
     @property
     def mmin(self):
-        return min(self._mmin,self.pmf_min)
+        return min(self._mmin, self.pmf_min)
 
     @mmin.setter
     def mmin(self, x):
@@ -489,7 +489,7 @@ class PMF_2C(PMF):
         self._mmin = self.imf.mmin if mmin is None else mmin
         self._mmax = self.imf.mmax if mmax is None else mmax
         self._pmf_min = pmf_min
-        
+
         self.history = history
 
         if self.history is None:
@@ -510,7 +510,7 @@ class PMF_2C(PMF):
         self.distr._taper = False
         self.distr._accelerating = False
         self.distr._update_functions()
-        
+
         self.normfactor = 1
 
     @property
@@ -714,7 +714,7 @@ def scaling(history, value=None):
     Calculates the final untapered accretion rate for a star
     of unit mass (in :math:`M_\odot` / yr) for the accretion histories
     implemented in `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
-    
+
     Parameters
     ----------
     history: str

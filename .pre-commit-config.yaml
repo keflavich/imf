@@ -1,4 +1,9 @@
 repos:
+  - repo: https://github.com/hhatto/autopep8
+    rev: v2.3.2
+    hooks:
+      - id: autopep8
+        args: [--in-place, --max-line-length=100]
   - repo: https://github.com/kynan/nbstripout
     rev: 0.8.1
     hooks:

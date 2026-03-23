@@ -8,7 +8,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "initial_mass_function"  # This will be the name on PyPI
-description = "Tools for sampling from and working with functional forms of the initial mass fuctino"
+description = "Tools for sampling from and working with functional forms of the initial mass function"
 dependencies = [
     "astropy",
     "numpy",

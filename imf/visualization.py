@@ -3,19 +3,20 @@ import numpy as np
 from .imf import make_cluster, get_massfunc
 from .lum import lum_of_star
 
+
 def color_from_mass(mass, outtype=float):
     """
     Returns a color given a stellar mass. Colors are interpolated
     between RGB values sourced from `vendian.org <http://vendian.org/>`_.
     ``outtype`` can be either ``int`` or ``float`` (default = ``float``),
     which determines the type of the output color values.
-    """  
+    """
 
     mcolor = {100: (150, 175, 255),
               50: (157, 180, 255),
               20: (162, 185, 255),
               10: (167, 188, 255),
-	       8: (170, 191, 255),
+               8: (170, 191, 255),
                6: (175, 195, 255),
              2.2: (186, 204, 255),
              2.0: (192, 209, 255),
@@ -54,6 +55,7 @@ def color_from_mass(mass, outtype=float):
     else:
         raise NotImplementedError
 
+
 def color_of_cluster(cluster, colorfunc=color_from_mass):
     """
     Returns the luminosity-weighted average color of a cluster in (r, g, b).
@@ -65,6 +67,7 @@ def color_of_cluster(cluster, colorfunc=color_from_mass):
     mean_color = (colors *
                   luminosities[:, None]).sum(axis=0) / luminosities.sum()
     return mean_color
+
 
 def plotinfo(masses=None,
              mtot=None,
@@ -78,7 +81,7 @@ def plotinfo(masses=None,
     masses, y-axis positions, and colors. If existing sampled masses 
     are provided, those will be used; otherwise, a cluster meeting
     the specifications is created.
-    
+
     Parameters
     ----------
     masses: list/array
@@ -91,7 +94,7 @@ def plotinfo(masses=None,
         The mass function to use for sampling/positioning
     log: bool
         Whether the y-axis is log-scaled (default = True)
-        
+
     Returns
     -------
     cluster: array
@@ -101,7 +104,7 @@ def plotinfo(masses=None,
     colors: list
         A list of color tuples associated with each star
     """
-    massfunc = get_massfunc(massfunc,mmin=mmin,mmax=mmax)
+    massfunc = get_massfunc(massfunc, mmin=mmin, mmax=mmax)
 
     if masses is None:
         cluster = make_cluster(mtot,
@@ -126,7 +129,7 @@ def plotinfo(masses=None,
         ]
 
     assert all(np.isfinite(yax))
-    
+
     yax = np.array(yax)
     colors = np.array(colors)
 

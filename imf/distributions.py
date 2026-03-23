@@ -40,6 +40,7 @@ class Distribution:
         """
         pass
 
+
 class LogNormal(Distribution):
     """
     Defines a log-normal distribution: 
@@ -58,6 +59,7 @@ class LogNormal(Distribution):
         Lognormal "width" parameter; log(sig) is the stdev of 
         the log of the distribution
     """
+
     def __init__(self, mu, sig):
         self.m1 = 0
         self.m2 = np.inf
@@ -80,6 +82,7 @@ class TruncatedLogNormal:
     """
     Log-normal distribution truncated in the interval [m1, m2].
     """
+
     def __init__(self, mu, sig, m1, m2):
         self.m1 = m1
         self.m2 = m2
@@ -116,6 +119,7 @@ class PowerLaw(Distribution):
     slope: float
         Slope of the power law
     """
+
     def __init__(self, slope, m1, m2):
         self.slope = slope
         self.m1 = float(m1)
@@ -172,6 +176,7 @@ class BrokenPowerLaw:
         Points/edges of powerlaw segments. Must be one larger 
         than the list of slopes.
     """
+
     def __init__(self, slopes, breaks):
         self.slopes = slopes
         self.breaks = breaks
@@ -482,7 +487,6 @@ class KoenConvolvedPowerLaw(Distribution):
         return self.ppf(samp)
 
 
-
 class PadoanTF(Distribution):
     """
     Manages the PDF/CDF for a `Padoan/Nordlund (2002) 
@@ -490,6 +494,7 @@ class PadoanTF(Distribution):
     IMF over the interval [m1, m2]. See documentation of the 
     companion ``MassFunction`` for details on arguments.
     """
+
     def __init__(self, m1, m2,
                  b, T0, n0, sigma,
                  npts=None):
@@ -559,13 +564,14 @@ class CompositeDistribution(Distribution):
     Example
     -------
     .. code-block:: python
-       
+
        dd = distributions.CompositeDistribution([
          distributions.TruncatedLogNormal(0.3,0.3,0.08,1),
          distributions.PowerLaw(-2.55,1,np.inf)])
        dd.pdf(3)
 
     """
+
     def __init__(self, distrs):
         nsegm = len(distrs)
         self.distrs = distrs
