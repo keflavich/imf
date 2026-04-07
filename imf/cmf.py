@@ -98,9 +98,7 @@ class PN_CMF(MassFunction):
         s = np.sqrt(np.log(1 + sigma_rho**2))  # lognormal shape
 
         n0 = (rho0 / constants.m_p / mu).to(u.cm**-3).value
-        self._massfunc = imf.PadoanTF(mmin=mmin, mmax=mmax,
-                                      T0=T0.value, n0=n0, b=b,
-                                      sigma=s) if massfunc is None else massfunc
+        self._massfunc = imf.Salpeter(mmin=mmin,mmax=mmax) if massfunc is None else massfunc
         self._maccr = imf.make_cluster(mcluster=(m0*eff).to(u.M_sun).value,
                                        massfunc=self.massfunc,
                                        sampling=sampling,
@@ -262,9 +260,9 @@ class dist_pn(Distribution):
         self.birthdays = birthdays
         self._time = 1
         self._visible = True
-        self._cores = 'prestellar'
+        self._cores = 'nonstellar'
 
-        keys = ['prestellar', 'stellar', 'all']
+        keys = ['prestellar', 'stellar', 'transient', 'nonstellar', 'all']
         self._func_dict = {key: None for key in keys}
 
     def _core_masses(self, tnow, visible, cores):
@@ -274,26 +272,31 @@ class dist_pn(Distribution):
         """
         age = tnow * self.tcross - self.birthdays
         isBorn = age > 0
-        isPrestellar = age < self.tbe + self.tff
-        isStellar = np.logical_and(~isPrestellar, ~self.belowBE)
+        isTransient = self.belowBE #cores which will never collapse
+        isPrestellar = np.logical_and(age < self.tbe + self.tff, ~isTransient) #cores which will collapse but haven't
+        isStellar = np.logical_and(age >= self.tbe + self.tff, ~isTransient) #cores which have collapsed
         isForming = age < self.taccr
-
+        
         mnow = ((age / self.taccr)**3 * self.maccr).to(u.M_sun)
         mnow[mnow > self.maccr] = self.maccr[mnow > self.maccr]  # cap current mass to final sampled mass
 
-        if visible:
-            cut = np.logical_and(isBorn, isForming)
-            if cores == 'prestellar':
-                cut = np.logical_and(cut, isPrestellar)
-            elif cores == 'stellar':
-                cut = np.logical_and(cut, isStellar)
-        else:
-            if cores == 'prestellar':
-                cut = np.logical_and(isBorn, ~isStellar)
-            elif cores == 'stellar':
-                cut = np.logical_and(isBorn, isStellar)
-            else:
-                cut = np.ones(len(mnow)).astype(bool)
+        cut = np.copy(isBorn)
+        
+        if cores == 'prestellar':
+            cut = np.logical_and(cut, isPrestellar)
+        elif cores == 'stellar':
+            cut = np.logical_and(cut, isStellar)
+        elif cores == 'transient':
+            cut = np.logical_and(cut, isTransient)
+            if visible:
+                cut = np.logical_and(cut, isForming) # transient cores are modeled as only visible during formation
+        elif cores == 'nonstellar':
+            trans_cut = np.logical_and(isTransient, isForming) if visible else isTransient
+            cut = np.logical_and(cut, np.logical_or(isPrestellar, trans_cut))
+        elif cores == 'all':
+            collapse_cut = np.logical_or(isPrestellar, isStellar)
+            trans_cut = np.logical_and(isTransient, isForming) if visible else isTransient
+            cut = np.logical_and(cut, np.logical_or(collapse_cut, trans_cut))
 
         core_masses = mnow[cut]
         core_masses = core_masses[core_masses.value > self.cmin]  # only consider cores above minimum provided core mass
@@ -304,7 +307,7 @@ class dist_pn(Distribution):
         Constructs the PDF/CDF/PPF from the generated core
         population
         """
-        keys = ['prestellar', 'stellar', 'all']
+        keys = ['prestellar', 'stellar', 'transient', 'nonstellar', 'all']
 
         for key in keys:
             core_masses = self._core_masses(self.time, self.visible, key)
