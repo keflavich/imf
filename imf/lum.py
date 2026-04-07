@@ -15,12 +15,12 @@ def mass_luminosity_interpolator(name):
             22.1, 20.8, 19.5, 18.4
         ]
         vgslogL = [
-            6.154, 6.046, 5.991, 5.934, 5.876, 5.817, 5.756, 5.695, 5.631,
-            5.566, 5.499, 5.431, 5.360, 5.287, 5.211
+            6.035, 5.882, 5.805, 5.727, 5.647, 5.567, 5.486, 5.404, 5.320,
+            5.235, 5.149, 5.061, 4.972, 4.881, 4.789
         ]
         vgslogQ = [
-            49.18, 48.99, 48.90, 48.81, 48.72, 48.61, 48.49, 48.34, 48.16,
-            47.92, 47.63, 47.25, 46.77, 46.23, 45.69
+            49.87, 49.7, 49.61, 49.53, 49.43, 49.34, 49.23, 49.12, 49.,
+            48.87, 48.72, 48.56, 48.38, 48.16, 47.9
         ]
 
         # mass (extrapolated)
@@ -59,7 +59,7 @@ def mass_luminosity_interpolator(name):
         from astroquery.vizier import Vizier
         Vizier.ROW_LIMIT = 1e7  # effectively infinite
 
-        # this query should cacge
+        # this query should cache
         tbl = Vizier.get_catalogs('J/A+A/537/A146/iso')[0]
 
         match = tbl['logAge'] == 6.5
