@@ -171,10 +171,10 @@ class PN_CMF(MassFunction):
     def set_cores(self, x):
         """
         Sets the type of cores included in the CMF. Accepts ``'prestellar'``,
-        ``'stellar'``, or ``'all'``.
+        ``'stellar'``, ``'transient'``, ``'nonstellar'``, or ``'all'``.
         """
-        if x not in ('stellar', 'prestellar', 'all'):
-            raise ValueError("Allowed values are 'prestellar', 'stellar', or 'all'")
+        if x not in ('stellar', 'prestellar', 'transient', 'nonstellar', 'all'):
+            raise ValueError("Allowed values are 'prestellar', 'stellar', 'transient', 'nonstellar', or 'all'")
 
         self.distr._cores = x
         self.distr._update_functions()
