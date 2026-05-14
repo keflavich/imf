@@ -17,6 +17,7 @@ class PMF(MassFunction):
     Calculates the Protostellar Mass Function (PMF) corresponding 
     to a supplied IMF and accretion history using the formalism 
     of `McKee/Offner (2010) <https://doi.org/10.1088/0004-637X/716/1/167>`_.
+    Uses interpolation for evaluation and sampling.
 
     Parameters
     ----------
@@ -438,6 +439,7 @@ hist_values_2C = {'tc': (0.5, 0.75, 3.6),
 class PMF_2C(PMF):
     """
     Calculates a two-component (i.e. blended accretion) PMF.
+    Uses interpolation for evaluation and sampling.
 
     Parameters
     ----------

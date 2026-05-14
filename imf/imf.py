@@ -242,7 +242,7 @@ class BrokenPowerLaw(MassFunction):
         if numerical:
             return super().m_integrate(mlow, mhigh, **kwargs)
         else:
-            raise NotImplementedError("Analytic m_integrate not implemented for BrokenPowerLaw; use numerical=True to use the default numerical integration")
+            #raise NotImplementedError("Analytic m_integrate not implemented for BrokenPowerLaw; use numerical=True to use the default numerical integration")
             # marking as not implemented because there's a variable definition error that requires some thinking to fix - this _might_ be fixed, but we need to check
             distr1 = distributions.BrokenPowerLaw(
                 [-x + 1 for x in self.powers],
@@ -405,6 +405,7 @@ class Schechter(MassFunction):
     A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`__-like 
     mass function; a power law with a high-mass exponential 
     cutoff. Default mass range is [0.03, 200] :math:`M_\\odot`.
+    Uses interpolation for sampling.
 
     Parameters
     ----------
@@ -442,6 +443,7 @@ class ModifiedSchechter(Schechter):
     """
     A `Schechter <https://en.wikipedia.org/wiki/Press%E2%80%93Schechter_formalism>`__-like 
     mass function with an additional low-level exponential cutoff.
+    Uses interpolation for evaluation and sampling.
 
     Parameters
     ----------
@@ -485,6 +487,7 @@ class KoenConvolvedPowerLaw(MassFunction):
     `Koen/Kondlo (2009) <https://doi.org/10.1111/j.1365-2966.2009.14956.x>`__.
     This implementation is preferred for those looking to work extensively 
     with a single mass function, including using it to create clusters.
+    Uses interpolation for evaluation and sampling.
 
     Parameters
     ----------
@@ -647,7 +650,8 @@ class PadoanTF(MassFunction):
     An IMF implementing the form derived in `Padoan & 
     Nordlund (2002) <https://doi.org/10.1086/341790>`_
     emerging from turbulent fragmentation theory. Default
-    mass range is [0.01, 200] :math:`M_\\odot`.
+    mass range is [0.01, 200] :math:`M_\\odot`. Uses
+    interpolation for evaluation and sampling.
 
     Parameters
     ----------

@@ -18,10 +18,9 @@ class PN_CMF(MassFunction):
     """
     Core mass function derived from a population generated according to
     `Padoan/Nordlund (2011) <https://doi.org/10.1088/2041-8205/741/1/L22>`__.
-    The base CMF consists of prestellar cores which will go on to form 
-    stars and are visible at the crossing time of the parent cloud.
-
-    **NOTE**: output currently differs from the original paper
+    The base CMF consists of cores which have not or will not collapse
+    and are visible at the crossing time of the parent cloud. Uses
+    interpolation for evaluation and sampling.
 
     Parameters
     ----------
@@ -41,8 +40,7 @@ class PN_CMF(MassFunction):
         (default = 2e-21 g / cm3)
     massfunc: MassFunction
         Mass function determining the final masses of cores.
-        Defaults to a ``PadoanTF`` instance with the properties
-        of the parent cloud
+        Defaults to a ``Salpeter`` instance with the provided mass range.
     sampling: str
         Method to use for sampling the provided mass function.
         Accepts ``"random"`` or ``"optimal"``. If ``None``, 
@@ -385,6 +383,7 @@ class HC_CMF(MassFunction):
     `2009 <https://doi.org/10.1088/0004-637X/702/2/1428>`_,
     `2013 <https://doi.org/10.1088/0004-637X/770/2/150>`_). The 
     base CMF is the time-dependent version from the 2013 paper.
+    Uses interpolation for evaluation and sampling.
 
     Parameters
     ----------
