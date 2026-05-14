@@ -406,6 +406,11 @@ class Schechter(MassFunction):
     mass function; a power law with a high-mass exponential 
     cutoff. Default mass range is [0.03, 200] :math:`M_\\odot`.
 
+    Note that the Schechter mass function is not typically used for stellar mass functions;
+    it is more commonly used for galaxy mass functions or cluster mass functions.  Nevertheless,
+    the default parameters are set to roughly match a Salpeter stellar IMF to model that
+    distribution with an added high-mass cutoff.  
+
     Parameters
     ----------
     alpha: float
