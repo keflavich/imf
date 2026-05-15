@@ -787,7 +787,6 @@ massfunctions = {'kroupa': Kroupa, 'salpeter': Salpeter,
                  'chabrierlognormal': ChabrierLogNormal
                  }
 reverse_mf_dict = {v: k for k, v in massfunctions.items()}
-expectedmass_cache = {}
 
 
 def get_massfunc(massfunc, mmin=None, mmax=None, **kwargs):

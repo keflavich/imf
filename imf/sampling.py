@@ -2,27 +2,11 @@ import numpy as np
 from astropy import units as u
 from scipy.optimize import root_scalar
 
-from imf.imf import get_massfunc
+from imf.imf import get_massfunc, Schechter
 
-def multiplicity(m_syst,
-                 masses=[0],
-                 probs=[0]):
-    """
-    create multiple systems based on provided
-    multiplicity fractions
-    (default: Offner+ 2023)
-    """
-    return 0
+expectedmass_cache = {}
 
-def member_masses(m_syst,
-                  n_members):
-    """
-    calculate masses for members of a multiple system
-    (default: uniform mass ratio distribution)
-    """
-    return 0
-
-def sample_mass_function(mcluster,
+def sample_mass_function(mtotal,
                          massfunc='kroupa',
                          tolerance=0.0,
                          sampling='random',
@@ -33,12 +17,11 @@ def sample_mass_function(mcluster,
                          silent=False,
                          **kwargs):
     """
-    Sample from an IMF to make a cluster.  Returns an array with the 
-    masses of all stars in the cluster.
+    Sample masses from a mass function.
 
     Parameters
     ----------
-    mcluster : float
+    mtotal : float
         The target cluster mass, in solar masses.
     massfunc : str or MassFunction
         A mass function to use. Can be an existing ``MassFunction`` instance
@@ -92,14 +75,14 @@ def sample_mass_function(mcluster,
 
     if sampling == 'optimal':
         mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
-        masses, mtot = _opt_sample(mcluster, mfc, tolerance=tolerance)
+        masses, msamp = _opt_sample(mtotal, mfc, tolerance=tolerance)
         if verbose:
-            print(f'Sampled {len(masses)} new stars.')
+            print(f'Sampled {len(masses)} new masses.')
         if not silent:
-            print(f'Total cluster mass is {np.round(mtot, 3)} (limit was {int(mcluster)})')
+            print(f'Total mass is {np.round(msamp, 3)} (limit was {int(mtotal)})')
 
     else:
-        mcluster = u.Quantity(mcluster, u.M_sun).value
+        mtotal = u.Quantity(mtotal, u.M_sun).value
 
         mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
 
@@ -114,26 +97,26 @@ def sample_mass_function(mcluster,
         if verbose:
             print("Expected mass is {0:0.3f}".format(expected_mass))
 
-        mtot = 0
+        msamp = 0
         masses = []
 
-        while mtot < mcluster + tolerance:
+        while msamp < mtotal + tolerance:
             # at least 1 sample, but potentially many more
-            nsamp = int(np.ceil((mcluster + tolerance - mtot) / expected_mass))
+            nsamp = int(np.ceil((mtotal + tolerance - msamp) / expected_mass))
             assert nsamp > 0
             newmasses = mfc.distr.rvs(nsamp)
             masses = np.concatenate([masses, newmasses])
-            mtot = masses.sum()
+            msamp = masses.sum()
             if verbose:
-                print("Sampled %i new stars.  Total is now %g" %
-                      (int(nsamp), mtot))
+                print("Sampled %i new masses.  Total is now %g" %
+                      (int(nsamp), msamp))
 
-            if mtot >= mcluster + tolerance:  # don't force exact equality; that would yield infinite loop
+            if msamp >= mtotal + tolerance:  # don't force exact equality; that would yield infinite loop
                 mcum = masses.cumsum()
                 if stop_criterion == 'sorted':
                     masses = np.sort(masses)
-                    if np.abs(masses[:-1].sum() - mcluster) < np.abs(masses.sum() -
-                                                                     mcluster):
+                    if np.abs(masses[:-1].sum() - mtotal) < np.abs(masses.sum() -
+                                                                     mtotal):
                         # if the most massive star makes the cluster a worse fit, reject it
                         # (this follows Krumholz+ 2015 appendix A1)
                         last_ind = len(masses) - 1
@@ -142,45 +125,125 @@ def sample_mass_function(mcluster,
                 else:
                     if stop_criterion == 'nearest':
                         # find the closest one, and use +1 to include it
-                        last_ind = np.argmin(np.abs(mcum - mcluster)) + 1
+                        last_ind = np.argmin(np.abs(mcum - mtotal)) + 1
                     elif stop_criterion == 'before':
-                        last_ind = np.argmax(mcum > mcluster)
+                        last_ind = np.argmax(mcum > mtotal)
                     elif stop_criterion == 'after':
-                        last_ind = np.argmax(mcum > mcluster) + 1
+                        last_ind = np.argmax(mcum > mtotal) + 1
                 masses = masses[:last_ind]
-                mtot = masses.sum()
+                msamp = masses.sum()
                 if verbose:
                     print(
                         "Selected the first %i out of %i masses to get %g total" %
-                        (last_ind, len(mcum), mtot))
-                # force the break, because some stopping criteria can push mtot < mcluster
+                        (last_ind, len(mcum), msamp))
+                # force the break, because some stopping criteria can push msamp < mtotal
                 break
 
         if not silent:
-            print("Total cluster mass is %g (limit was %g)" % (mtot, mcluster))
+            print("Total mass is %g (limit was %g)" % (msamp, mtotal))
 
     return masses
 
 def sample_number(N,
                   massfunc='kroupa',
                   sampling='random',
+                  tolerance=0.0,
                   mmin=None,
                   mmax=None,
-                  verbose=False,
                   silent=False,
                   **kwargs):
     """
     sample N masses from a function
     """
+    assert N > 0
+
+    # catch wrong keywords early
+    ok_samplings = ['random', 'optimal']
+    if not sampling in ok_samplings:
+        raise ValueError("Sampling should be either 'random' or 'optimal' (see documentation)")
+
+    mfc = get_massfunc(massfunc, mmin=mmin, mmax=mmax, **kwargs)
+
+    if sampling == 'optimal':
+        if (massfunc, mfc.mmin, mfc.mmax) in expectedmass_cache:
+            expected_mass = expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)]
+            assert expected_mass > 0
+        else:
+            expected_mass = mfc.m_integrate(mfc.mmin, mfc.mmax)[0]
+            assert expected_mass > 0
+            expectedmass_cache[(massfunc, mfc.mmin, mfc.mmax)] = expected_mass
+
+        mtot = N * expected_mass
+        print(f'expected mass = {expected_mass}, mtot = {mtot}')
+        masses, _ = _opt_sample(mtot, mfc, tolerance=tolerance)
+        if not silent:
+            print(f'Sampled {len(masses)} masses.')
+            print(f'Total mass is {np.round(np.sum(masses), 3)}.')
+            
+    else:
+        masses = mfc.distr.rvs(N)
+        if not silent:
+            print(f'Total mass is {np.round(np.sum(masses), 3)}.')
+        
+    return masses
+
+
+### wrappers for specific use cases ###
+
+def multiplicity(m_syst,
+                 masses=[0],
+                 probs=[0]):
+    """
+    create multiple systems based on provided
+    multiplicity fractions
+    (default: Offner+ 2023)
+    """
+    return 0
+
+def member_masses(m_syst,
+                  n_members):
+    """
+    calculate masses for members of a multiple system
+    (default: uniform mass ratio distribution)
+    """
+    return 0
+
+def multiple_props():
+    #figure out multiplicity and member masses then wrap/combine them here
+    return 0
+
+def syst_to_stellar(syst_masses,
+                    mult_props):
+    #convert a cluster of systems to a cluster of stars
+    return 0
+
+def make_star_cluster(mtotal=None,
+                      nstars=None,
+                      return_stellar=False,
+                      return_conversion=False,
+                      **kwargs):
+    """
+    make a cluster with either some total mass
+    or number of stars
+    -sample
+    -assign multiples
+    -find mass ratios within multiples
+
+    "return stellar" also returns the stellar masses
+    "return conversion" also returns the information used to 
+    obtain the stellar masses
+    """
     return 0
 
 def make_igimf(N_clusters,
-               cluster_imf='kroupa',
+               mclust_min=None,
+               mclust_max=None,
+               mtaper=None,
+               imf='kroupa',
                sampling='random',
                stop_criterion='nearest',
                mstar_min=None,
                mstar_max=None,
-               m_taper=None,
                **kwargs):
     """
     -sample some number of clusters from a Schechter function
@@ -224,7 +287,7 @@ def _max_star_prime(m, M_res, massfunc):
     return -term1 - term2 - 1
 
 
-def _opt_sample(M_res, massfunc, tolerance):
+def _opt_sample(M_res, massfunc, tolerance=0):
     """
     Returns a numpy array containing stellar masses that optimally sample 
     from a provided MassFunction to make a cluster with mass M_res.
