@@ -216,23 +216,43 @@ def _multiplicity(syst_masses):
 
     return np.array(mults)
 
-def _member_masses(m_syst,
-                   n_members):
+def _ratios(mults):
     """
-    calculate masses for members of a multiple system
+    calculate mass ratios for multiple systems
     (default: uniform mass ratio distribution)
-    """
-    return 0
+    """    
+    rng = np.random.default_rng() #mass ratio distribution here; currently uniform
 
-def _multiple_props():
-    #figure out multiplicity and member masses then wrap/combine them here
-    return 0
+    mass_ratios = []
+    for mult in mults:
+        if mult == 1:
+            mass_ratios.append([1.])
+            continue
+
+        ratios = [1.]
+        ndraws = mult - 1
+        ratios.extend(rng.random(ndraws))
+        mass_ratios.append(ratios)
+        
+    return mass_ratios
 
 def _syst_to_stellar(syst_masses,
-                    mult_props):
+                     return_props=True):
     #convert a cluster of systems to a cluster of stars
-    return 0
+    mults = _multiplicity(syst_masses)
+    ratios = _ratios(mults)
 
+    star_masses = []
+    for ii, mass in enumerate(syst_masses):
+        m_prim = mass / np.sum(ratios[ii])
+        masses = [m_prim * r for r in ratios[ii]]
+        star_masses.append(masses)
+
+    if return_props:
+        return star_masses, mults, ratios
+    else:
+        return np.concatenate(star_masses)
+    
 def make_star_cluster(mtotal=None,
                       nstars=None,
                       return_stellar=False,
