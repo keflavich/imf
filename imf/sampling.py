@@ -1,5 +1,6 @@
 import numpy as np
 from astropy import units as u
+from scipy.interpolate import PchipInterpolator
 from scipy.optimize import root_scalar
 
 from imf.imf import get_massfunc, Schechter
@@ -190,29 +191,44 @@ def sample_number(N,
 
 ### wrappers for specific use cases ###
 
-def multiplicity(m_syst,
-                 masses=[0],
-                 probs=[0]):
+def _multiplicity(syst_masses):
     """
-    create multiple systems based on provided
-    multiplicity fractions
-    (default: Offner+ 2023)
+    assign multiplicity to system masses based on 
+    provided multiplicity fractions (default: Offner+ 2023)
     """
-    return 0
 
-def member_masses(m_syst,
-                  n_members):
+    syst_masses = np.atleast_1d(syst_masses)
+    
+    p_masses = np.array([0, 0.033, 0.063, 0.087, 0.095, 0.106, 0.212, 0.424,
+                         0.866, 0.968, 1.118, 1.129, 1.96, 3.873, 6.325,
+                         11.662, 29.155, 1e3])
+    mult_data = np.array([[0, 0, 0, 0, 0, 0.022, 0.036, 0.063, 0.12, 0.12, 0.12, 0.14, 0.25, 0.36, 0.45, 0.57, 0.68, 1],
+                          [0, 0.08, 0.15, 0.19, 0.2, 0.19, 0.23, 0.3, 0.42, 0.46, 0.5, 0.47, 0.68, 0.81, 0.89, 0.93, 0.96, 1]])
+
+    frac_interp = PchipInterpolator(p_masses, mult_data, axis=-1, extrapolate=False)
+    rng = np.random.default_rng()
+    
+    mults = []
+    for mass in syst_masses:
+        fracs = frac_interp(mass)
+        prob = rng.random(1)[0]
+        mults.append(3 - np.searchsorted(fracs, prob, side='right'))
+
+    return np.array(mults)
+
+def _member_masses(m_syst,
+                   n_members):
     """
     calculate masses for members of a multiple system
     (default: uniform mass ratio distribution)
     """
     return 0
 
-def multiple_props():
+def _multiple_props():
     #figure out multiplicity and member masses then wrap/combine them here
     return 0
 
-def syst_to_stellar(syst_masses,
+def _syst_to_stellar(syst_masses,
                     mult_props):
     #convert a cluster of systems to a cluster of stars
     return 0
