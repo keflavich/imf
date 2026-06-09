@@ -242,35 +242,12 @@ class BrokenPowerLaw(MassFunction):
         if numerical:
             return super().m_integrate(mlow, mhigh, **kwargs)
         else:
-            # Analytic mass-weighted integral: integrate m * pdf(m) over each
-            # power-law segment that overlaps [mlow, mhigh] and sum the pieces.
-            # On a segment with slope s, the normalized pdf is
-            #     p(m) = norm * m**s
-            # so m * p(m) = norm * m**(s+1), whose antiderivative is
-            #     norm * m**(s+2) / (s+2)   (or norm * log(m) when s == -2).
-            distr = self.distr
-            total = 0.0
-            for ii in range(distr.nsegm):
-                seg = distr.pows[ii]
-                a = max(mlow, seg.m1)
-                b = min(mhigh, seg.m2)
-                if b <= a:
-                    continue
-                slope = seg.slope
-                if slope == -1:
-                    # pdf normalization is 1 / log(m2/m1); m * pdf = norm
-                    norm = 1.0 / np.log(seg.m2 / seg.m1)
-                    seg_int = norm * (b - a)
-                else:
-                    norm = (slope + 1) / (seg.m2**(slope + 1) -
-                                          seg.m1**(slope + 1))
-                    p = slope + 2
-                    if p == 0:
-                        seg_int = norm * np.log(b / a)
-                    else:
-                        seg_int = norm * (b**p - a**p) / p
-                total += distr.weights[ii] * seg_int
-            return (total * self.normfactor, 0)
+            distr1 = distributions.BrokenPowerLaw(
+                [-x + 1 for x in self.powers],
+                [self.mmin, *self.breaks, self.mmax])
+            ratio = distr1.pdf(self.breaks[0]) / self.distr.pdf(
+                self.breaks[0]) / self.breaks[0]
+            return ((distr1.cdf(mhigh) - distr1.cdf(mlow)) / ratio, 0)
 
 
 class Kroupa(BrokenPowerLaw):
