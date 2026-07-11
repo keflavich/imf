@@ -1,5 +1,7 @@
 # IMF
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21313298.svg)](https://doi.org/10.5281/zenodo.21313298)
+
 ## Installation
 
 Either use the dev version:
