@@ -5,7 +5,7 @@
 Either use the dev version:
 
 ```
-pip install https://github.com/keflavich/imf/archive/refs/heads/master.zip
+pip install https://github.com/keflavich/imf/archive/refs/heads/main.zip
 ```
 
 or use pypi:

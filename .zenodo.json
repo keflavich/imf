@@ -1,0 +1,38 @@
+{
+    "title": "The IMF package: a toolkit implementing mass functions and statistical tools to analyze them",
+    "description": "Tools for sampling from and working with functional forms of the initial mass function (IMF), core mass function, and related mass distributions, including cluster sampling, multiplicity, and protostellar/pre-main-sequence utilities.",
+    "upload_type": "software",
+    "access_right": "open",
+    "license": "BSD-3-Clause",
+    "creators": [
+        {
+            "name": "Richardson, Theo",
+            "affiliation": "Department of Astronomy, University of Florida, Gainesville, FL, USA",
+            "orcid": "0009-0001-8880-6951"
+        },
+        {
+            "name": "Ginsburg, Adam",
+            "affiliation": "Department of Astronomy, University of Florida, Gainesville, FL, USA",
+            "orcid": "0000-0001-6431-9633"
+        },
+        {
+            "name": "Koposov, Sergey E.",
+            "affiliation": "Institute for Astronomy, University of Edinburgh, Royal Observatory, Edinburgh, UK",
+            "orcid": "0000-0003-2644-135X"
+        }
+    ],
+    "keywords": [
+        "initial mass function",
+        "IMF",
+        "astronomy",
+        "star formation",
+        "stellar populations"
+    ],
+    "related_identifiers": [
+        {
+            "identifier": "https://github.com/keflavich/imf",
+            "relation": "isSupplementTo",
+            "scheme": "url"
+        }
+    ]
+}

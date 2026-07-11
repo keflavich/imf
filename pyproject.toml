@@ -14,7 +14,7 @@ dependencies = [
     "numpy",
     "scipy",
 ]
-dynamic = ["optional-dependencies", 'authors', 'license', 'requires-python', 'readme', 'version']
+dynamic = ["optional-dependencies", 'authors', 'license', 'requires-python', 'readme', 'version', 'classifiers']
 
 
 

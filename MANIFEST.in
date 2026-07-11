@@ -1,6 +1,8 @@
 include README.md
 include CHANGES.rst
+include CITATION.cff
 include setup.cfg
+include LICENSE
 include LICENSE.rst
 include pyproject.toml
 include examples/plots/imf.png
